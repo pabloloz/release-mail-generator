@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Release Mail Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script>
+        function togglePath(cbId, groupId) {
+            const group = document.getElementById(groupId);
+            group.classList.toggle('visible', document.getElementById(cbId).checked);
+            updatePaths();
+        }
+        function updatePaths() {
+            const semana = document.getElementById('semana').value.trim();
+            const anio   = document.getElementById('anio').value.trim();
+            if (!semana || !anio) return;
+            const base = `\\\\ntdesarrollo.evolution.corp\\sprints$\\RFC'S Semana ${semana} ${anio}\\`;
+            const map = {
+                pathModules: 'Modulos',
+                pathCitrix:  'Citrix',
+                pathDll:     'SFyCWSDLL',
+                pathWinterX: 'WinterX',
+                pathScripts: 'Scripts'
+            };
+            for (const [name, suffix] of Object.entries(map)) {
+                const input = document.querySelector(`[name="${name}"]`);
+                if (input) input.value = base + suffix;
+            }
+        }
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('anio').value = new Date().getFullYear();
+        });
+        function clearAll() {
+            document.querySelector('form').reset();
+            // Ocultar rutas de artefactos
+            document.querySelectorAll('.artifact-path').forEach(el => el.classList.remove('visible'));
+            // Ocultar preview
+            const preview = document.getElementById('emailSection');
+            if (preview) preview.style.display = 'none';
+        }
+        async function copyEmail() {
+            const el = document.getElementById('emailPreview');
+            try {
+                const htmlBlob = new Blob([el.innerHTML], { type: 'text/html' });
+                const textBlob = new Blob([el.innerText], { type: 'text/plain' });
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })
+                ]);
+            } catch {
+                await navigator.clipboard.writeText(el.innerText);
+            }
+            const b = document.querySelector('.btn-copy');
+            b.textContent = '✔ Copiado';
+            setTimeout(() => b.textContent = '📋 Copiar', 2000);
+        }
+    </script>
+    <style>
+        :root {
+            --accent: #2563eb;
+            --accent-light: #eff6ff;
+            --border: #e2e8f0;
+            --section-bg: #f8fafc;
+        }
+        body { background: #f1f5f9; }
+        .app-header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+            color: white; padding: 20px 32px; border-radius: 12px 12px 0 0;
+        }
+        .app-body { background: white; padding: 32px; border-radius: 0 0 12px 12px; }
+        .section-block {
+            background: var(--section-bg); border: 1px solid var(--border);
+            border-radius: 10px; padding: 20px 24px; margin-bottom: 20px;
+        }
+        .section-label {
+            font-size: 0.7rem; font-weight: 700; letter-spacing: .1em;
+            text-transform: uppercase; color: var(--accent);
+            margin-bottom: 14px; display: flex; align-items: center; gap: 6px;
+        }
+        .form-control, .form-control:focus { border-color: var(--border); border-radius: 7px; font-size: .9rem; }
+        .form-control:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #2563eb22; }
+        .form-label { font-size: .83rem; font-weight: 600; color: #374151; margin-bottom: 5px; }
+        .artifact-row {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 10px 12px; border-radius: 8px;
+            background: white; border: 1px solid var(--border);
+            margin-bottom: 8px; transition: border-color .2s;
+        }
+        .artifact-row:has(input[type=checkbox]:checked) {
+            border-color: var(--accent); background: var(--accent-light);
+        }
+        .artifact-check { padding-top: 2px; flex-shrink: 0; }
+        .artifact-check input { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+        .artifact-check label { font-weight: 600; font-size: .88rem; cursor: pointer; }
+        .artifact-path { flex: 1; display: none; }
+        .artifact-path.visible { display: block; }
+        .btn-generate {
+            background: var(--accent); color: white; border: none;
+            padding: 11px 32px; border-radius: 8px;
+            font-weight: 600; font-size: .95rem; cursor: pointer;
+            transition: background .2s, transform .1s;
+        }
+        .btn-generate:hover { background: #1d4ed8; transform: translateY(-1px); }
+        .btn-clear {
+            background: white; color: #64748b; border: 1.5px solid #cbd5e1;
+            padding: 11px 24px; border-radius: 8px;
+            font-weight: 600; font-size: .95rem; cursor: pointer;
+            transition: background .2s, border-color .2s;
+        }
+        .btn-clear:hover { background: #f1f5f9; border-color: #94a3b8; }
+        .email-wrapper { border-radius: 10px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+        .email-toolbar {
+            background: #1e293b; color: #e2e8f0;
+            padding: 12px 20px; display: flex;
+            align-items: center; justify-content: space-between; font-size: .85rem;
+        }
+        .email-toolbar .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        #emailPreview {
+            background: white; padding: 36px 40px;
+            font-size: 14px; color: #1e293b;
+        }
+        .btn-copy {
+            background: #10b981; color: white; border: none;
+            padding: 6px 16px; border-radius: 6px;
+            font-size: .82rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-copy:hover { background: #059669; }
+    </style>
+</head>
+<body>
+<div class="container" style="max-width:860px; padding-top:36px; padding-bottom:60px;">
+<div class="shadow-sm" style="border-radius:12px; overflow:hidden;">
+
+    <!-- HEADER -->
+    <div class="app-header">
+        <div class="d-flex align-items-center gap-3">
+            <div style="font-size:2rem; line-height:1;">📨</div>
+            <div>
+                <div style="font-size:1.25rem; font-weight:700; letter-spacing:-.01em;">Release Mail Generator</div>
+                <div style="font-size:.82rem; opacity:.75; margin-top:2px;">Genera el correo de liberación de forma automática y profesional</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="app-body">
+    <form action="/generate" method="post">
+
+        <!-- DATOS GENERALES -->
+        <div class="section-block">
+            <div class="section-label">📋 Datos Generales</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Versión a publicar</label>
+                    <input type="text" class="form-control" name="version" placeholder="Ej: 26.4.30"
+                           pattern="[0-9]+(\.[0-9]+)*" title="Solo números y puntos (Ej: 26.4.30)"
+                           oninvalid="this.setCustomValidity('Formato inválido — solo números y puntos, p. ej. 26.4.30')"
+                           oninput="this.setCustomValidity('')">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Versión de rollback</label>
+                    <input type="text" class="form-control" name="rollbackVersion" placeholder="Ej: 26.4.17"
+                           pattern="[0-9]+(\.[0-9]+)*" title="Solo números y puntos (Ej: 26.4.17)"
+                           oninvalid="this.setCustomValidity('Formato inválido — solo números y puntos, p. ej. 26.4.17')"
+                           oninput="this.setCustomValidity('')">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Fecha de publicación</label>
+                    <input type="date" class="form-control" name="publishDate">
+                </div>
+            </div>
+        </div>
+
+        <!-- ARTEFACTOS -->
+        <div class="section-block">
+            <div class="section-label">📦 Artefactos a Publicar</div>
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label">Semana</label>
+                    <input type="number" id="semana" class="form-control" style="width:90px;"
+                           min="1" max="52" placeholder="19" oninput="updatePaths()">
+                </div>
+                <div class="col-auto">
+                    <label class="form-label">Año</label>
+                    <input type="number" id="anio" class="form-control" style="width:100px;"
+                           min="2020" placeholder="2026" oninput="updatePaths()">
+                </div>
+                <div class="col">
+                    <p class="text-muted mb-0" style="font-size:.82rem;">Ingresa la semana y el año para generar las rutas automáticamente. Puedes editar cualquier ruta individualmente.</p>
+                </div>
+            </div>
+
+            <div class="artifact-row">
+                <div class="artifact-check">
+                    <input type="checkbox" id="hasModules" name="hasModules" value="true" onchange="togglePath('hasModules','pathModulesGroup')">
+                    <label for="hasModules">&nbsp;Módulos</label>
+                </div>
+                <div id="pathModulesGroup" class="artifact-path">
+                    <input type="text" class="form-control form-control-sm font-monospace" name="pathModules"
+                           placeholder="\\servidor\sprints$\RFC'S Semana 19 2026\Modulos">
+                </div>
+            </div>
+
+            <div class="artifact-row">
+                <div class="artifact-check">
+                    <input type="checkbox" id="hasCitrix" name="hasCitrix" value="true" onchange="togglePath('hasCitrix','pathCitrixGroup')">
+                    <label for="hasCitrix">&nbsp;Citrix</label>
+                </div>
+                <div id="pathCitrixGroup" class="artifact-path">
+                    <input type="text" class="form-control form-control-sm font-monospace" name="pathCitrix"
+                           placeholder="\\servidor\sprints$\RFC'S Semana 19 2026\Citrix">
+                </div>
+            </div>
+
+            <div class="artifact-row">
+                <div class="artifact-check">
+                    <input type="checkbox" id="hasDll" name="hasDll" value="true" onchange="togglePath('hasDll','pathDllGroup')">
+                    <label for="hasDll">&nbsp;SFyCWSDLL</label>
+                </div>
+                <div id="pathDllGroup" class="artifact-path">
+                    <input type="text" class="form-control form-control-sm font-monospace" name="pathDll"
+                           placeholder="\\servidor\sprints$\RFC'S Semana 19 2026\SFyCWSDLL">
+                </div>
+            </div>
+
+            <div class="artifact-row">
+                <div class="artifact-check">
+                    <input type="checkbox" id="hasWinterX" name="hasWinterX" value="true" onchange="togglePath('hasWinterX','pathWinterXGroup')">
+                    <label for="hasWinterX">&nbsp;WinterX</label>
+                </div>
+                <div id="pathWinterXGroup" class="artifact-path">
+                    <input type="text" class="form-control form-control-sm font-monospace" name="pathWinterX"
+                           placeholder="\\servidor\sprints$\RFC'S Semana 19 2026\WinterX">
+                </div>
+            </div>
+
+            <div class="artifact-row" style="flex-direction:column; align-items:stretch;">
+                <div class="artifact-check" style="padding-top:0;">
+                    <input type="checkbox" id="hasScripts" name="hasScripts" value="true" onchange="togglePath('hasScripts','pathScriptsGroup')">
+                    <label for="hasScripts">&nbsp;Scripts SQL</label>
+                </div>
+                <div id="pathScriptsGroup" class="artifact-path" style="margin-top:10px;">
+                    <label class="form-label">Ruta de la carpeta</label>
+                    <input type="text" class="form-control form-control-sm font-monospace mb-2" name="pathScripts"
+                           placeholder="\\servidor\sprints$\RFC'S Semana 19 2026\Scripts">
+                    <label class="form-label">Archivos SQL <span class="fw-normal text-muted">(uno por línea)</span></label>
+                    <textarea class="form-control form-control-sm font-monospace" rows="4" name="scripts"
+                              placeholder="RFC23752_agregar_subtipo.sql&#10;RFC23246_script_cambios.sql"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- SPS -->
+        <div class="section-block">
+            <div class="section-label">🗄️ SPS's — @DBAs TI</div>
+            <label class="form-label">Tickets y Stored Procedures <span class="fw-normal text-muted">(bloque por ticket)</span></label>
+            <textarea class="form-control font-monospace" rows="7" name="spsTickets"
+                      placeholder="Ticket: 11839212&#10;SP: Mcab_sp_get_paquete_familiar_update&#10;&#10;Ticket: 11650995&#10;SP: [dbo].[mcab_job_Alt_Paq_Fam_Att]&#10;SP: [dbo].[sp_update_paquete_familiar]"></textarea>
+        </div>
+
+        <!-- BRANCHES -->
+        <div class="section-block">
+            <div class="section-label">🌿 Branches de Compilación</div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Branch Módulos</label>
+                    <input type="text" class="form-control" name="branchModules" placeholder="Ej: Feature_BetoCambiosUrgentes">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Branch WinterX</label>
+                    <input type="text" class="form-control" name="branchWinter" placeholder="Ej: WinterXSPSV2">
+                </div>
+            </div>
+        </div>
+
+        <!-- PROYECTOS -->
+        <div class="section-block">
+            <div class="section-label">🚀 Proyectos / RFCs</div>
+            <textarea class="form-control" rows="5" name="projects"
+                      placeholder="RFC 23374 Cancelación Unitaria Contratos Mega Móvil.&#10;Problema solución 23413 Telefonía Fija..."></textarea>
+            <div class="mt-3">
+                <label class="form-label">Release URL</label>
+                <input type="text" class="form-control" name="releaseUrl"
+                       placeholder="https://megacablesfyc.atlassian.net/projects/...">
+            </div>
+        </div>
+
+        <!-- NOTAS -->
+        <div class="section-block">
+            <div class="section-label">📝 Nota Especial</div>
+            <textarea class="form-control" rows="3" name="notes"
+                      placeholder="Ej: Ejecutar primero los scripts antes del reinicio de DLLs."></textarea>
+        </div>
+
+        <div class="text-end d-flex gap-2 justify-content-end">
+            <button type="button" class="btn-clear" onclick="clearAll()">&#x2715; Limpiar</button>
+            <button type="submit" class="btn-generate">Generar Correo &rarr;</button>
+        </div>
+
+    </form>
+
+    <!-- PREVIEW -->
+    <div id="emailSection" class="mt-5" th:if="${generatedEmail}">
+        <div class="section-label" style="font-size:.75rem; margin-top:0;">📧 Vista previa del correo</div>
+        <div class="email-wrapper">
+            <div class="email-toolbar">
+                <div class="d-flex gap-2 align-items-center">
+                    <span class="dot" style="background:#ef4444;"></span>
+                    <span class="dot" style="background:#f59e0b;"></span>
+                    <span class="dot" style="background:#10b981;"></span>
+                    <span style="margin-left:8px; opacity:.6;">Correo de liberación</span>
+                </div>
+                <button class="btn-copy" onclick="copyEmail()">📋 Copiar</button>
+            </div>
+            <div id="emailPreview" th:utext="${generatedEmail}"></div>
+        </div>
+    </div>
+
+    </div><!-- /app-body -->
+</div>
+</div>
+</body>
+</html>
