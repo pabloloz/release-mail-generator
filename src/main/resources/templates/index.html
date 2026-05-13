@@ -27,8 +27,17 @@
                 if (input) input.value = base + suffix;
             }
         }
+        function getISOWeek(d) {
+            const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+            const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+            return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+        }
         window.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('anio').value = new Date().getFullYear();
+            const now = new Date();
+            document.getElementById('anio').value = now.getFullYear();
+            document.getElementById('semana').value = getISOWeek(now);
+            updatePaths();
         });
         function clearAll() {
             document.querySelector('form').reset();
