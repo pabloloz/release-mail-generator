@@ -1,14 +1,33 @@
 package release_mail_generator.service;
 
 import release_mail_generator.model.ReleaseRequest;
+import release_mail_generator.model.RdlReleaseRequest;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 
 @Service
 public class EmailGeneratorService {
+
+    /** Base64 de la imagen MegaCarteraDRP; se carga una sola vez de forma lazy. */
+    private volatile String megaCarteraDrpImg = null;
+
+    private String getMegaCarteraDrpImg() {
+        if (megaCarteraDrpImg == null) {
+            try (var is = getClass().getResourceAsStream("/static/images/MegaCarteraDRP.png")) {
+                megaCarteraDrpImg = (is != null)
+                    ? Base64.getEncoder().encodeToString(is.readAllBytes())
+                    : "";
+            } catch (IOException e) {
+                megaCarteraDrpImg = "";
+            }
+        }
+        return megaCarteraDrpImg;
+    }
 
     private String clean(String value) {
         return (value == null || value.trim().isEmpty()) ? "" : value.trim();
@@ -212,6 +231,133 @@ public class EmailGeneratorService {
         html.append("<p style=\"margin: 0;\">")
             .append("Quedo a sus órdenes para cualquier duda o aclaración.<br>")
             .append("<b>Saludos.</b></p>");
+
+        html.append("</div>");
+        return html.toString();
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  GENERADOR DE CORREO — REPORTES RDL
+    // ════════════════════════════════════════════════════════════════════════
+
+    public String generateRdlEmail(RdlReleaseRequest r) {
+        StringBuilder html = new StringBuilder();
+
+        html.append("<div style=\"font-family: Calibri, Arial, sans-serif; font-size: 11pt;"
+                  + " color: #000000; line-height: 1.5;\">");
+
+        // ── Saludo ────────────────────────────────────────────────────────────
+        html.append("<p style=\"margin: 0 0 10px 0;\"><b>Buen día Operaciones/dba's:</b></p>");
+
+        // ── Párrafo de introducción ───────────────────────────────────────────
+        html.append("<p style=\"margin: 0 0 12px 0;\">")
+            .append("Solicitando su apoyo para cargar RDL en los servidores ")
+            .append("<b>NTRS02</b> y <b>MEGANG-612</b> (configurar el data source)");
+        if (r.isHasRdlSp()) {
+            html.append(", <b>@DBAs TI</b> su apoyo con la actualización del SP");
+        }
+        html.append("<br>a continuación, les comparto las rutas para el cambio:</p>");
+
+        // ── URLs de servidores ────────────────────────────────────────────────
+        boolean hasUrlMegang = r.getRdlUrlMegang() != null && !r.getRdlUrlMegang().isBlank();
+        boolean hasUrlNtrs02 = r.getRdlUrlNtrs02() != null && !r.getRdlUrlNtrs02().isBlank();
+
+        if (hasUrlMegang) {
+            html.append("<p style=\"margin: 0 0 4px 0;\"><b>Ruta para el RDL del server MEGANG-612 :</b></p>")
+                .append("<p style=\"margin: 0 0 12px 0;\">")
+                .append("<a href=\"").append(esc(r.getRdlUrlMegang().trim()))
+                .append("\" style=\"color: #0563C1;\">")
+                .append(esc(r.getRdlUrlMegang().trim()))
+                .append("</a></p>");
+        }
+
+        if (hasUrlNtrs02) {
+            html.append("<p style=\"margin: 0 0 4px 0;\"><b>Rutas para el RDL del server NTRS02:</b></p>")
+                .append("<p style=\"margin: 0 0 12px 0;\">")
+                .append("<a href=\"").append(esc(r.getRdlUrlNtrs02().trim()))
+                .append("\" style=\"color: #0563C1;\">")
+                .append(esc(r.getRdlUrlNtrs02().trim()))
+                .append("</a></p>");
+        }
+
+        html.append("<p style=\"margin: 0 0 8px 0;\">")
+            .append("<b>Data source:</b> especificar el <b>MegaCarteraDRP</b></p>");
+        String img = getMegaCarteraDrpImg();
+        if (!img.isEmpty()) {
+            html.append("<p style=\"margin: 0 0 16px 0;\">")
+                .append("<img src=\"data:image/png;base64,").append(img).append("\"")
+                .append(" alt=\"MegaCarteraDRP\"")
+                .append(" style=\"max-width:320px; border:1px solid #e2e8f0; border-radius:4px;\">")
+                .append("</p>");
+        } else {
+            html.append("<br>");
+        }
+
+        // ── Rutas de archivos RDL ─────────────────────────────────────────────
+        boolean hasPathMegang = r.getRdlPathMegang() != null && !r.getRdlPathMegang().isBlank();
+        boolean hasPathNtrs02 = r.getRdlPathNtrs02() != null && !r.getRdlPathNtrs02().isBlank();
+        boolean hasReportName = r.getRdlReportName() != null && !r.getRdlReportName().isBlank();
+
+        if (hasPathMegang || hasPathNtrs02) {
+            html.append("<p style=\"margin: 0 0 10px 0;\"><b>Ruta RDL's&nbsp; Archivos :</b></p>");
+
+            if (hasPathMegang) {
+                html.append("<p style=\"margin: 0 0 10px 0;\">")
+                    .append("<b>Ruta rdl MEGANG-612:</b><br>")
+                    .append(pathLink(clean(r.getRdlPathMegang())));
+                if (hasReportName) {
+                    html.append("<br><b>NOMBRE :</b>&nbsp;")
+                        .append(esc(r.getRdlReportName().trim()));
+                }
+                html.append("</p>");
+            }
+
+            if (hasPathNtrs02) {
+                html.append("<p style=\"margin: 0 0 14px 0;\">")
+                    .append("<b>Ruta rdl NTRS02:</b><br>")
+                    .append(pathLink(clean(r.getRdlPathNtrs02())));
+                if (hasReportName) {
+                    html.append("<br><b>NOMBRE :</b>&nbsp;")
+                        .append(esc(r.getRdlReportName().trim()));
+                }
+                html.append("</p>");
+            }
+        }
+
+        // ── SP @DBAs TI (opcional) ────────────────────────────────────────────
+        if (r.isHasRdlSp()) {
+            html.append("<p style=\"margin: 0 0 4px 0;\"><b>Ejecutar SP @DBAs TI :</b></p>")
+                .append("<p style=\"margin: 0 0 14px 0;\">")
+                .append("<b>Ruta SP Github:</b>&nbsp;")
+                .append("<a href=\"https://github.com/Megacable-IT/storedproc\"")
+                .append(" style=\"color: #0563C1;\">https://github.com/Megacable-IT/storedproc</a><br>");
+
+            if (r.getRdlSpName() != null && !r.getRdlSpName().isBlank()) {
+                html.append("<b>Nombre del SP:</b>&nbsp;")
+                    .append(esc(r.getRdlSpName().trim())).append("<br>");
+            }
+            if (r.getRdlSpTicket() != null && !r.getRdlSpTicket().isBlank()) {
+                html.append("<b>Numero de ticket del VoBo:</b>&nbsp;")
+                    .append(esc(r.getRdlSpTicket().trim())).append("<br>");
+            }
+            html.append("</p>");
+        }
+
+        // ── Fecha Liberación ──────────────────────────────────────────────────
+        if (r.getRdlReleaseDate() != null && !r.getRdlReleaseDate().isBlank()) {
+            html.append("<p style=\"margin: 0 0 12px 0;\">")
+                .append("<b>Fecha Liberación:</b>&nbsp;")
+                .append(esc(r.getRdlReleaseDate().trim()))
+                .append("</p>");
+        }
+
+        // ── Proyecto ──────────────────────────────────────────────────────────
+        if (r.getRdlProject() != null && !r.getRdlProject().isBlank()) {
+            html.append("<p style=\"margin: 0 0 12px 0;\">")
+                .append("<b>Proyecto:</b><br>")
+                .append(esc(r.getRdlProject().trim()))
+                .append("</p>");
+        }
 
         html.append("</div>");
         return html.toString();

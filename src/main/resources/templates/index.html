@@ -38,14 +38,63 @@
             document.getElementById('anio').value = now.getFullYear();
             document.getElementById('semana').value = getISOWeek(now);
             updatePaths();
+            document.getElementById('rdlAnio').value = now.getFullYear();
+            document.getElementById('rdlSemana').value = getISOWeek(now);
+            updateRdlPaths();
+            const activeTab = document.body.dataset.activeTab || 'releases';
+            const tabEl = document.getElementById('tab-' + activeTab);
+            if (tabEl) bootstrap.Tab.getOrCreateInstance(tabEl).show();
         });
         function clearAll() {
-            document.querySelector('form').reset();
+            document.querySelector('#pane-releases form').reset();
             // Ocultar rutas de artefactos
-            document.querySelectorAll('.artifact-path').forEach(el => el.classList.remove('visible'));
+            document.querySelectorAll('#pane-releases .artifact-path').forEach(el => el.classList.remove('visible'));
             // Ocultar preview
             const preview = document.getElementById('emailSection');
             if (preview) preview.style.display = 'none';
+        }
+        function updateRdlPaths() {
+            const semana = document.getElementById('rdlSemana').value.trim();
+            const anio   = document.getElementById('rdlAnio').value.trim();
+            if (!semana || !anio) return;
+            const base = `\\\\ntdesarrollo.evolution.corp\\sprints$\\RFC'S Semana ${semana} ${anio}\\RDLL's\\`;
+            document.getElementById('rdlPathMegang').value = base + 'MEGANG-612';
+            document.getElementById('rdlPathNtrs02').value = base + 'NTRS02';
+        }
+        function updateRdlUrls() {
+            const folder = document.getElementById('rdlReportFolder').value.trim().replace(/^\/+|\/+$/g, '');
+            const name   = document.getElementById('rdlReportName').value.trim();
+            if (!name) return;
+            const path = folder ? `/${folder}/${name}` : `/${name}`;
+            document.getElementById('rdlUrlMegang').value = `http://megang-612/Reports/report${path}`;
+            const encoded = path.replace(/\//g, '%2f');
+            document.getElementById('rdlUrlNtrs02').value =
+                `http://ntrs02/Reports/Pages/Report.aspx?ItemPath=${encoded}`;
+        }
+        function toggleRdlSp() {
+            document.getElementById('rdlSpGroup').style.display =
+                document.getElementById('hasRdlSp').checked ? 'block' : 'none';
+        }
+        function clearRdlForm() {
+            document.getElementById('rdlForm').reset();
+            document.getElementById('rdlSpGroup').style.display = 'none';
+            const preview = document.getElementById('rdlEmailSection');
+            if (preview) preview.style.display = 'none';
+        }
+        async function copyRdlEmail() {
+            const el = document.getElementById('rdlEmailPreview');
+            try {
+                const htmlBlob = new Blob([el.innerHTML], { type: 'text/html' });
+                const textBlob = new Blob([el.innerText], { type: 'text/plain' });
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })
+                ]);
+            } catch {
+                await navigator.clipboard.writeText(el.innerText);
+            }
+            const b = document.querySelector('#pane-rdl .btn-copy');
+            b.textContent = '\u2714 Copiado';
+            setTimeout(() => b.textContent = '\uD83D\uDCCB Copiar', 2000);
         }
         async function copyEmail() {
             const el = document.getElementById('emailPreview');
@@ -133,9 +182,22 @@
             font-size: .82rem; font-weight: 600; cursor: pointer;
         }
         .btn-copy:hover { background: #059669; }
+        .nav-tabs { border-bottom: 2px solid var(--border); }
+        .nav-tabs .nav-link {
+            color: #64748b; font-weight: 600; font-size: .88rem;
+            border: none; border-bottom: 3px solid transparent;
+            margin-bottom: -2px; padding: 10px 22px; border-radius: 0;
+        }
+        .nav-tabs .nav-link:hover { color: var(--accent); }
+        .nav-tabs .nav-link.active {
+            color: var(--accent); border-bottom-color: var(--accent);
+            background: transparent;
+        }
+        .tab-content { padding-top: 28px; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
-<body>
+<body th:data-active-tab="${activeTab != null ? activeTab : 'releases'}">
 <div class="container" style="max-width:860px; padding-top:36px; padding-bottom:60px;">
 <div class="shadow-sm" style="border-radius:12px; overflow:hidden;">
 
@@ -152,6 +214,27 @@
 
     <!-- BODY -->
     <div class="app-body">
+
+    <!-- TABS NAV -->
+    <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-releases" data-bs-toggle="tab"
+                    data-bs-target="#pane-releases" type="button" role="tab">
+                &#x1F4E6; M&#xF3;dulos / Artefactos
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-rdl" data-bs-toggle="tab"
+                    data-bs-target="#pane-rdl" type="button" role="tab">
+                &#x1F4CA; Reportes RDL
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+
+    <!-- ═══════════════════════════ TAB: M&#xD3;DULOS / ARTEFACTOS ══════ -->
+    <div class="tab-pane fade" id="pane-releases" role="tabpanel">
     <form action="/generate" method="post">
 
         <!-- DATOS GENERALES -->
@@ -307,9 +390,9 @@
 
     </form>
 
-    <!-- PREVIEW -->
+    <!-- PREVIEW MÓDULOS / ARTEFACTOS -->
     <div id="emailSection" class="mt-5" th:if="${generatedEmail}">
-        <div class="section-label" style="font-size:.75rem; margin-top:0;">📧 Vista previa del correo</div>
+        <div class="section-label" style="font-size:.75rem; margin-top:0;">&#x1F4E7; Vista previa del correo</div>
         <div class="email-wrapper">
             <div class="email-toolbar">
                 <div class="d-flex gap-2 align-items-center">
@@ -318,11 +401,150 @@
                     <span class="dot" style="background:#10b981;"></span>
                     <span style="margin-left:8px; opacity:.6;">Correo de liberación</span>
                 </div>
-                <button class="btn-copy" onclick="copyEmail()">📋 Copiar</button>
+                <button class="btn-copy" onclick="copyEmail()">&#x1F4CB; Copiar</button>
             </div>
             <div id="emailPreview" th:utext="${generatedEmail}"></div>
         </div>
     </div>
+
+    </div><!-- /pane-releases -->
+
+    <!-- ═══════════════════════════════════ TAB: REPORTES RDL ══════════════ -->
+    <div class="tab-pane fade" id="pane-rdl" role="tabpanel">
+    <form action="/generate-rdl" method="post" id="rdlForm">
+
+        <!-- DATOS DEL REPORTE -->
+        <div class="section-block">
+            <div class="section-label">&#x1F4CA; Datos del Reporte RDL</div>
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label">Nombre del Reporte</label>
+                    <input type="text" class="form-control" name="rdlReportName" id="rdlReportName"
+                           placeholder="Ej: CAR_CuentasMaestras" oninput="updateRdlUrls()">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Ruta del Reporte en SSRS <span class="fw-normal text-muted">(carpeta, sin el nombre del reporte)</span></label>
+                    <input type="text" class="form-control" name="rdlReportFolder" id="rdlReportFolder"
+                           placeholder="Ej: Modulos/Cartera/Reportes/Cartera" oninput="updateRdlUrls()">
+                    <div class="form-text text-muted" style="font-size:.8rem;">Se usa para generar las URLs de MEGANG-612 y NTRS02 autom&#xE1;ticamente.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- URLs SSRS -->
+        <div class="section-block">
+            <div class="section-label">&#x1F517; URLs en Servidores SSRS</div>
+            <div class="mb-3">
+                <label class="form-label">URL &mdash; MEGANG-612</label>
+                <input type="text" class="form-control font-monospace" name="rdlUrlMegang" id="rdlUrlMegang"
+                       placeholder="http://megang-612/Reports/report/Modulos/.../NombreReporte">
+            </div>
+            <div>
+                <label class="form-label">URL &mdash; NTRS02</label>
+                <input type="text" class="form-control font-monospace" name="rdlUrlNtrs02" id="rdlUrlNtrs02"
+                       placeholder="http://ntrs02/Reports/Pages/Report.aspx?ItemPath=%2fModulos%2f...">
+            </div>
+        </div>
+
+        <!-- RUTAS DE ARCHIVOS RDL -->
+        <div class="section-block">
+            <div class="section-label">&#x1F4C1; Rutas de Archivos RDL</div>
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label">Semana</label>
+                    <input type="number" id="rdlSemana" class="form-control" style="width:90px;"
+                           min="1" max="52" placeholder="19" oninput="updateRdlPaths()">
+                </div>
+                <div class="col-auto">
+                    <label class="form-label">A&#xF1;o</label>
+                    <input type="number" id="rdlAnio" class="form-control" style="width:100px;"
+                           min="2020" placeholder="2026" oninput="updateRdlPaths()">
+                </div>
+                <div class="col">
+                    <p class="text-muted mb-0" style="font-size:.82rem;">Ingresa la semana y el a&#xF1;o para generar las rutas UNC autom&#xE1;ticamente.</p>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Ruta UNC &mdash; MEGANG-612</label>
+                <input type="text" class="form-control form-control-sm font-monospace" name="rdlPathMegang" id="rdlPathMegang"
+                       placeholder="\\ntdesarrollo.evolution.corp\sprints$\RFC'S Semana 18 2026\RDLL's\MEGANG-612">
+            </div>
+            <div>
+                <label class="form-label">Ruta UNC &mdash; NTRS02</label>
+                <input type="text" class="form-control form-control-sm font-monospace" name="rdlPathNtrs02" id="rdlPathNtrs02"
+                       placeholder="\\ntdesarrollo.evolution.corp\sprints$\RFC'S Semana 18 2026\RDLL's\NTRS02">
+            </div>
+        </div>
+
+        <!-- SP @DBAs TI -->
+        <div class="section-block">
+            <div class="section-label">&#x1F5C4;&#xFE0F; Stored Procedure &mdash; @DBAs TI</div>
+            <div class="artifact-row" style="flex-direction:column; align-items:stretch;">
+                <div class="artifact-check" style="padding-top:0;">
+                    <input type="checkbox" id="hasRdlSp" name="hasRdlSp" value="true" onchange="toggleRdlSp()">
+                    <label for="hasRdlSp">&nbsp;Incluir ejecuci&#xF3;n de SP</label>
+                </div>
+                <div id="rdlSpGroup" style="display:none; margin-top:12px;">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Nombre del SP</label>
+                            <input type="text" class="form-control" name="rdlSpName"
+                                   placeholder="Ej: mcab_rdl_cuentasmaestras.sql">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">N&#xB0; Ticket VoBo</label>
+                            <input type="text" class="form-control" name="rdlSpTicket"
+                                   placeholder="Ej: 11814905">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FECHA Y PROYECTO -->
+        <div class="section-block">
+            <div class="section-label">&#x1F4C5; Fecha y Proyecto</div>
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label">Fecha de Liberaci&#xF3;n</label>
+                    <input type="text" class="form-control" name="rdlReleaseDate"
+                           placeholder="Ej: 04/05/2026 8:30 am">
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label">Proyecto / RFC</label>
+                    <input type="text" class="form-control" name="rdlProject"
+                           placeholder="Ej: RFC 23533 | &quot;CAR_CuentasMaestras&quot; cambio RDL y SP">
+                </div>
+            </div>
+        </div>
+
+        <div class="text-end d-flex gap-2 justify-content-end">
+            <button type="button" class="btn-clear" onclick="clearRdlForm()">&#x2715; Limpiar</button>
+            <button type="submit" class="btn-generate">Generar Correo RDL &rarr;</button>
+        </div>
+
+    </form>
+
+    <!-- PREVIEW RDL -->
+    <div id="rdlEmailSection" class="mt-5" th:if="${rdlGeneratedEmail}">
+        <div class="section-label" style="font-size:.75rem; margin-top:0;">&#x1F4E7; Vista previa &mdash; Reporte RDL</div>
+        <div class="email-wrapper">
+            <div class="email-toolbar">
+                <div class="d-flex gap-2 align-items-center">
+                    <span class="dot" style="background:#ef4444;"></span>
+                    <span class="dot" style="background:#f59e0b;"></span>
+                    <span class="dot" style="background:#10b981;"></span>
+                    <span style="margin-left:8px; opacity:.6;">Correo RDL</span>
+                </div>
+                <button class="btn-copy" onclick="copyRdlEmail()">&#x1F4CB; Copiar</button>
+            </div>
+            <div id="rdlEmailPreview" th:utext="${rdlGeneratedEmail}"></div>
+        </div>
+    </div>
+
+    </div><!-- /pane-rdl -->
+
+    </div><!-- /tab-content -->
 
     </div><!-- /app-body -->
 </div>
