@@ -1,8 +1,12 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Release Mail Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script>
         function togglePath(cbId, groupId) {
@@ -33,6 +37,18 @@
             const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
             return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
         }
+        function formatDatetime(val) {
+            if (!val) return '';
+            const [datePart, timePart] = val.split('T');
+            if (!datePart) return val;
+            const [y, m, d] = datePart.split('-');
+            if (!timePart) return `${d}/${m}/${y}`;
+            const [h, min] = timePart.split(':');
+            const hNum = parseInt(h, 10);
+            const ampm = hNum >= 12 ? 'pm' : 'am';
+            const h12 = String(hNum % 12 || 12);
+            return `${d}/${m}/${y} ${h12}:${min} ${ampm}`;
+        }
         window.addEventListener('DOMContentLoaded', () => {
             const now = new Date();
             document.getElementById('anio').value = now.getFullYear();
@@ -40,7 +56,7 @@
             updatePaths();
             document.getElementById('rdlAnio').value = now.getFullYear();
             document.getElementById('rdlSemana').value = getISOWeek(now);
-            updateRdlPaths();
+            addRdlEntry();
             const activeTab = document.body.dataset.activeTab || 'releases';
             const tabEl = document.getElementById('tab-' + activeTab);
             if (tabEl) bootstrap.Tab.getOrCreateInstance(tabEl).show();
@@ -53,23 +69,92 @@
             const preview = document.getElementById('emailSection');
             if (preview) preview.style.display = 'none';
         }
+        function showToast(msg, type) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const el = document.createElement('div');
+            el.className = 'toast-msg' + (type ? ' toast-' + type : '');
+            el.textContent = msg;
+            container.appendChild(el);
+            requestAnimationFrame(() => { requestAnimationFrame(() => el.classList.add('show')); });
+            setTimeout(() => {
+                el.classList.remove('show');
+                setTimeout(() => el.remove(), 250);
+            }, 2400);
+        }
+        function onReleasesFormSubmit(e) {
+            const btn = e.target.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span>&nbsp;Generando...';
+            }
+        }
         function updateRdlPaths() {
             const semana = document.getElementById('rdlSemana').value.trim();
             const anio   = document.getElementById('rdlAnio').value.trim();
             if (!semana || !anio) return;
             const base = `\\\\ntdesarrollo.evolution.corp\\sprints$\\RFC'S Semana ${semana} ${anio}\\RDLL's\\`;
-            document.getElementById('rdlPathMegang').value = base + 'MEGANG-612';
-            document.getElementById('rdlPathNtrs02').value = base + 'NTRS02';
+            document.querySelectorAll('#rdlEntries .rdl-entry').forEach(entry => {
+                const m = entry.querySelector('[name$=".rdlPathMegang"]');
+                const n = entry.querySelector('[name$=".rdlPathNtrs02"]');
+                if (m) m.value = base + 'MEGANG-612';
+                if (n) n.value = base + 'NTRS02';
+            });
         }
-        function updateRdlUrls() {
-            const folder = document.getElementById('rdlReportFolder').value.trim().replace(/^\/+|\/+$/g, '');
-            const name   = document.getElementById('rdlReportName').value.trim();
+        function updateRdlEntryUrls(input) {
+            const entry  = input.closest('.rdl-entry');
+            const nameEl   = entry.querySelector('[name$=".rdlReportName"]');
+            const folderEl = entry.querySelector('[name$=".rdlReportFolder"]');
+            const name   = nameEl   ? nameEl.value.trim()   : '';
+            const folder = folderEl ? folderEl.value.trim().replace(/^\/+|\/+$/g, '') : '';
             if (!name) return;
             const path = folder ? `/${folder}/${name}` : `/${name}`;
-            document.getElementById('rdlUrlMegang').value = `http://megang-612/Reports/report${path}`;
-            const encoded = path.replace(/\//g, '%2f');
-            document.getElementById('rdlUrlNtrs02').value =
-                `http://ntrs02/Reports/Pages/Report.aspx?ItemPath=${encoded}`;
+            const megangEl = entry.querySelector('[name$=".rdlUrlMegang"]');
+            const ntrs02El = entry.querySelector('[name$=".rdlUrlNtrs02"]');
+            if (megangEl) megangEl.value = `http://megang-612/Reports/report${path}`;
+            if (ntrs02El) {
+                const encoded = path.replace(/\//g, '%2f');
+                ntrs02El.value = `http://ntrs02/Reports/Pages/Report.aspx?ItemPath=${encoded}`;
+            }
+        }
+        function addRdlEntry() {
+            const container = document.getElementById('rdlEntries');
+            const count = container.querySelectorAll('.rdl-entry').length;
+            const tpl   = document.getElementById('rdlEntryTemplate');
+            const clone = tpl.content.cloneNode(true);
+            const entry = clone.querySelector('.rdl-entry');
+            entry.querySelectorAll('[name]').forEach(el => {
+                el.name = el.name.replace('rdls[0]', `rdls[${count}]`);
+            });
+            entry.querySelector('.rdl-num').textContent = `#${count + 1}`;
+            container.appendChild(clone);
+            updateRemoveButtons();
+            updateRdlPaths();
+        }
+        function removeRdlEntry(btn) {
+            btn.closest('.rdl-entry').remove();
+            renumberRdlEntries();
+            updateRemoveButtons();
+        }
+        function renumberRdlEntries() {
+            document.querySelectorAll('#rdlEntries .rdl-entry').forEach((entry, idx) => {
+                entry.querySelectorAll('[name]').forEach(el => {
+                    el.name = el.name.replace(/rdls\[\d+\]/, `rdls[${idx}]`);
+                });
+                const num = entry.querySelector('.rdl-num');
+                if (num) num.textContent = `#${idx + 1}`;
+            });
+        }
+        function updateRemoveButtons() {
+            const entries = document.querySelectorAll('#rdlEntries .rdl-entry');
+            entries.forEach(entry => {
+                const btn = entry.querySelector('.btn-remove-rdl');
+                if (btn) btn.style.display = entries.length > 1 ? 'inline-block' : 'none';
+            });
+        }
+        function toggleEntryRdlSp(cb) {
+            const grp = cb.closest('.artifact-row').querySelector('.rdl-sp-group');
+            if (grp) grp.style.display = cb.checked ? 'block' : 'none';
         }
         function toggleRdlSp() {
             document.getElementById('rdlSpGroup').style.display =
@@ -77,9 +162,79 @@
         }
         function clearRdlForm() {
             document.getElementById('rdlForm').reset();
-            document.getElementById('rdlSpGroup').style.display = 'none';
             const preview = document.getElementById('rdlEmailSection');
             if (preview) preview.style.display = 'none';
+            const container = document.getElementById('rdlEntries');
+            const entries = container.querySelectorAll('.rdl-entry');
+            for (let i = 1; i < entries.length; i++) entries[i].remove();
+            container.querySelectorAll('input, textarea').forEach(el => el.value = '');
+            container.querySelectorAll('.rdl-sp-group').forEach(g => g.style.display = 'none');
+            updateRemoveButtons();
+            updateRdlPaths();
+        }
+        function downloadRdlPdf() {
+            const content = document.getElementById('rdlEmailPreview').innerHTML;
+            const win = window.open('', '_blank');
+            win.document.write(
+                '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+              + '<title>Correo RDL</title>'
+              + '<style>'
+              + 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000;padding:20px;margin:0;}'
+              + 'a{color:#0563C1;}'
+              + '@media print{body{padding:10mm;margin:0;}.rdl-hdr{page-break-before:always;}}'
+              + '</style></head><body>'
+              + content
+              + '</body></html>'
+            );
+            win.document.close();
+            // El primer encabezado no necesita salto de página
+            const headers = win.document.querySelectorAll('.rdl-hdr');
+            if (headers.length > 0) headers[0].style.pageBreakBefore = 'auto';
+            win.focus();
+            setTimeout(() => win.print(), 400);
+        }
+        async function submitRdlForm() {
+            const btn = document.querySelector('#rdlForm .btn-generate');
+            const origHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>&nbsp;Generando...';
+            const entries = document.querySelectorAll('#rdlEntries .rdl-entry');
+            const rdls = [];
+            entries.forEach((entry, idx) => {
+                const g  = name => { const el = entry.querySelector(`[name="rdls[${idx}].${name}"]`); return el ? el.value : ''; };
+                const gc = name => { const el = entry.querySelector(`[name="rdls[${idx}].${name}"]`); return el ? el.checked : false; };
+                rdls.push({
+                    rdlReportName:   g('rdlReportName'),
+                    rdlReportFolder: g('rdlReportFolder'),
+                    rdlUrlMegang:    g('rdlUrlMegang'),
+                    rdlUrlNtrs02:    g('rdlUrlNtrs02'),
+                    rdlPathMegang:   g('rdlPathMegang'),
+                    rdlPathNtrs02:   g('rdlPathNtrs02'),
+                    hasRdlSp:        gc('hasRdlSp'),
+                    rdlSpName:       g('rdlSpName'),
+                    rdlSpTicket:     g('rdlSpTicket'),
+                    rdlReleaseDate:  formatDatetime(g('rdlReleaseDate')),
+                    rdlProject:      g('rdlProject')
+                });
+            });
+            try {
+                const resp = await fetch('/generate-rdl', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rdls })
+                });
+                if (!resp.ok) throw new Error('Error ' + resp.status);
+                const html = await resp.text();
+                document.getElementById('rdlEmailPreview').innerHTML = html;
+                const section = document.getElementById('rdlEmailSection');
+                section.style.display = 'block';
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (err) {
+                showToast('Error al generar el correo: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHTML;
+            }
         }
         async function copyRdlEmail() {
             const el = document.getElementById('rdlEmailPreview');
@@ -92,9 +247,7 @@
             } catch {
                 await navigator.clipboard.writeText(el.innerText);
             }
-            const b = document.querySelector('#pane-rdl .btn-copy');
-            b.textContent = '\u2714 Copiado';
-            setTimeout(() => b.textContent = '\uD83D\uDCCB Copiar', 2000);
+            showToast('\u2714 Correo RDL copiado al portapapeles', 'success');
         }
         async function copyEmail() {
             const el = document.getElementById('emailPreview');
@@ -107,99 +260,274 @@
             } catch {
                 await navigator.clipboard.writeText(el.innerText);
             }
-            const b = document.querySelector('.btn-copy');
-            b.textContent = '✔ Copiado';
-            setTimeout(() => b.textContent = '📋 Copiar', 2000);
+            showToast('\u2714 Correo copiado al portapapeles', 'success');
         }
     </script>
     <style>
+        /* ── Design Tokens ───────────────────────────────────────────── */
         :root {
-            --accent: #2563eb;
-            --accent-light: #eff6ff;
-            --border: #e2e8f0;
-            --section-bg: #f8fafc;
+            --primary:        #2563eb;
+            --primary-dark:   #1d4ed8;
+            --primary-darker: #1e3a8a;
+            --primary-light:  #eff6ff;
+            --primary-ring:   rgba(37,99,235,.18);
+            --success:        #059669;
+            --success-hover:  #047857;
+            --danger:         #dc2626;
+            --danger-light:   #fef2f2;
+            --danger-border:  #fecaca;
+            --purple:         #7c3aed;
+            --purple-hover:   #6d28d9;
+            --border:         #e2e8f0;
+            --bg:             #f1f5f9;
+            --bg-section:     #f8fafc;
+            --text:           #0f172a;
+            --text-muted:     #64748b;
+            --text-label:     #374151;
+            --shadow-md:      0 4px 24px rgba(0,0,0,.09);
+            --radius:         14px;
+            --radius-sm:      10px;
+            --radius-xs:      7px;
         }
-        body { background: #f1f5f9; }
+        *, *::before, *::after { box-sizing: border-box; }
+
+        /* ── Base ────────────────────────────────────────────────────── */
+        body {
+            background: var(--bg);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+
+        /* ── Layout ──────────────────────────────────────────────────── */
+        .app-card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
         .app-header {
-            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
-            color: white; padding: 20px 32px; border-radius: 12px 12px 0 0;
+            background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 65%, #3b82f6 100%);
+            color: white;
+            padding: 22px 36px;
         }
-        .app-body { background: white; padding: 32px; border-radius: 0 0 12px 12px; }
+        .app-body { background: white; padding: 32px 36px; }
+
+        /* ── Section Blocks ──────────────────────────────────────────── */
         .section-block {
-            background: var(--section-bg); border: 1px solid var(--border);
-            border-radius: 10px; padding: 20px 24px; margin-bottom: 20px;
+            background: var(--bg-section);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 20px 22px;
+            margin-bottom: 16px;
+            transition: border-color .15s;
         }
         .section-label {
-            font-size: 0.7rem; font-weight: 700; letter-spacing: .1em;
-            text-transform: uppercase; color: var(--accent);
-            margin-bottom: 14px; display: flex; align-items: center; gap: 6px;
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--primary);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
-        .form-control, .form-control:focus { border-color: var(--border); border-radius: 7px; font-size: .9rem; }
-        .form-control:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #2563eb22; }
-        .form-label { font-size: .83rem; font-weight: 600; color: #374151; margin-bottom: 5px; }
+
+        /* ── Form Controls ───────────────────────────────────────────── */
+        .form-label {
+            font-size: .8rem;
+            font-weight: 600;
+            color: var(--text-label);
+            margin-bottom: 5px;
+        }
+        .form-control, .form-select {
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-xs);
+            font-size: .875rem;
+            font-family: inherit;
+            color: var(--text);
+            background: white;
+            transition: border-color .15s, box-shadow .15s;
+            padding: .4rem .7rem;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-ring);
+            outline: none;
+        }
+        .form-control::placeholder { color: #94a3b8; font-size: .82rem; }
+        .form-control-sm { font-size: .8rem; padding: .28rem .6rem; }
+        textarea.form-control { resize: vertical; line-height: 1.55; }
+        .form-text { font-size: .75rem; color: var(--text-muted); margin-top: 4px; }
+
+        /* ── Artifacts ───────────────────────────────────────────────── */
         .artifact-row {
-            display: flex; align-items: flex-start; gap: 12px;
-            padding: 10px 12px; border-radius: 8px;
-            background: white; border: 1px solid var(--border);
-            margin-bottom: 8px; transition: border-color .2s;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: var(--radius-xs);
+            background: white;
+            border: 1.5px solid var(--border);
+            margin-bottom: 8px;
+            transition: border-color .15s, background .15s;
         }
         .artifact-row:has(input[type=checkbox]:checked) {
-            border-color: var(--accent); background: var(--accent-light);
+            border-color: var(--primary);
+            background: var(--primary-light);
         }
-        .artifact-check { padding-top: 2px; flex-shrink: 0; }
-        .artifact-check input { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
-        .artifact-check label { font-weight: 600; font-size: .88rem; cursor: pointer; }
+        .artifact-check { padding-top: 1px; flex-shrink: 0; }
+        .artifact-check input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+        .artifact-check label { font-weight: 600; font-size: .875rem; cursor: pointer; user-select: none; }
         .artifact-path { flex: 1; display: none; }
         .artifact-path.visible { display: block; }
+
+        /* ── Buttons ─────────────────────────────────────────────────── */
         .btn-generate {
-            background: var(--accent); color: white; border: none;
-            padding: 11px 32px; border-radius: 8px;
-            font-weight: 600; font-size: .95rem; cursor: pointer;
-            transition: background .2s, transform .1s;
+            background: var(--primary); color: white; border: none;
+            padding: 10px 28px; border-radius: var(--radius-xs);
+            font-weight: 600; font-size: .9rem; cursor: pointer;
+            transition: background .15s, transform .1s, box-shadow .15s;
+            font-family: inherit;
+            display: inline-flex; align-items: center; gap: 6px;
         }
-        .btn-generate:hover { background: #1d4ed8; transform: translateY(-1px); }
+        .btn-generate:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37,99,235,.28);
+        }
+        .btn-generate:disabled { opacity: .6; cursor: not-allowed; transform: none; }
         .btn-clear {
-            background: white; color: #64748b; border: 1.5px solid #cbd5e1;
-            padding: 11px 24px; border-radius: 8px;
-            font-weight: 600; font-size: .95rem; cursor: pointer;
-            transition: background .2s, border-color .2s;
+            background: white; color: var(--text-muted);
+            border: 1.5px solid var(--border);
+            padding: 10px 20px; border-radius: var(--radius-xs);
+            font-weight: 600; font-size: .9rem; cursor: pointer;
+            transition: background .15s, border-color .15s, color .15s;
+            font-family: inherit;
         }
-        .btn-clear:hover { background: #f1f5f9; border-color: #94a3b8; }
-        .email-wrapper { border-radius: 10px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
-        .email-toolbar {
-            background: #1e293b; color: #e2e8f0;
-            padding: 12px 20px; display: flex;
-            align-items: center; justify-content: space-between; font-size: .85rem;
-        }
-        .email-toolbar .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-        #emailPreview {
-            background: white; padding: 36px 40px;
-            font-size: 14px; color: #1e293b;
-        }
+        .btn-clear:hover { background: var(--bg); border-color: #94a3b8; color: var(--text); }
         .btn-copy {
-            background: #10b981; color: white; border: none;
-            padding: 6px 16px; border-radius: 6px;
-            font-size: .82rem; font-weight: 600; cursor: pointer;
+            background: var(--success); color: white; border: none;
+            padding: 6px 14px; border-radius: var(--radius-xs);
+            font-size: .8rem; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: background .15s;
         }
-        .btn-copy:hover { background: #059669; }
-        .nav-tabs { border-bottom: 2px solid var(--border); }
+        .btn-copy:hover { background: var(--success-hover); }
+        .btn-pdf {
+            background: var(--purple); color: white; border: none;
+            padding: 6px 14px; border-radius: var(--radius-xs);
+            font-size: .8rem; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: background .15s;
+        }
+        .btn-pdf:hover { background: var(--purple-hover); }
+        .btn-add-rdl {
+            background: var(--primary-light); color: var(--primary);
+            border: 1.5px dashed #93c5fd;
+            padding: 10px; border-radius: var(--radius-sm);
+            font-weight: 600; font-size: .875rem; cursor: pointer; width: 100%;
+            transition: background .15s, border-color .15s;
+            font-family: inherit;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .btn-add-rdl:hover { background: #dbeafe; border-color: var(--primary); }
+        .btn-remove-rdl {
+            background: var(--danger-light); color: var(--danger);
+            border: 1.5px solid var(--danger-border);
+            padding: 4px 10px; border-radius: var(--radius-xs);
+            font-size: .78rem; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: background .15s;
+        }
+        .btn-remove-rdl:hover { background: #fee2e2; }
+
+        /* ── Tabs ────────────────────────────────────────────────────── */
+        .nav-tabs { border-bottom: 2px solid var(--border); gap: 2px; }
         .nav-tabs .nav-link {
-            color: #64748b; font-weight: 600; font-size: .88rem;
-            border: none; border-bottom: 3px solid transparent;
-            margin-bottom: -2px; padding: 10px 22px; border-radius: 0;
+            color: var(--text-muted); font-weight: 600; font-size: .875rem;
+            border: none; border-bottom: 2.5px solid transparent;
+            margin-bottom: -2px; padding: 10px 20px; border-radius: 0;
+            transition: color .15s, border-color .15s;
+            display: flex; align-items: center; gap: 6px;
         }
-        .nav-tabs .nav-link:hover { color: var(--accent); }
+        .nav-tabs .nav-link:hover { color: var(--primary); background: transparent; }
         .nav-tabs .nav-link.active {
-            color: var(--accent); border-bottom-color: var(--accent);
-            background: transparent;
+            color: var(--primary); border-bottom-color: var(--primary); background: transparent;
         }
         .tab-content { padding-top: 28px; }
+
+        /* ── Email Preview ───────────────────────────────────────────── */
+        .email-wrapper {
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+            animation: fadeSlideUp .3s ease;
+        }
+        .email-toolbar {
+            background: #1e293b; color: #e2e8f0;
+            padding: 11px 18px; display: flex;
+            align-items: center; justify-content: space-between; font-size: .82rem;
+        }
+        .email-toolbar .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        #emailPreview, #rdlEmailPreview {
+            background: white; padding: 32px 36px;
+            font-size: 14px; color: #1e293b; line-height: 1.6;
+        }
+
+        /* ── RDL Entry ───────────────────────────────────────────────── */
+        .rdl-entry { border: 1.5px solid #bfdbfe !important; }
+
+        /* ── Toast Notifications ─────────────────────────────────────── */
+        #toast-container {
+            position: fixed; bottom: 24px; right: 24px;
+            z-index: 9999; display: flex; flex-direction: column;
+            gap: 8px; pointer-events: none;
+        }
+        .toast-msg {
+            background: #1e293b; color: white;
+            padding: 10px 18px; border-radius: var(--radius-xs);
+            font-size: .84rem; font-weight: 500; font-family: inherit;
+            box-shadow: 0 4px 16px rgba(0,0,0,.2);
+            opacity: 0; transform: translateY(8px);
+            transition: opacity .2s, transform .2s;
+            pointer-events: none; max-width: 300px;
+        }
+        .toast-msg.show { opacity: 1; transform: translateY(0); }
+        .toast-msg.toast-success { background: var(--success); }
+        .toast-msg.toast-error   { background: var(--danger); }
+
+        /* ── Spinner ─────────────────────────────────────────────────── */
+        .spinner {
+            width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,.4);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin .6s linear infinite;
+            display: inline-block; vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Animations ──────────────────────────────────────────────── */
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Responsive ──────────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            .app-header { padding: 18px 20px; }
+            .app-body   { padding: 20px; }
+            #emailPreview, #rdlEmailPreview { padding: 18px; }
+            .nav-tabs .nav-link { padding: 8px 12px; font-size: .82rem; }
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body th:data-active-tab="${activeTab != null ? activeTab : 'releases'}">
-<div class="container" style="max-width:860px; padding-top:36px; padding-bottom:60px;">
-<div class="shadow-sm" style="border-radius:12px; overflow:hidden;">
+<div id="toast-container" aria-live="polite"></div>
+<div class="container" style="max-width:960px; padding-top:36px; padding-bottom:60px;">
+<div class="app-card">
 
     <!-- HEADER -->
     <div class="app-header">
@@ -235,7 +563,7 @@
 
     <!-- ═══════════════════════════ TAB: M&#xD3;DULOS / ARTEFACTOS ══════ -->
     <div class="tab-pane fade" id="pane-releases" role="tabpanel">
-    <form action="/generate" method="post">
+    <form action="/generate" method="post" onsubmit="onReleasesFormSubmit(event)">
 
         <!-- DATOS GENERALES -->
         <div class="section-block">
@@ -392,7 +720,7 @@
 
     <!-- PREVIEW MÓDULOS / ARTEFACTOS -->
     <div id="emailSection" class="mt-5" th:if="${generatedEmail}">
-        <div class="section-label" style="font-size:.75rem; margin-top:0;">&#x1F4E7; Vista previa del correo</div>
+        <div class="section-label" style="margin-top:0;">&#x1F4E7; Vista previa del correo</div>
         <div class="email-wrapper">
             <div class="email-toolbar">
                 <div class="d-flex gap-2 align-items-center">
@@ -413,43 +741,10 @@
     <div class="tab-pane fade" id="pane-rdl" role="tabpanel">
     <form action="/generate-rdl" method="post" id="rdlForm">
 
-        <!-- DATOS DEL REPORTE -->
+        <!-- SEMANA / AÑO compartido -->
         <div class="section-block">
-            <div class="section-label">&#x1F4CA; Datos del Reporte RDL</div>
-            <div class="row g-3">
-                <div class="col-12">
-                    <label class="form-label">Nombre del Reporte</label>
-                    <input type="text" class="form-control" name="rdlReportName" id="rdlReportName"
-                           placeholder="Ej: CAR_CuentasMaestras" oninput="updateRdlUrls()">
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Ruta del Reporte en SSRS <span class="fw-normal text-muted">(carpeta, sin el nombre del reporte)</span></label>
-                    <input type="text" class="form-control" name="rdlReportFolder" id="rdlReportFolder"
-                           placeholder="Ej: Modulos/Cartera/Reportes/Cartera" oninput="updateRdlUrls()">
-                    <div class="form-text text-muted" style="font-size:.8rem;">Se usa para generar las URLs de MEGANG-612 y NTRS02 autom&#xE1;ticamente.</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- URLs SSRS -->
-        <div class="section-block">
-            <div class="section-label">&#x1F517; URLs en Servidores SSRS</div>
-            <div class="mb-3">
-                <label class="form-label">URL &mdash; MEGANG-612</label>
-                <input type="text" class="form-control font-monospace" name="rdlUrlMegang" id="rdlUrlMegang"
-                       placeholder="http://megang-612/Reports/report/Modulos/.../NombreReporte">
-            </div>
-            <div>
-                <label class="form-label">URL &mdash; NTRS02</label>
-                <input type="text" class="form-control font-monospace" name="rdlUrlNtrs02" id="rdlUrlNtrs02"
-                       placeholder="http://ntrs02/Reports/Pages/Report.aspx?ItemPath=%2fModulos%2f...">
-            </div>
-        </div>
-
-        <!-- RUTAS DE ARCHIVOS RDL -->
-        <div class="section-block">
-            <div class="section-label">&#x1F4C1; Rutas de Archivos RDL</div>
-            <div class="row g-2 mb-3 align-items-end">
+            <div class="section-label">&#x1F4C1; Semana y A&#xF1;o</div>
+            <div class="row g-2 align-items-end">
                 <div class="col-auto">
                     <label class="form-label">Semana</label>
                     <input type="number" id="rdlSemana" class="form-control" style="width:90px;"
@@ -461,73 +756,28 @@
                            min="2020" placeholder="2026" oninput="updateRdlPaths()">
                 </div>
                 <div class="col">
-                    <p class="text-muted mb-0" style="font-size:.82rem;">Ingresa la semana y el a&#xF1;o para generar las rutas UNC autom&#xE1;ticamente.</p>
-                </div>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Ruta UNC &mdash; MEGANG-612</label>
-                <input type="text" class="form-control form-control-sm font-monospace" name="rdlPathMegang" id="rdlPathMegang"
-                       placeholder="\\ntdesarrollo.evolution.corp\sprints$\RFC'S Semana 18 2026\RDLL's\MEGANG-612">
-            </div>
-            <div>
-                <label class="form-label">Ruta UNC &mdash; NTRS02</label>
-                <input type="text" class="form-control form-control-sm font-monospace" name="rdlPathNtrs02" id="rdlPathNtrs02"
-                       placeholder="\\ntdesarrollo.evolution.corp\sprints$\RFC'S Semana 18 2026\RDLL's\NTRS02">
-            </div>
-        </div>
-
-        <!-- SP @DBAs TI -->
-        <div class="section-block">
-            <div class="section-label">&#x1F5C4;&#xFE0F; Stored Procedure &mdash; @DBAs TI</div>
-            <div class="artifact-row" style="flex-direction:column; align-items:stretch;">
-                <div class="artifact-check" style="padding-top:0;">
-                    <input type="checkbox" id="hasRdlSp" name="hasRdlSp" value="true" onchange="toggleRdlSp()">
-                    <label for="hasRdlSp">&nbsp;Incluir ejecuci&#xF3;n de SP</label>
-                </div>
-                <div id="rdlSpGroup" style="display:none; margin-top:12px;">
-                    <div class="row g-3">
-                        <div class="col-md-8">
-                            <label class="form-label">Nombre del SP</label>
-                            <input type="text" class="form-control" name="rdlSpName"
-                                   placeholder="Ej: mcab_rdl_cuentasmaestras.sql">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">N&#xB0; Ticket VoBo</label>
-                            <input type="text" class="form-control" name="rdlSpTicket"
-                                   placeholder="Ej: 11814905">
-                        </div>
-                    </div>
+                    <p class="text-muted mb-0" style="font-size:.82rem;">Semana y a&#xF1;o para generar las carpetas Sprint de todos los RDL's autom&#xE1;ticamente.</p>
                 </div>
             </div>
         </div>
 
-        <!-- FECHA Y PROYECTO -->
-        <div class="section-block">
-            <div class="section-label">&#x1F4C5; Fecha y Proyecto</div>
-            <div class="row g-3">
-                <div class="col-md-5">
-                    <label class="form-label">Fecha de Liberaci&#xF3;n</label>
-                    <input type="text" class="form-control" name="rdlReleaseDate"
-                           placeholder="Ej: 04/05/2026 8:30 am">
-                </div>
-                <div class="col-md-7">
-                    <label class="form-label">Proyecto / RFC</label>
-                    <input type="text" class="form-control" name="rdlProject"
-                           placeholder="Ej: RFC 23533 | &quot;CAR_CuentasMaestras&quot; cambio RDL y SP">
-                </div>
-            </div>
+        <!-- ENTRADAS DE RDL (din&#xE1;micas) -->
+        <div id="rdlEntries"></div>
+
+        <div class="mb-4">
+            <button type="button" class="btn-add-rdl" onclick="addRdlEntry()">&#x2b; Agregar otro RDL</button>
         </div>
 
         <div class="text-end d-flex gap-2 justify-content-end">
             <button type="button" class="btn-clear" onclick="clearRdlForm()">&#x2715; Limpiar</button>
-            <button type="submit" class="btn-generate">Generar Correo RDL &rarr;</button>
+            <button type="button" class="btn-generate" onclick="submitRdlForm()">Generar Correo RDL &rarr;</button>
         </div>
 
     </form>
 
     <!-- PREVIEW RDL -->
-    <div id="rdlEmailSection" class="mt-5" th:if="${rdlGeneratedEmail}">
-        <div class="section-label" style="font-size:.75rem; margin-top:0;">&#x1F4E7; Vista previa &mdash; Reporte RDL</div>
+    <div id="rdlEmailSection" class="mt-5" style="display:none;">
+        <div class="section-label" style="margin-top:0;">&#x1F4E7; Vista previa &mdash; Reporte RDL</div>
         <div class="email-wrapper">
             <div class="email-toolbar">
                 <div class="d-flex gap-2 align-items-center">
@@ -536,9 +786,12 @@
                     <span class="dot" style="background:#10b981;"></span>
                     <span style="margin-left:8px; opacity:.6;">Correo RDL</span>
                 </div>
-                <button class="btn-copy" onclick="copyRdlEmail()">&#x1F4CB; Copiar</button>
+                <div class="d-flex gap-2">
+                    <button class="btn-pdf" onclick="downloadRdlPdf()">&#x1F4E5; Descargar PDF</button>
+                    <button class="btn-copy" onclick="copyRdlEmail()">&#x1F4CB; Copiar</button>
+                </div>
             </div>
-            <div id="rdlEmailPreview" th:utext="${rdlGeneratedEmail}"></div>
+            <div id="rdlEmailPreview"></div>
         </div>
     </div>
 
@@ -549,5 +802,82 @@
     </div><!-- /app-body -->
 </div>
 </div>
+
+<!-- Template para entradas dinámicas de RDL -->
+<template id="rdlEntryTemplate">
+    <div class="rdl-entry section-block" style="border:1.5px solid #bfdbfe;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="section-label mb-0">&#x1F4CA; Reporte RDL <span class="rdl-num">#1</span></div>
+            <button type="button" class="btn-remove-rdl" onclick="removeRdlEntry(this)">&#x2715; Eliminar</button>
+        </div>
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label">Nombre del Reporte</label>
+                <input type="text" class="form-control" name="rdls[0].rdlReportName"
+                       placeholder="Ej: CAR_CuentasMaestras" oninput="updateRdlEntryUrls(this)">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Ruta en SSRS <span class="fw-normal text-muted">(carpeta, sin el nombre del reporte)</span></label>
+                <input type="text" class="form-control" name="rdls[0].rdlReportFolder"
+                       placeholder="Ej: Modulos/Cartera/Reportes/Cartera" oninput="updateRdlEntryUrls(this)">
+                <div class="form-text text-muted" style="font-size:.8rem;">Se usa para generar las URLs autom&#xE1;ticamente.</div>
+            </div>
+            <div class="col-12">
+                <label class="form-label">URL &mdash; MEGANG-612</label>
+                <input type="text" class="form-control font-monospace" name="rdls[0].rdlUrlMegang"
+                       placeholder="http://megang-612/Reports/report/Modulos/.../NombreReporte">
+            </div>
+            <div class="col-12">
+                <label class="form-label">URL &mdash; NTRS02</label>
+                <input type="text" class="form-control font-monospace" name="rdls[0].rdlUrlNtrs02"
+                       placeholder="http://ntrs02/Reports/Pages/Report.aspx?ItemPath=%2fModulos%2f...">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Carpeta Sprint &mdash; MEGANG-612</label>
+                <input type="text" class="form-control form-control-sm font-monospace" name="rdls[0].rdlPathMegang"
+                       placeholder="\\ntdesarrollo.evolution.corp\sprints$\RFC'S Semana 18 2026\RDLL's\MEGANG-612">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Carpeta Sprint &mdash; NTRS02</label>
+                <input type="text" class="form-control form-control-sm font-monospace" name="rdls[0].rdlPathNtrs02"
+                       placeholder="\\ntdesarrollo.evolution.corp\sprints$\RFC'S Semana 18 2026\RDLL's\NTRS02">
+            </div>
+            <!-- SP @DBAs TI (por RDL) -->
+            <div class="col-12">
+                <div class="artifact-row" style="flex-direction:column; align-items:stretch; margin-bottom:0;">
+                    <div class="artifact-check" style="padding-top:0;">
+                        <input type="checkbox" name="rdls[0].hasRdlSp" value="true" onchange="toggleEntryRdlSp(this)">
+                        <label>&nbsp;Incluir ejecuci&#xF3;n de SP</label>
+                    </div>
+                    <div class="rdl-sp-group" style="display:none; margin-top:12px;">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Nombre(s) del SP <span class="fw-normal text-muted">(uno por l&#xED;nea)</span></label>
+                                <textarea class="form-control form-control-sm font-monospace" rows="3" name="rdls[0].rdlSpName"
+                                          placeholder="mcab_rdl_cuentasmaestras.sql&#10;mcab_rdl_otro_reporte.sql"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">N&#xB0;(s) Ticket VoBo <span class="fw-normal text-muted">(uno por l&#xED;nea)</span></label>
+                                <textarea class="form-control form-control-sm font-monospace" rows="2" name="rdls[0].rdlSpTicket"
+                                          placeholder="11814905&#10;11839212"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Fecha y Proyecto (por RDL) -->
+            <div class="col-md-5">
+                <label class="form-label">Fecha de Liberaci&#xF3;n</label>
+                <input type="datetime-local" class="form-control" name="rdls[0].rdlReleaseDate">
+            </div>
+            <div class="col-md-7">
+                <label class="form-label">Proyecto / RFC</label>
+                <input type="text" class="form-control" name="rdls[0].rdlProject"
+                       placeholder="Ej: RFC 23533 | &quot;CAR_CuentasMaestras&quot; cambio RDL">
+            </div>
+        </div>
+    </div>
+</template>
+
 </body>
 </html>
