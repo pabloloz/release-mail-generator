@@ -216,7 +216,14 @@
                 const resp = await fetch('/generate-rdl', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rdls })
+                    body: JSON.stringify({
+                        rdls,
+                        rdlReleaseDate: formatDate(
+                            document.getElementById('rdlReleaseDatePicker').value,
+                            document.getElementById('rdlReleaseTimePicker').value
+                        ),
+                        rdlReleaseUrl: (document.getElementById('rdlReleaseUrl') || {}).value || ''
+                    })
                 });
                 if (!resp.ok) throw new Error('Error ' + resp.status);
                 const html = await resp.text();
@@ -806,6 +813,45 @@
             </div>
         </div>
 
+        <!-- DATOS DE LA LIBERACIÓN (global) -->
+        <div class="section-block">
+            <div class="section-label">&#x1F4C5; Datos de la Liberaci&#xF3;n</div>
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label">Fecha de Liberaci&#xF3;n</label>
+                    <div class="d-flex gap-2">
+                        <input type="date" id="rdlReleaseDatePicker" class="form-control"
+                               style="flex:1; min-width:0;">
+                        <select id="rdlReleaseTimePicker" class="form-select release-time-select">
+                            <option value="">Hora</option>
+                            <option value="7:00 am">7:00 am</option>
+                            <option value="7:30 am">7:30 am</option>
+                            <option value="8:00 am">8:00 am</option>
+                            <option value="8:30 am">8:30 am</option>
+                            <option value="9:00 am">9:00 am</option>
+                            <option value="9:30 am">9:30 am</option>
+                            <option value="10:00 am">10:00 am</option>
+                            <option value="10:30 am">10:30 am</option>
+                            <option value="11:00 am">11:00 am</option>
+                            <option value="11:30 am">11:30 am</option>
+                            <option value="12:00 pm">12:00 pm</option>
+                            <option value="1:00 pm">1:00 pm</option>
+                            <option value="2:00 pm">2:00 pm</option>
+                            <option value="3:00 pm">3:00 pm</option>
+                            <option value="4:00 pm">4:00 pm</option>
+                            <option value="5:00 pm">5:00 pm</option>
+                            <option value="6:00 pm">6:00 pm</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label">Release &mdash; Jira</label>
+                    <input type="text" id="rdlReleaseUrl" class="form-control"
+                           placeholder="https://megacablesfyc.atlassian.net/projects/...">
+                </div>
+            </div>
+        </div>
+
         <!-- ENTRADAS DE RDL (din&#xE1;micas) -->
         <div id="rdlEntries"></div>
 
@@ -868,24 +914,28 @@
                 <div class="form-text text-muted" style="font-size:.8rem;">Se usa para generar las URLs autom&#xE1;ticamente.</div>
             </div>
             <div class="col-12">
-                <label class="form-label">URL &mdash; MEGANG-612</label>
+                <label class="form-label">URL &mdash; MEGANG-612 <span class="fw-normal text-muted">(opcional)</span></label>
                 <input type="text" class="form-control font-monospace" name="rdls[0].rdlUrlMegang"
                        placeholder="http://megang-612/Reports/report/Modulos/.../NombreReporte">
+                <div class="form-text">Dejar vac&#xED;o si no aplica para esta liberaci&#xF3;n.</div>
             </div>
             <div class="col-12">
-                <label class="form-label">URL &mdash; NTRS02</label>
+                <label class="form-label">URL &mdash; NTRS02 <span class="fw-normal text-muted">(opcional)</span></label>
                 <input type="text" class="form-control font-monospace" name="rdls[0].rdlUrlNtrs02"
                        placeholder="http://ntrs02/Reports/Pages/Report.aspx?ItemPath=%2fModulos%2f...">
+                <div class="form-text">Dejar vac&#xED;o si no aplica para esta liberaci&#xF3;n.</div>
             </div>
             <div class="col-12">
-                <label class="form-label">Carpeta Sprint &mdash; MEGANG-612</label>
+                <label class="form-label">Ruta Sprint &mdash; MEGANG-612 <span class="fw-normal text-muted">(opcional)</span></label>
                 <input type="text" class="form-control form-control-sm font-monospace" name="rdls[0].rdlPathMegang"
                        placeholder="\\ntdesarrollo.evolution.corp\sprints$\RFC'S Semana 18 2026\RDLL's\MEGANG-612">
+                <div class="form-text">Dejar vac&#xED;o si no aplica para esta liberaci&#xF3;n.</div>
             </div>
             <div class="col-12">
-                <label class="form-label">Carpeta Sprint &mdash; NTRS02</label>
+                <label class="form-label">Ruta Sprint &mdash; NTRS02 <span class="fw-normal text-muted">(opcional)</span></label>
                 <input type="text" class="form-control form-control-sm font-monospace" name="rdls[0].rdlPathNtrs02"
                        placeholder="\\ntdesarrollo.evolution.corp\sprints$\RFC'S Semana 18 2026\RDLL's\NTRS02">
+                <div class="form-text">Dejar vac&#xED;o si no aplica para esta liberaci&#xF3;n.</div>
             </div>
             <!-- SP @DBAs TI (por RDL) -->
             <div class="col-12">
@@ -911,34 +961,7 @@
                 </div>
             </div>
             <!-- Fecha y Proyecto (por RDL) -->
-            <div class="col-md-5">
-                <label class="form-label">Fecha de Liberaci&#xF3;n</label>
-                <div class="d-flex gap-2">
-                    <input type="date" class="form-control" name="rdls[0].rdlReleaseDatePicker"
-                           style="flex:1; min-width:0;">
-                    <select class="form-select release-time-select" name="rdls[0].rdlReleaseTimePicker">
-                        <option value="">Hora</option>
-                        <option value="7:00 am">7:00 am</option>
-                        <option value="7:30 am">7:30 am</option>
-                        <option value="8:00 am">8:00 am</option>
-                        <option value="8:30 am">8:30 am</option>
-                        <option value="9:00 am">9:00 am</option>
-                        <option value="9:30 am">9:30 am</option>
-                        <option value="10:00 am">10:00 am</option>
-                        <option value="10:30 am">10:30 am</option>
-                        <option value="11:00 am">11:00 am</option>
-                        <option value="11:30 am">11:30 am</option>
-                        <option value="12:00 pm">12:00 pm</option>
-                        <option value="1:00 pm">1:00 pm</option>
-                        <option value="2:00 pm">2:00 pm</option>
-                        <option value="3:00 pm">3:00 pm</option>
-                        <option value="4:00 pm">4:00 pm</option>
-                        <option value="5:00 pm">5:00 pm</option>
-                        <option value="6:00 pm">6:00 pm</option>
-                    </select>
-                </div>
-            </div>
-            <div class="col-md-7">
+            <div class="col-12">
                 <label class="form-label">Proyecto / RFC</label>
                 <input type="text" class="form-control" name="rdls[0].rdlProject"
                        placeholder="Ej: RFC 23533 | &quot;CAR_CuentasMaestras&quot; cambio RDL">

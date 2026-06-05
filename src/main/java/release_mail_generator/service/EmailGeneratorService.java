@@ -404,13 +404,6 @@ public class EmailGeneratorService {
                 html.append("</p>");
             }
 
-            // ── Fecha Liberación (por RDL) ────────────────────────────────────────────
-            if (item.getRdlReleaseDate() != null && !item.getRdlReleaseDate().isBlank()) {
-                html.append("<p style=\"margin: 0 0 12px 0;\">")
-                    .append("<b>Fecha Liberación:</b>&nbsp;")
-                    .append(esc(item.getRdlReleaseDate().trim()))
-                    .append("</p>");
-            }
 
             // ── Proyecto / RFC (por RDL) ──────────────────────────────────────────────
             if (item.getRdlProject() != null && !item.getRdlProject().isBlank()) {
@@ -435,6 +428,25 @@ public class EmailGeneratorService {
             } else {
                 html.append("<br>");
             }
+        }
+
+        // ── Fecha de Liberación (global) ───────────────────────────────────────────────────
+        if (r.getRdlReleaseDate() != null && !r.getRdlReleaseDate().isBlank()) {
+            html.append("<p style=\"margin: 16px 0 8px 0;\">")
+                .append("<b>Fecha Liberación:</b>&nbsp;")
+                .append(esc(r.getRdlReleaseDate().trim()))
+                .append("</p>");
+        }
+
+        // ── Release URL (Jira) ─────────────────────────────────────────────────────────
+        if (r.getRdlReleaseUrl() != null && !r.getRdlReleaseUrl().isBlank()) {
+            html.append("<p style=\"margin: 0 0 12px 0;\">")
+                .append("<b>Release:</b>&nbsp;")
+                .append("<a href=\"")
+                .append(esc(r.getRdlReleaseUrl().trim()))
+                .append("\" style=\"color: #0563C1;\">")
+                .append(esc(r.getRdlReleaseUrl().trim()))
+                .append("</a></p>");
         }
 
         html.append("</div>");

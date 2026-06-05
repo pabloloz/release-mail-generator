@@ -19,7 +19,6 @@ public class RdlItem {
     private String rdlSpName;        // Ej: mcab_rdl_cuentasmaestras.sql
     private String rdlSpTicket;      // N° ticket VoBo
 
-    // Fecha y Proyecto (por RDL)
-    private String rdlReleaseDate;   // Ej: 04/05/2026 8:30 am
+    // Proyecto (por RDL)
     private String rdlProject;       // Ej: RFC 23533 | "CAR_CuentasMaestras" cambio RDL y SP
 }
