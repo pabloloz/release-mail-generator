@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Release Mail Generator</title>
+    <title>Release Notifier QA</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -37,17 +37,11 @@
             const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
             return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
         }
-        function formatDatetime(val) {
-            if (!val) return '';
-            const [datePart, timePart] = val.split('T');
-            if (!datePart) return val;
-            const [y, m, d] = datePart.split('-');
-            if (!timePart) return `${d}/${m}/${y}`;
-            const [h, min] = timePart.split(':');
-            const hNum = parseInt(h, 10);
-            const ampm = hNum >= 12 ? 'pm' : 'am';
-            const h12 = String(hNum % 12 || 12);
-            return `${d}/${m}/${y} ${h12}:${min} ${ampm}`;
+        function formatDate(dateVal, timeVal) {
+            if (!dateVal) return '';
+            const [y, m, d] = dateVal.split('-');
+            const date = `${d}/${m}/${y}`;
+            return timeVal ? `${date} ${timeVal}` : date;
         }
         window.addEventListener('DOMContentLoaded', () => {
             const now = new Date();
@@ -168,6 +162,7 @@
             const entries = container.querySelectorAll('.rdl-entry');
             for (let i = 1; i < entries.length; i++) entries[i].remove();
             container.querySelectorAll('input, textarea').forEach(el => el.value = '');
+            container.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
             container.querySelectorAll('.rdl-sp-group').forEach(g => g.style.display = 'none');
             updateRemoveButtons();
             updateRdlPaths();
@@ -213,7 +208,7 @@
                     hasRdlSp:        gc('hasRdlSp'),
                     rdlSpName:       g('rdlSpName'),
                     rdlSpTicket:     g('rdlSpTicket'),
-                    rdlReleaseDate:  formatDatetime(g('rdlReleaseDate')),
+                    rdlReleaseDate:  formatDate(g('rdlReleaseDatePicker'), g('rdlReleaseTimePicker')),
                     rdlProject:      g('rdlProject')
                 });
             });
@@ -310,9 +305,10 @@
         .app-header {
             background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 65%, #3b82f6 100%);
             color: white;
-            padding: 22px 36px;
+            padding: 20px 32px;
+            border-bottom: 1px solid rgba(255,255,255,.12);
         }
-        .app-body { background: white; padding: 32px 36px; }
+        .app-body { background: white; padding: 28px 32px; }
 
         /* ── Section Blocks ──────────────────────────────────────────── */
         .section-block {
@@ -478,6 +474,15 @@
         /* ── RDL Entry ───────────────────────────────────────────────── */
         .rdl-entry { border: 1.5px solid #bfdbfe !important; }
 
+        /* ── Release date picker ─────────────────────────────────────── */
+        .release-time-select {
+            width: 116px;
+            flex-shrink: 0;
+            font-size: .82rem;
+            padding: .4rem .45rem;
+            cursor: pointer;
+        }
+
         /* ── Toast Notifications ─────────────────────────────────────── */
         #toast-container {
             position: fixed; bottom: 24px; right: 24px;
@@ -516,10 +521,38 @@
 
         /* ── Responsive ──────────────────────────────────────────────── */
         @media (max-width: 640px) {
-            .app-header { padding: 18px 20px; }
-            .app-body   { padding: 20px; }
+            .app-header { padding: 16px 18px; }
+            .app-body   { padding: 18px; }
             #emailPreview, #rdlEmailPreview { padding: 18px; }
             .nav-tabs .nav-link { padding: 8px 12px; font-size: .82rem; }
+            .header-sep { display: none; }
+            .logo-pill img { height: 28px !important; }
+        }
+
+        /* ── Logo pill containers ────────────────────────────────────── */
+        .logo-pill {
+            background: rgba(255,255,255,.14);
+            border: 1px solid rgba(255,255,255,.22);
+            border-radius: 10px;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 48px;
+            flex-shrink: 0;
+        }
+        .header-sep {
+            width: 1px;
+            height: 34px;
+            background: rgba(255,255,255,.28);
+            flex-shrink: 0;
+        }
+
+        /* ── Form action row ─────────────────────────────────────────── */
+        .form-actions {
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+            margin-top: 8px;
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -531,11 +564,23 @@
 
     <!-- HEADER -->
     <div class="app-header">
-        <div class="d-flex align-items-center gap-3">
-            <div style="font-size:2rem; line-height:1;">📨</div>
-            <div>
-                <div style="font-size:1.25rem; font-weight:700; letter-spacing:-.01em;">Release Mail Generator</div>
-                <div style="font-size:.82rem; opacity:.75; margin-top:2px;">Genera el correo de liberación de forma automática y profesional</div>
+        <div class="d-flex align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="logo-pill">
+                    <img src="/images/logo-empresa.png" alt="Logo empresa"
+                         style="height:36px; width:auto; object-fit:contain; max-width:130px;"
+                         onerror="this.closest('.logo-pill').style.display='none'">
+                </div>
+                <div class="header-sep"></div>
+                <div>
+                    <div style="font-size:1.2rem; font-weight:700; letter-spacing:-.02em; line-height:1.25;">Release Notifier QA</div>
+                    <div style="font-size:.75rem; opacity:.85; margin-top:3px; font-weight:400; letter-spacing:.01em;">Plataforma de notificaciones de liberaci&#xF3;n &mdash; Equipo QA</div>
+                </div>
+            </div>
+            <div class="logo-pill">
+                <img src="/images/logo-qa.png" alt="Logo QA"
+                     style="height:36px; width:auto; object-fit:contain; max-width:130px;"
+                     onerror="this.closest('.logo-pill').style.display='none'">
             </div>
         </div>
     </div>
@@ -711,7 +756,7 @@
                       placeholder="Ej: Ejecutar primero los scripts antes del reinicio de DLLs."></textarea>
         </div>
 
-        <div class="text-end d-flex gap-2 justify-content-end">
+        <div class="form-actions d-flex gap-2 justify-content-end">
             <button type="button" class="btn-clear" onclick="clearAll()">&#x2715; Limpiar</button>
             <button type="submit" class="btn-generate">Generar Correo &rarr;</button>
         </div>
@@ -727,7 +772,7 @@
                     <span class="dot" style="background:#ef4444;"></span>
                     <span class="dot" style="background:#f59e0b;"></span>
                     <span class="dot" style="background:#10b981;"></span>
-                    <span style="margin-left:8px; opacity:.6;">Correo de liberación</span>
+                    <span style="margin-left:8px; opacity:.8;">Correo de liberación</span>
                 </div>
                 <button class="btn-copy" onclick="copyEmail()">&#x1F4CB; Copiar</button>
             </div>
@@ -768,7 +813,7 @@
             <button type="button" class="btn-add-rdl" onclick="addRdlEntry()">&#x2b; Agregar otro RDL</button>
         </div>
 
-        <div class="text-end d-flex gap-2 justify-content-end">
+        <div class="form-actions d-flex gap-2 justify-content-end">
             <button type="button" class="btn-clear" onclick="clearRdlForm()">&#x2715; Limpiar</button>
             <button type="button" class="btn-generate" onclick="submitRdlForm()">Generar Correo RDL &rarr;</button>
         </div>
@@ -784,7 +829,7 @@
                     <span class="dot" style="background:#ef4444;"></span>
                     <span class="dot" style="background:#f59e0b;"></span>
                     <span class="dot" style="background:#10b981;"></span>
-                    <span style="margin-left:8px; opacity:.6;">Correo RDL</span>
+                    <span style="margin-left:8px; opacity:.8;">Correo RDL</span>
                 </div>
                 <div class="d-flex gap-2">
                     <button class="btn-pdf" onclick="downloadRdlPdf()">&#x1F4E5; Descargar PDF</button>
@@ -868,7 +913,30 @@
             <!-- Fecha y Proyecto (por RDL) -->
             <div class="col-md-5">
                 <label class="form-label">Fecha de Liberaci&#xF3;n</label>
-                <input type="datetime-local" class="form-control" name="rdls[0].rdlReleaseDate">
+                <div class="d-flex gap-2">
+                    <input type="date" class="form-control" name="rdls[0].rdlReleaseDatePicker"
+                           style="flex:1; min-width:0;">
+                    <select class="form-select release-time-select" name="rdls[0].rdlReleaseTimePicker">
+                        <option value="">Hora</option>
+                        <option value="7:00 am">7:00 am</option>
+                        <option value="7:30 am">7:30 am</option>
+                        <option value="8:00 am">8:00 am</option>
+                        <option value="8:30 am">8:30 am</option>
+                        <option value="9:00 am">9:00 am</option>
+                        <option value="9:30 am">9:30 am</option>
+                        <option value="10:00 am">10:00 am</option>
+                        <option value="10:30 am">10:30 am</option>
+                        <option value="11:00 am">11:00 am</option>
+                        <option value="11:30 am">11:30 am</option>
+                        <option value="12:00 pm">12:00 pm</option>
+                        <option value="1:00 pm">1:00 pm</option>
+                        <option value="2:00 pm">2:00 pm</option>
+                        <option value="3:00 pm">3:00 pm</option>
+                        <option value="4:00 pm">4:00 pm</option>
+                        <option value="5:00 pm">5:00 pm</option>
+                        <option value="6:00 pm">6:00 pm</option>
+                    </select>
+                </div>
             </div>
             <div class="col-md-7">
                 <label class="form-label">Proyecto / RFC</label>
