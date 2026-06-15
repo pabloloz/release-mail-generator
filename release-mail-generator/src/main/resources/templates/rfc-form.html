@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${isEdit} ? 'Editar RFC Técnico' : 'Nuevo RFC Técnico'">RFC Técnico</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary:        #2563eb;
+            --primary-dark:   #1d4ed8;
+            --primary-darker: #1e3a8a;
+            --primary-light:  #eff6ff;
+            --primary-ring:   rgba(37,99,235,.18);
+            --success:        #059669;
+            --danger:         #dc2626;
+            --border:         #e2e8f0;
+            --bg:             #f1f5f9;
+            --bg-section:     #f8fafc;
+            --text:           #0f172a;
+            --text-muted:     #64748b;
+            --text-label:     #374151;
+            --shadow-md:      0 4px 24px rgba(0,0,0,.09);
+            --radius:         14px;
+            --radius-sm:      10px;
+            --radius-xs:      7px;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+        .app-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow-md); overflow: hidden; }
+        .app-header { background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 65%, #3b82f6 100%); color: white; padding: 20px 32px; }
+        .app-body { padding: 28px 32px; }
+        .section-block { background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px 22px; margin-bottom: 16px; }
+        .section-label { font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--primary); margin-bottom: 14px; display: flex; align-items: center; gap: 5px; }
+        .form-label { font-size: .8rem; font-weight: 600; color: var(--text-label); margin-bottom: 5px; }
+        .form-control, .form-select { border: 1.5px solid var(--border); border-radius: var(--radius-xs); font-size: .875rem; font-family: inherit; color: var(--text); background: white; transition: border-color .15s, box-shadow .15s; padding: .4rem .7rem; }
+        .form-control:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); outline: none; }
+        .form-control::placeholder { color: #94a3b8; font-size: .82rem; }
+        textarea.form-control { resize: vertical; line-height: 1.55; }
+        .form-text { font-size: .75rem; color: var(--text-muted); margin-top: 4px; }
+        .required-star { color: var(--danger); margin-left: 2px; }
+        .btn-save { background: var(--primary); color: white; border: none; padding: 10px 28px; border-radius: var(--radius-xs); font-weight: 600; font-size: .9rem; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+        .btn-save:hover:not(:disabled) { background: var(--primary-dark); }
+        .btn-save:disabled { opacity: .6; cursor: not-allowed; }
+        .btn-cancel { background: white; color: var(--text-muted); border: 1.5px solid var(--border); padding: 10px 20px; border-radius: var(--radius-xs); font-weight: 600; font-size: .9rem; cursor: pointer; font-family: inherit; transition: background .15s; text-decoration: none; display: inline-flex; align-items: center; }
+        .btn-cancel:hover { background: var(--bg); color: var(--text); }
+        .btn-add-item { background: var(--primary-light); color: var(--primary); border: 1.5px dashed #93c5fd; padding: 9px; border-radius: var(--radius-sm); font-weight: 600; font-size: .875rem; cursor: pointer; width: 100%; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background .15s, border-color .15s; margin-top: 10px; }
+        .btn-add-item:hover { background: #dbeafe; border-color: var(--primary); }
+        .btn-remove-item { background: #fef2f2; color: var(--danger); border: 1.5px solid #fecaca; padding: 4px 10px; border-radius: var(--radius-xs); font-size: .78rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: background .15s; }
+        .btn-remove-item:hover { background: #fee2e2; }
+        .dynamic-item { background: white; border: 1.5px solid #bfdbfe; border-radius: var(--radius-sm); padding: 16px 18px; margin-bottom: 10px; }
+        .autosave-indicator { font-size: .75rem; color: var(--success); display: none; align-items: center; gap: 4px; }
+        .autosave-indicator.visible { display: flex; }
+        .form-actions { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 8px; }
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast-msg { background: #1e293b; color: white; padding: 10px 18px; border-radius: var(--radius-xs); font-size: .84rem; font-weight: 500; font-family: inherit; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; max-width: 300px; }
+        .toast-msg.show { opacity: 1; transform: translateY(0); }
+        .toast-msg.toast-success { background: var(--success); }
+        .toast-msg.toast-error { background: var(--danger); }
+        .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: white; border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .is-invalid .form-control, .form-control.is-invalid { border-color: var(--danger) !important; }
+        @media (max-width:640px) { .app-header { padding: 16px 18px; } .app-body { padding: 18px; } }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+<div id="toast-container" aria-live="polite"></div>
+
+<div class="container" style="max-width:880px; padding-top:36px; padding-bottom:60px;">
+<div class="app-card">
+
+    <!-- HEADER -->
+    <div class="app-header">
+        <div class="d-flex align-items-center justify-content-between gap-3">
+            <div>
+                <div style="font-size:1.2rem; font-weight:700; letter-spacing:-.02em; line-height:1.25;"
+                     th:text="${isEdit} ? 'Editar RFC Técnico' : 'Nuevo RFC Técnico'"></div>
+                <div style="font-size:.75rem; opacity:.85; margin-top:3px;">Complete todos los campos obligatorios marcados con <span style="color:#fca5a5;">*</span></div>
+            </div>
+            <a href="/rfc" style="color:rgba(255,255,255,.85); border-color:rgba(255,255,255,.3); background:rgba(255,255,255,.1); border:1.5px solid rgba(255,255,255,.3); padding:7px 14px; border-radius:7px; text-decoration:none; font-size:.82rem; font-weight:600;">← Volver</a>
+        </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="app-body">
+
+    <!-- Hidden record ID -->
+    <input type="hidden" id="recordId" th:value="${record.id}">
+
+    <!-- ── SECCIÓN 1: INFORMACIÓN GENERAL ───────────────────────────────── -->
+    <div class="section-block">
+        <div class="section-label">📋 1. Información General</div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">RFC <span class="required-star">*</span></label>
+                <input type="text" id="rfcNumber" class="form-control" placeholder="Ej: RFC-23752"
+                       th:value="${record.rfcNumber}" oninput="scheduleAutosave()">
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">Nombre del Cambio <span class="required-star">*</span></label>
+                <input type="text" id="changeName" class="form-control" placeholder="Descripción breve del cambio"
+                       th:value="${record.changeName}" oninput="scheduleAutosave()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Fecha de Validación <span class="required-star">*</span></label>
+                <input type="date" id="validationDate" class="form-control"
+                       th:value="${record.validationDate}" oninput="scheduleAutosave()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Tester Responsable <span class="required-star">*</span></label>
+                <input type="text" id="testerName" class="form-control" placeholder="Nombre del tester"
+                       th:value="${record.testerName}" oninput="scheduleAutosave()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Solicitante / Área</label>
+                <input type="text" id="requester" class="form-control" placeholder="Ej: Gerencia de Cartera"
+                       th:value="${record.requester}" oninput="scheduleAutosave()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Ambiente</label>
+                <select id="environment" class="form-select" onchange="scheduleAutosave()">
+                    <option value="">Seleccionar...</option>
+                    <option value="DEV"  th:selected="${record.environment == 'DEV'}">DEV</option>
+                    <option value="QA"   th:selected="${record.environment == 'QA'}">QA</option>
+                    <option value="UAT"  th:selected="${record.environment == 'UAT'}">UAT</option>
+                    <option value="Otro" th:selected="${record.environment == 'Otro'}">Otro</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Estado del RFC</label>
+                <select id="status" class="form-select" onchange="scheduleAutosave()">
+                    <option value="Borrador"      th:selected="${record.status == null or record.status == 'Borrador'}">Borrador</option>
+                    <option value="En validación" th:selected="${record.status == 'En validación'}">En validación</option>
+                    <option value="Aprobado"      th:selected="${record.status == 'Aprobado'}">Aprobado</option>
+                    <option value="Rechazado"     th:selected="${record.status == 'Rechazado'}">Rechazado</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── SECCIÓN 2: CONTEXTO Y OBJETIVOS ──────────────────────────────── -->
+    <div class="section-block">
+        <div class="section-label">🔍 2. Contexto y Objetivos</div>
+        <div class="mb-3">
+            <label class="form-label">Contexto del Cambio <span class="required-star">*</span></label>
+            <textarea id="changeContext" class="form-control" rows="3"
+                      placeholder="Descripción del contexto y antecedentes del cambio..."
+                      oninput="scheduleAutosave()" th:text="${record.changeContext}"></textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Objetivo Principal <span class="required-star">*</span></label>
+            <textarea id="mainObjective" class="form-control" rows="2"
+                      placeholder="¿Qué se busca validar con este RFC?"
+                      oninput="scheduleAutosave()" th:text="${record.mainObjective}"></textarea>
+        </div>
+        <div>
+            <label class="form-label">Objetivos Específicos <span class="fw-normal text-muted">(opcionales)</span></label>
+            <textarea id="specificObjectives" class="form-control" rows="2"
+                      placeholder="Objetivos adicionales de la validación (uno por línea)..."
+                      oninput="scheduleAutosave()" th:text="${record.specificObjectives}"></textarea>
+        </div>
+    </div>
+
+    <!-- ── SECCIÓN 3: COMPONENTES TÉCNICOS ──────────────────────────────── -->
+    <div class="section-block">
+        <div class="section-label">⚙️ 3. Componentes Técnicos Impactados</div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Módulos</label>
+                <input type="text" id="modules" class="form-control" placeholder="Ej: Módulo Cartera, Módulo Contratos"
+                       th:value="${record.modules}" oninput="scheduleAutosave()">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Stored Procedures</label>
+                <input type="text" id="storedProcedures" class="form-control" placeholder="Ej: sp_update_paquete, mcab_sp_get"
+                       th:value="${record.storedProcedures}" oninput="scheduleAutosave()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Jobs</label>
+                <input type="text" id="jobs" class="form-control" placeholder="Ej: Job_Cartera_Nightly"
+                       th:value="${record.jobs}" oninput="scheduleAutosave()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Tablas</label>
+                <input type="text" id="tables" class="form-control" placeholder="Ej: tbl_contratos, tbl_clientes"
+                       th:value="${record.tables}" oninput="scheduleAutosave()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Reportes</label>
+                <input type="text" id="reports" class="form-control" placeholder="Ej: RPT_Cartera_Mensual"
+                       th:value="${record.reports}" oninput="scheduleAutosave()">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Otros Componentes Relevantes</label>
+                <input type="text" id="otherComponents" class="form-control"
+                       placeholder="APIs, servicios externos, configuraciones, etc."
+                       th:value="${record.otherComponents}" oninput="scheduleAutosave()">
+            </div>
+        </div>
+    </div>
+
+    <!-- ── SECCIÓN 4: REGLAS DE NEGOCIO ─────────────────────────────────── -->
+    <div class="section-block">
+        <div class="section-label">📌 4. Reglas de Negocio Validadas</div>
+        <div id="businessRulesContainer">
+            <div th:each="rule, stat : ${record.businessRules ?: {}}" class="dynamic-item">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span style="font-size:.78rem; font-weight:700; color:var(--primary);">
+                        Regla #<span class="item-num" th:text="${stat.index + 1}"></span>
+                    </span>
+                    <button type="button" class="btn-remove-item"
+                            onclick="removeItem(this, 'businessRulesContainer', 'Regla')">✕ Eliminar</button>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Descripción de la regla</label>
+                    <textarea class="form-control" name="rule-description" rows="2"
+                              placeholder="Describe la regla de negocio validada..."
+                              th:text="${rule.description}"></textarea>
+                </div>
+                <div>
+                    <label class="form-label">Estado de validación</label>
+                    <select class="form-select" name="rule-status">
+                        <option value="Pendiente" th:selected="${rule.validationStatus == 'Pendiente'}">⏳ Pendiente</option>
+                        <option value="Válida"    th:selected="${rule.validationStatus == 'Válida'}">✅ Válida</option>
+                        <option value="Inválida"  th:selected="${rule.validationStatus == 'Inválida'}">❌ Inválida</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <button type="button" class="btn-add-item" onclick="addBusinessRule()">+ Agregar regla de negocio</button>
+    </div>
+
+    <!-- ── SECCIÓN 5: CASOS DE PRUEBA ───────────────────────────────────── -->
+    <div class="section-block">
+        <div class="section-label">🧪 5. Casos de Prueba Ejecutados</div>
+        <div id="testCasesContainer">
+            <div th:each="tc, stat : ${record.testCases ?: {}}" class="dynamic-item">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span style="font-size:.78rem; font-weight:700; color:var(--primary);">
+                        Caso de Prueba #<span class="item-num" th:text="${stat.index + 1}"></span>
+                    </span>
+                    <button type="button" class="btn-remove-item"
+                            onclick="removeItem(this, 'testCasesContainer', 'Caso de Prueba')">✕ Eliminar</button>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="form-label">ID del Caso</label>
+                        <input type="text" class="form-control" name="tc-id"
+                               placeholder="Ej: TC-001" th:value="${tc.caseId}">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label">Descripción</label>
+                        <input type="text" class="form-control" name="tc-description"
+                               placeholder="¿Qué se prueba?" th:value="${tc.description}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Resultado</label>
+                        <select class="form-select" name="tc-result">
+                            <option value="Exitoso" th:selected="${tc.result == 'Exitoso'}">✅ Exitoso</option>
+                            <option value="Fallido" th:selected="${tc.result == 'Fallido'}">❌ Fallido</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Resultado Esperado</label>
+                        <textarea class="form-control" name="tc-expected" rows="2"
+                                  placeholder="¿Qué se esperaba?" th:text="${tc.expectedResult}"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Resultado Obtenido</label>
+                        <textarea class="form-control" name="tc-obtained" rows="2"
+                                  placeholder="¿Qué ocurrió realmente?" th:text="${tc.obtainedResult}"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button type="button" class="btn-add-item" onclick="addTestCase()">+ Agregar caso de prueba</button>
+    </div>
+
+    <!-- ── SECCIÓN 6: BUGS RELACIONADOS ─────────────────────────────────── -->
+    <div class="section-block">
+        <div class="section-label">🐛 6. Bugs Relacionados</div>
+        <div id="bugsContainer">
+            <div th:each="bug, stat : ${record.relatedBugs ?: {}}" class="dynamic-item">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span style="font-size:.78rem; font-weight:700; color:var(--primary);">
+                        Bug #<span class="item-num" th:text="${stat.index + 1}"></span>
+                    </span>
+                    <button type="button" class="btn-remove-item"
+                            onclick="removeItem(this, 'bugsContainer', 'Bug')">✕ Eliminar</button>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Identificador</label>
+                        <input type="text" class="form-control" name="bug-id"
+                               placeholder="Ej: BUG-4521" th:value="${bug.identifier}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Descripción</label>
+                        <input type="text" class="form-control" name="bug-description"
+                               placeholder="Descripción del bug" th:value="${bug.description}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Estatus</label>
+                        <input type="text" class="form-control" name="bug-status"
+                               placeholder="Ej: Abierto, Cerrado" th:value="${bug.bugStatus}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button type="button" class="btn-add-item" onclick="addBug()">+ Agregar bug relacionado</button>
+    </div>
+
+    <!-- ── SECCIÓN 7: CONCLUSIONES ──────────────────────────────────────── -->
+    <div class="section-block">
+        <div class="section-label">🏁 7. Conclusiones</div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Resultado Final del RFC <span class="required-star">*</span></label>
+                <select id="finalResult" class="form-select" onchange="scheduleAutosave()">
+                    <option value="">— Pendiente de evaluar —</option>
+                    <option value="Cumple"    th:selected="${record.finalResult == 'Cumple'}">✅ Cumple</option>
+                    <option value="No cumple" th:selected="${record.finalResult == 'No cumple'}">❌ No cumple</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Observaciones Relevantes</label>
+                <textarea id="observations" class="form-control" rows="3"
+                          placeholder="Observaciones importantes sobre el resultado de la validación..."
+                          oninput="scheduleAutosave()" th:text="${record.observations}"></textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Riesgos Identificados <span class="fw-normal text-muted">(si aplica)</span></label>
+                <textarea id="risks" class="form-control" rows="2"
+                          placeholder="Riesgos detectados durante la validación..."
+                          oninput="scheduleAutosave()" th:text="${record.risks}"></textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Recomendaciones <span class="fw-normal text-muted">(si aplica)</span></label>
+                <textarea id="recommendations" class="form-control" rows="2"
+                          placeholder="Acciones recomendadas para mitigar riesgos..."
+                          oninput="scheduleAutosave()" th:text="${record.recommendations}"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── SECCIÓN 8: NOTAS FINALES ─────────────────────────────────────── -->
+    <div class="section-block">
+        <div class="section-label">📝 8. Notas Finales</div>
+        <textarea id="finalNotes" class="form-control" rows="3"
+                  placeholder="Aclaraciones adicionales necesarias para interpretación futura..."
+                  oninput="scheduleAutosave()" th:text="${record.finalNotes}"></textarea>
+    </div>
+
+    <!-- ── ACCIONES ──────────────────────────────────────────────────────── -->
+    <div class="form-actions d-flex align-items-center justify-content-between gap-2">
+        <div id="autosaveIndicator" class="autosave-indicator">
+            ✓ Borrador guardado localmente
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/rfc" class="btn-cancel">✕ Cancelar</a>
+            <button id="saveBtn" type="button" class="btn-save" onclick="saveRfc()">
+                💾 Guardar RFC
+            </button>
+        </div>
+    </div>
+
+    </div><!-- /app-body -->
+</div>
+</div>
+
+<script>
+    // ── Autosave (localStorage draft) ────────────────────────────────────
+    let autosaveTimer;
+    const DRAFT_KEY = 'rfc-draft-' + (document.getElementById('recordId').value || 'new');
+
+    function scheduleAutosave() {
+        clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(() => {
+            const data = collectFormData();
+            try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch (e) {}
+            const ind = document.getElementById('autosaveIndicator');
+            ind.classList.add('visible');
+            setTimeout(() => ind.classList.remove('visible'), 2500);
+        }, 1500);
+    }
+
+    // ── Dynamic item helpers ─────────────────────────────────────────────
+    function removeItem(btn, containerId, label) {
+        const container = document.getElementById(containerId);
+        btn.closest('.dynamic-item').remove();
+        renumberItems(containerId, label);
+        scheduleAutosave();
+    }
+
+    function renumberItems(containerId, label) {
+        document.querySelectorAll('#' + containerId + ' .dynamic-item').forEach((item, idx) => {
+            const numEl = item.querySelector('.item-num');
+            if (numEl) numEl.textContent = idx + 1;
+        });
+    }
+
+    function appendDynamicItem(containerId, label, innerHtml) {
+        const container = document.getElementById(containerId);
+        const count = container.querySelectorAll('.dynamic-item').length;
+        const div = document.createElement('div');
+        div.className = 'dynamic-item';
+        div.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span style="font-size:.78rem;font-weight:700;color:var(--primary);">
+                    ${label} #<span class="item-num">${count + 1}</span>
+                </span>
+                <button type="button" class="btn-remove-item"
+                        onclick="removeItem(this,'${containerId}','${label}')">✕ Eliminar</button>
+            </div>
+            ${innerHtml}
+        `;
+        container.appendChild(div);
+        scheduleAutosave();
+    }
+
+    function addBusinessRule() {
+        appendDynamicItem('businessRulesContainer', 'Regla', `
+            <div class="mb-2">
+                <label class="form-label">Descripción de la regla</label>
+                <textarea class="form-control" name="rule-description" rows="2"
+                          placeholder="Describe la regla de negocio validada..."></textarea>
+            </div>
+            <div>
+                <label class="form-label">Estado de validación</label>
+                <select class="form-select" name="rule-status">
+                    <option value="Pendiente" selected>⏳ Pendiente</option>
+                    <option value="Válida">✅ Válida</option>
+                    <option value="Inválida">❌ Inválida</option>
+                </select>
+            </div>
+        `);
+    }
+
+    function addTestCase() {
+        appendDynamicItem('testCasesContainer', 'Caso de Prueba', `
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label">ID del Caso</label>
+                    <input type="text" class="form-control" name="tc-id" placeholder="Ej: TC-001">
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Descripción</label>
+                    <input type="text" class="form-control" name="tc-description" placeholder="¿Qué se prueba?">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Resultado</label>
+                    <select class="form-select" name="tc-result">
+                        <option value="Exitoso" selected>✅ Exitoso</option>
+                        <option value="Fallido">❌ Fallido</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Resultado Esperado</label>
+                    <textarea class="form-control" name="tc-expected" rows="2" placeholder="¿Qué se esperaba?"></textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Resultado Obtenido</label>
+                    <textarea class="form-control" name="tc-obtained" rows="2" placeholder="¿Qué ocurrió realmente?"></textarea>
+                </div>
+            </div>
+        `);
+    }
+
+    function addBug() {
+        appendDynamicItem('bugsContainer', 'Bug', `
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label">Identificador</label>
+                    <input type="text" class="form-control" name="bug-id" placeholder="Ej: BUG-4521">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Descripción</label>
+                    <input type="text" class="form-control" name="bug-description" placeholder="Descripción del bug">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Estatus</label>
+                    <input type="text" class="form-control" name="bug-status" placeholder="Ej: Abierto, Cerrado">
+                </div>
+            </div>
+        `);
+    }
+
+    // ── Data collection ──────────────────────────────────────────────────
+    function gv(id) {
+        const el = document.getElementById(id);
+        return el ? el.value.trim() : '';
+    }
+
+    function collectFormData() {
+        const businessRules = Array.from(
+            document.querySelectorAll('#businessRulesContainer .dynamic-item')
+        ).map(item => ({
+            description:      (item.querySelector('[name="rule-description"]') || {}).value || '',
+            validationStatus: (item.querySelector('[name="rule-status"]') || {}).value || 'Pendiente'
+        })).filter(r => r.description.trim());
+
+        const testCases = Array.from(
+            document.querySelectorAll('#testCasesContainer .dynamic-item')
+        ).map(item => ({
+            caseId:         (item.querySelector('[name="tc-id"]')          || {}).value || '',
+            description:    (item.querySelector('[name="tc-description"]') || {}).value || '',
+            expectedResult: (item.querySelector('[name="tc-expected"]')    || {}).value || '',
+            obtainedResult: (item.querySelector('[name="tc-obtained"]')    || {}).value || '',
+            result:         (item.querySelector('[name="tc-result"]')      || {}).value || 'Exitoso'
+        })).filter(tc => tc.description.trim());
+
+        const relatedBugs = Array.from(
+            document.querySelectorAll('#bugsContainer .dynamic-item')
+        ).map(item => ({
+            identifier:  (item.querySelector('[name="bug-id"]')          || {}).value || '',
+            description: (item.querySelector('[name="bug-description"]') || {}).value || '',
+            bugStatus:   (item.querySelector('[name="bug-status"]')      || {}).value || ''
+        })).filter(b => b.description.trim());
+
+        return {
+            id:                 gv('recordId'),
+            rfcNumber:          gv('rfcNumber'),
+            changeName:         gv('changeName'),
+            validationDate:     gv('validationDate'),
+            testerName:         gv('testerName'),
+            requester:          gv('requester'),
+            environment:        gv('environment'),
+            changeContext:      gv('changeContext'),
+            mainObjective:      gv('mainObjective'),
+            specificObjectives: gv('specificObjectives'),
+            modules:            gv('modules'),
+            storedProcedures:   gv('storedProcedures'),
+            jobs:               gv('jobs'),
+            tables:             gv('tables'),
+            reports:            gv('reports'),
+            otherComponents:    gv('otherComponents'),
+            businessRules,
+            testCases,
+            relatedBugs,
+            finalResult:        gv('finalResult'),
+            observations:       gv('observations'),
+            risks:              gv('risks'),
+            recommendations:    gv('recommendations'),
+            finalNotes:         gv('finalNotes'),
+            status:             gv('status')
+        };
+    }
+
+    // ── Validation ───────────────────────────────────────────────────────
+    function validateData(data) {
+        const errors = [];
+        if (!data.rfcNumber)       errors.push('RFC es obligatorio');
+        if (!data.changeName)      errors.push('Nombre del cambio es obligatorio');
+        if (!data.validationDate)  errors.push('Fecha de validación es obligatoria');
+        if (!data.testerName)      errors.push('Tester responsable es obligatorio');
+        if (!data.changeContext)   errors.push('Contexto del cambio es obligatorio');
+        if (!data.mainObjective)   errors.push('Objetivo principal es obligatorio');
+        return errors;
+    }
+
+    // ── Save ─────────────────────────────────────────────────────────────
+    async function saveRfc() {
+        const data = collectFormData();
+        const errors = validateData(data);
+        if (errors.length > 0) {
+            showToast('Campos requeridos: ' + errors.join(' | '), 'error');
+            return;
+        }
+
+        const btn = document.getElementById('saveBtn');
+        const origHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>&nbsp;Guardando...';
+
+        try {
+            const resp = await fetch('/rfc/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!resp.ok) throw new Error('Error ' + resp.status);
+            const result = await resp.json();
+            try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+            window.location.href = result.redirect;
+        } catch (err) {
+            showToast('Error al guardar: ' + err.message, 'error');
+            btn.disabled = false;
+            btn.innerHTML = origHTML;
+        }
+    }
+
+    // ── Toast ────────────────────────────────────────────────────────────
+    function showToast(msg, type) {
+        const container = document.getElementById('toast-container');
+        const el = document.createElement('div');
+        el.className = 'toast-msg' + (type ? ' toast-' + type : '');
+        el.textContent = msg;
+        container.appendChild(el);
+        requestAnimationFrame(() => { requestAnimationFrame(() => el.classList.add('show')); });
+        setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 4000);
+    }
+
+    // ── Load draft on create ─────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+        const isEdit = /*[[${isEdit}]]*/ false;
+        if (!isEdit) {
+            try {
+                const draft = localStorage.getItem(DRAFT_KEY);
+                if (draft) {
+                    // Draft exists but don't auto-load to avoid confusion; just show indicator
+                }
+            } catch (e) {}
+        }
+    });
+</script>
+</body>
+</html>

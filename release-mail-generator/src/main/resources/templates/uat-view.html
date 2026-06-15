@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="'VoBo UAT — ' + ${record.rfcNumber}">VoBo UAT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary:        #2563eb;
+            --primary-dark:   #1d4ed8;
+            --primary-darker: #1e3a8a;
+            --primary-light:  #eff6ff;
+            --success:        #059669;
+            --danger:         #dc2626;
+            --border:         #e2e8f0;
+            --bg:             #f1f5f9;
+            --bg-section:     #f8fafc;
+            --text:           #0f172a;
+            --text-muted:     #64748b;
+            --shadow-md:      0 4px 24px rgba(0,0,0,.09);
+            --radius:         14px;
+            --radius-sm:      10px;
+            --radius-xs:      7px;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+        .app-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow-md); overflow: hidden; }
+        .app-header { background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 65%, #3b82f6 100%); color: white; padding: 20px 32px; }
+        .app-body { padding: 28px 32px; }
+        .section-block { background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 22px 24px; margin-bottom: 20px; }
+        .section-label { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1.5px solid var(--border); }
+        .info-pair { display: flex; gap: 4px; align-items: baseline; margin-bottom: 8px; font-size: .875rem; }
+        .info-pair .lbl { font-weight: 600; color: #374151; min-width: 160px; flex-shrink: 0; font-size: .8rem; }
+        .info-pair .val { color: var(--text); }
+        .status-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 20px; font-size: .78rem; font-weight: 700; letter-spacing: .03em; }
+        .status-borrador  { background: #f1f5f9; color: #475569; }
+        .status-enviado   { background: #dbeafe; color: #1d4ed8; }
+        .status-aprobado  { background: #d1fae5; color: #065f46; }
+        .status-rechazado { background: #fee2e2; color: #991b1b; }
+        /* Email preview */
+        .email-wrapper { border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
+        .email-toolbar { background: #1e293b; color: #94a3b8; padding: 9px 18px; font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+        .email-toolbar span { color: #e2e8f0; }
+        .email-body { background: #fff; padding: 28px 32px; font-size: .9rem; }
+        /* Action buttons */
+        .btn-ghost { background: white; color: var(--text-muted); border: 1.5px solid var(--border); padding: 8px 18px; border-radius: var(--radius-xs); font-size: .875rem; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+        .btn-ghost:hover { background: var(--bg); color: var(--text); }
+        .btn-pdf  { background: #7c3aed; color: white; border: none; padding: 8px 18px; border-radius: var(--radius-xs); font-weight: 600; font-size: .875rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+        .btn-pdf:hover  { background: #6d28d9; color: white; }
+        .btn-md   { background: #0f766e; color: white; border: none; padding: 8px 18px; border-radius: var(--radius-xs); font-weight: 600; font-size: .875rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+        .btn-md:hover   { background: #0d5e58; color: white; }
+        .btn-html { background: #059669; color: white; border: none; padding: 8px 18px; border-radius: var(--radius-xs); font-weight: 600; font-size: .875rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+        .btn-html:hover { background: #047857; color: white; }
+        .btn-copy { background: var(--primary); color: white; border: none; padding: 8px 18px; border-radius: var(--radius-xs); font-weight: 600; font-size: .875rem; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+        .btn-copy:hover { background: var(--primary-dark); }
+        .btn-danger-outline { background: white; color: var(--danger); border: 1.5px solid #fca5a5; padding: 8px 18px; border-radius: var(--radius-xs); font-size: .875rem; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+        .btn-danger-outline:hover { background: #fef2f2; color: var(--danger); }
+        /* Info table */
+        .info-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+        .info-table th { background: var(--bg-section); font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); padding: 8px 12px; text-align: left; border-bottom: 2px solid var(--border); }
+        .info-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        .info-table tr:last-child td { border-bottom: none; }
+        .info-table tr:nth-child(even) td { background: var(--bg-section); }
+        .metadata { font-size: .78rem; color: var(--text-muted); display: flex; gap: 20px; flex-wrap: wrap; }
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast-msg { background: #1e293b; color: white; padding: 10px 18px; border-radius: var(--radius-xs); font-size: .84rem; font-weight: 500; font-family: inherit; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; max-width: 300px; }
+        .toast-msg.show { opacity: 1; transform: translateY(0); }
+        .toast-msg.toast-success { background: var(--success); }
+        .toast-msg.toast-error   { background: var(--danger); }
+        .empty-val { color: var(--text-muted); font-style: italic; font-size: .82rem; }
+        .list-inline-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .pill { background: var(--primary-light); color: var(--primary); border-radius: 20px; padding: 3px 12px; font-size: .78rem; font-weight: 600; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+<div id="toast-container" aria-live="polite"></div>
+<div class="container" style="max-width:960px; padding-top:36px; padding-bottom:60px;">
+<div class="app-card">
+
+    <!-- HEADER -->
+    <div class="app-header">
+        <div class="d-flex align-items-start justify-content-between gap-3">
+            <div>
+                <div style="font-size:1.1rem; font-weight:700; letter-spacing:-.02em; line-height:1.3;">
+                    ✅ VoBo UAT &mdash;
+                    <span th:text="${record.rfcNumber}">RFC</span>
+                    &ndash;
+                    <span th:text="${record.rfcName}">Nombre</span>
+                </div>
+                <div style="margin-top:8px; display:flex; align-items:center; gap:10px;">
+                    <span class="status-badge"
+                          th:classappend="${record.status == 'Aprobado'  ? 'status-aprobado'  :
+                                           record.status == 'Rechazado' ? 'status-rechazado' :
+                                           record.status == 'Enviado'   ? 'status-enviado'   :
+                                                                          'status-borrador'}"
+                          th:text="${record.status ?: 'Borrador'}"></span>
+                    <span style="font-size:.75rem; opacity:.85;"
+                          th:text="${record.moduleName ?: ''}"></span>
+                </div>
+            </div>
+            <a href="/uat" class="btn-ghost" style="color:rgba(255,255,255,.85); border-color:rgba(255,255,255,.3); background:rgba(255,255,255,.1);">
+                ← Volver a la lista
+            </a>
+        </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="app-body">
+
+        <!-- Action bar TOP -->
+        <div class="d-flex gap-2 flex-wrap mb-4">
+            <a th:href="@{/uat/{id}/pdf(id=${record.id})}"      class="btn-pdf">📥 Exportar PDF</a>
+            <a th:href="@{/uat/{id}/markdown(id=${record.id})}" class="btn-md">📄 Exportar Markdown</a>
+            <a th:href="@{/uat/{id}/html(id=${record.id})}"     class="btn-html">🌐 Exportar HTML</a>
+            <button type="button" class="btn-copy" onclick="copyEmailHtml()">📋 Copiar correo</button>
+            <a th:href="@{/uat/{id}/edit(id=${record.id})}"     class="btn-ghost">✏️ Editar</a>
+            <form th:action="@{/uat/{id}/delete(id=${record.id})}" method="post"
+                  onsubmit="return confirm('¿Eliminar esta solicitud? Esta acción no se puede deshacer.')">
+                <button type="submit" class="btn-danger-outline">🗑 Eliminar</button>
+            </form>
+        </div>
+
+        <!-- EMAIL PREVIEW -->
+        <div class="email-wrapper mb-4">
+            <div class="email-toolbar">
+                <span>📧 Vista previa del correo</span>
+            </div>
+            <div class="email-body" id="email-preview" th:utext="${emailHtml}"></div>
+        </div>
+
+        <!-- 1. INFO GENERAL -->
+        <div class="section-block">
+            <div class="section-label">1. Información General</div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <div class="info-pair"><span class="lbl">RFC:</span>
+                        <span class="val" th:text="${record.rfcNumber ?: '—'}"></span></div>
+                    <div class="info-pair"><span class="lbl">Nombre del RFC:</span>
+                        <span class="val" th:text="${record.rfcName ?: '—'}"></span></div>
+                    <div class="info-pair"><span class="lbl">Módulo:</span>
+                        <span class="val" th:text="${record.moduleName ?: '—'}"></span></div>
+                    <div class="info-pair"><span class="lbl">Ambiente:</span>
+                        <span class="val" th:text="${record.environment ?: '—'}"></span></div>
+                </div>
+                <div class="col-md-6">
+                    <div class="info-pair"><span class="lbl">Responsable QA:</span>
+                        <span class="val" th:text="${record.qaResponsible ?: '—'}"></span></div>
+                    <div class="info-pair"><span class="lbl">Fecha solicitud:</span>
+                        <span class="val" th:text="${record.requestDate ?: '—'}"></span></div>
+                    <div class="info-pair"><span class="lbl">Estado:</span>
+                        <span class="status-badge"
+                              th:classappend="${record.status == 'Aprobado'  ? 'status-aprobado'  :
+                                               record.status == 'Rechazado' ? 'status-rechazado' :
+                                               record.status == 'Enviado'   ? 'status-enviado'   :
+                                                                              'status-borrador'}"
+                              th:text="${record.status ?: 'Borrador'}"></span></div>
+                </div>
+            </div>
+            <div class="metadata mt-3">
+                <span th:if="${record.createdAt != null}">
+                    Creado: <b th:text="${#temporals.format(record.createdAt,'dd/MM/yyyy HH:mm')}"></b>
+                </span>
+                <span th:if="${record.updatedAt != null}">
+                    Actualizado: <b th:text="${#temporals.format(record.updatedAt,'dd/MM/yyyy HH:mm')}"></b>
+                </span>
+            </div>
+        </div>
+
+        <!-- 2. ALCANCE -->
+        <div class="section-block">
+            <div class="section-label">2. Alcance de la Validación</div>
+            <p th:if="${record.scopeDescription != null and !record.scopeDescription.isBlank()}"
+               th:text="${record.scopeDescription}" style="margin-bottom:8px;"></p>
+            <p th:if="${record.functionalScope != null and !record.functionalScope.isBlank()}"
+               th:text="${record.functionalScope}" style="margin-bottom:8px;"></p>
+            <ul th:if="${record.scopeItems != null and !record.scopeItems.isEmpty()}" style="margin-bottom:8px;">
+                <li th:each="item : ${record.scopeItems}" th:text="${item}"></li>
+            </ul>
+            <div th:if="${record.promotionNumbers != null and !record.promotionNumbers.isBlank()}"
+                 style="font-size:.875rem;">
+                <b>Incluye promociones:</b> <span th:text="${record.promotionNumbers}"></span>
+            </div>
+            <span th:if="${(record.scopeDescription == null or record.scopeDescription.isBlank())
+                        and (record.scopeItems == null or record.scopeItems.isEmpty())}"
+                  class="empty-val">Sin información de alcance.</span>
+        </div>
+
+        <!-- 3. ESCENARIOS -->
+        <div class="section-block">
+            <div class="section-label">3. Escenarios a Validar</div>
+            <ul th:if="${record.scenarios != null and !record.scenarios.isEmpty()}" style="margin:0;">
+                <li th:each="sc : ${record.scenarios}" th:text="${sc}" style="margin-bottom:4px;"></li>
+            </ul>
+            <span th:if="${record.scenarios == null or record.scenarios.isEmpty()}"
+                  class="empty-val">Sin escenarios registrados.</span>
+        </div>
+
+        <!-- 4. REQUISITOS -->
+        <div class="section-block">
+            <div class="section-label">4. Nota — Requisitos para la Validación</div>
+            <div th:if="${record.requirements != null and !record.requirements.isEmpty()}" style="overflow-x:auto;">
+                <table class="info-table">
+                    <thead>
+                        <tr>
+                            <th>Sucursal</th><th>Suscriptor</th><th>Servicio</th><th>Datos adicionales</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="req : ${record.requirements}">
+                            <td th:text="${req.sucursal ?: '—'}"></td>
+                            <td th:text="${req.suscriptor ?: '—'}"></td>
+                            <td th:text="${req.servicio ?: '—'}"></td>
+                            <td th:text="${req.additionalData ?: '—'}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <span th:if="${record.requirements == null or record.requirements.isEmpty()}"
+                  class="empty-val">Sin requisitos registrados.</span>
+        </div>
+
+        <!-- 5. CASOS DE PRUEBA -->
+        <div class="section-block">
+            <div class="section-label">5. Casos de Prueba / Ejemplos Validados</div>
+            <div th:if="${record.testCases != null and !record.testCases.isEmpty()}" style="overflow-x:auto;">
+                <table class="info-table">
+                    <thead>
+                        <tr>
+                            <th>Sucursal</th><th>Suscriptor</th><th>Servicio</th>
+                            <th>Resultado Esperado</th><th>Resultado Obtenido</th><th>Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="tc : ${record.testCases}">
+                            <td th:text="${tc.sucursal ?: '—'}"></td>
+                            <td th:text="${tc.suscriptor ?: '—'}"></td>
+                            <td th:text="${tc.servicio ?: '—'}"></td>
+                            <td th:text="${tc.expectedResult ?: '—'}"></td>
+                            <td th:text="${tc.obtainedResult ?: '—'}"></td>
+                            <td th:text="${tc.observations ?: '—'}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <span th:if="${record.testCases == null or record.testCases.isEmpty()}"
+                  class="empty-val">Sin casos de prueba registrados.</span>
+        </div>
+
+        <!-- 6. PASOS DE EJECUCIÓN -->
+        <div class="section-block">
+            <div class="section-label">6. Pasos de Ejecución</div>
+            <ol th:if="${record.executionSteps != null and !record.executionSteps.isEmpty()}" style="margin:0;">
+                <li th:each="step : ${record.executionSteps}" th:text="${step}" style="margin-bottom:6px;"></li>
+            </ol>
+            <span th:if="${record.executionSteps == null or record.executionSteps.isEmpty()}"
+                  class="empty-val">Sin pasos registrados.</span>
+        </div>
+
+        <!-- 7. CONFIGURACIÓN TÉCNICA -->
+        <div class="section-block"
+             th:if="${(record.server != null and !record.server.isBlank())
+                  or (record.path != null and !record.path.isBlank())
+                  or (record.appUrl != null and !record.appUrl.isBlank())
+                  or (record.application != null and !record.application.isBlank())
+                  or (record.technicalEnvironment != null and !record.technicalEnvironment.isBlank())}">
+            <div class="section-label">7. Configuración Técnica</div>
+            <div class="info-pair" th:if="${record.server != null and !record.server.isBlank()}">
+                <span class="lbl">Servidor:</span><span class="val" th:text="${record.server}"></span></div>
+            <div class="info-pair" th:if="${record.technicalEnvironment != null and !record.technicalEnvironment.isBlank()}">
+                <span class="lbl">Ambiente técnico:</span><span class="val" th:text="${record.technicalEnvironment}"></span></div>
+            <div class="info-pair" th:if="${record.path != null and !record.path.isBlank()}">
+                <span class="lbl">Ruta:</span><span class="val" th:text="${record.path}"></span></div>
+            <div class="info-pair" th:if="${record.appUrl != null and !record.appUrl.isBlank()}">
+                <span class="lbl">URL:</span><span class="val" th:text="${record.appUrl}"></span></div>
+            <div class="info-pair" th:if="${record.application != null and !record.application.isBlank()}">
+                <span class="lbl">Aplicación:</span><span class="val" th:text="${record.application}"></span></div>
+        </div>
+
+        <!-- ADJUNTOS -->
+        <div class="section-block" th:if="${record.attachmentNames != null and !record.attachmentNames.isEmpty()}">
+            <div class="section-label">Adjuntos mencionados</div>
+            <div class="list-inline-pills">
+                <span th:each="att : ${record.attachmentNames}" class="pill" th:text="${att}"></span>
+            </div>
+        </div>
+
+        <!-- COMENTARIOS FINALES -->
+        <div class="section-block" th:if="${record.finalComments != null and !record.finalComments.isBlank()}">
+            <div class="section-label">Comentarios Finales</div>
+            <p th:text="${record.finalComments}" style="margin:0;"></p>
+        </div>
+
+        <!-- Action bar BOTTOM -->
+        <div class="d-flex gap-2 flex-wrap mt-4">
+            <a th:href="@{/uat/{id}/pdf(id=${record.id})}"      class="btn-pdf">📥 Exportar PDF</a>
+            <a th:href="@{/uat/{id}/markdown(id=${record.id})}" class="btn-md">📄 Exportar Markdown</a>
+            <a th:href="@{/uat/{id}/html(id=${record.id})}"     class="btn-html">🌐 Exportar HTML</a>
+            <button type="button" class="btn-copy" onclick="copyEmailHtml()">📋 Copiar correo</button>
+            <a th:href="@{/uat/{id}/edit(id=${record.id})}"     class="btn-ghost">✏️ Editar</a>
+            <a href="/uat" class="btn-ghost">← Volver a la lista</a>
+        </div>
+
+    </div><!-- /app-body -->
+</div><!-- /app-card -->
+</div>
+
+<script>
+    function copyEmailHtml() {
+        const el = document.getElementById('email-preview');
+        if (!el) return;
+        const text = el.innerText || el.textContent;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text)
+                .then(() => showToast('Texto del correo copiado al portapapeles.', 'success'))
+                .catch(() => fallbackCopy(text));
+        } else { fallbackCopy(text); }
+    }
+    function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); showToast('Texto copiado.', 'success'); }
+        catch(e) { showToast('No se pudo copiar.', 'error'); }
+        document.body.removeChild(ta);
+    }
+    function showToast(msg, type) {
+        const container = document.getElementById('toast-container');
+        const el = document.createElement('div');
+        el.className = 'toast-msg' + (type ? ' toast-' + type : '');
+        el.textContent = msg;
+        container.appendChild(el);
+        requestAnimationFrame(() => { requestAnimationFrame(() => el.classList.add('show')); });
+        setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 3500);
+    }
+</script>
+</body>
+</html>

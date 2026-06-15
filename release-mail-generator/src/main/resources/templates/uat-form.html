@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${isNew} ? 'Nueva Solicitud UAT' : 'Editar Solicitud UAT'">Solicitud UAT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary:        #2563eb;
+            --primary-dark:   #1d4ed8;
+            --primary-darker: #1e3a8a;
+            --primary-light:  #eff6ff;
+            --success:        #059669;
+            --danger:         #dc2626;
+            --border:         #e2e8f0;
+            --bg:             #f1f5f9;
+            --bg-section:     #f8fafc;
+            --text:           #0f172a;
+            --text-muted:     #64748b;
+            --shadow-md:      0 4px 24px rgba(0,0,0,.09);
+            --radius:         14px;
+            --radius-sm:      10px;
+            --radius-xs:      7px;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+        .app-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow-md); overflow: hidden; }
+        .app-header { background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 65%, #3b82f6 100%); color: white; padding: 20px 32px; }
+        .app-body { padding: 28px 32px; }
+        .section-block { background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 22px 24px; margin-bottom: 20px; }
+        .section-label { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1.5px solid var(--border); }
+        .form-label { font-size: .8rem; font-weight: 600; margin-bottom: 4px; color: #374151; }
+        .form-control, .form-select { font-size: .875rem; font-family: inherit; border-color: var(--border); border-radius: var(--radius-xs); }
+        .form-control:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+        .btn-generate { background: var(--primary); color: white; border: none; padding: 10px 28px; border-radius: var(--radius-xs); font-weight: 700; font-size: .95rem; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 8px; transition: background .15s; }
+        .btn-generate:hover { background: var(--primary-dark); }
+        .btn-ghost { background: white; color: var(--text-muted); border: 1.5px solid var(--border); padding: 8px 18px; border-radius: var(--radius-xs); font-size: .875rem; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+        .btn-ghost:hover { background: var(--bg); color: var(--text); }
+        .btn-preview { background: #0f766e; color: white; border: none; padding: 9px 22px; border-radius: var(--radius-xs); font-weight: 600; font-size: .875rem; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+        .btn-preview:hover { background: #0d5e58; }
+        .btn-add { background: var(--primary-light); color: var(--primary); border: 1.5px solid #bfdbfe; padding: 6px 14px; border-radius: var(--radius-xs); font-size: .8rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: background .15s; }
+        .btn-add:hover { background: #dbeafe; }
+        .btn-remove { background: #fef2f2; color: var(--danger); border: 1.5px solid #fecaca; padding: 4px 10px; border-radius: var(--radius-xs); font-size: .78rem; font-weight: 600; cursor: pointer; font-family: inherit; flex-shrink: 0; }
+        .btn-remove:hover { background: #fee2e2; }
+        .dynamic-item { background: white; border: 1px solid var(--border); border-radius: var(--radius-xs); padding: 12px 14px; margin-bottom: 8px; display: flex; gap: 10px; align-items: flex-start; }
+        .dynamic-item.grid-item { flex-wrap: wrap; }
+        .dynamic-item .item-fields { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+        .dynamic-item .item-fields.row-layout { flex-direction: row; flex-wrap: wrap; }
+        .item-field { flex: 1; min-width: 120px; }
+        .required-mark { color: var(--danger); margin-left: 2px; }
+        .error-msg { font-size: .78rem; color: var(--danger); margin-top: 4px; display: none; }
+        .field-error .form-control, .field-error .form-select { border-color: var(--danger); }
+        .field-error .error-msg { display: block; }
+        .preview-wrapper { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-top: 16px; }
+        .preview-toolbar { background: #1e293b; color: #94a3b8; padding: 8px 16px; font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+        .preview-body { padding: 24px; background: #fff; max-height: 560px; overflow-y: auto; font-size: .9rem; }
+        .preview-empty { padding: 32px; text-align: center; color: var(--text-muted); font-size: .875rem; }
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast-msg { background: #1e293b; color: white; padding: 10px 18px; border-radius: var(--radius-xs); font-size: .84rem; font-weight: 500; font-family: inherit; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; max-width: 300px; }
+        .toast-msg.show { opacity: 1; transform: translateY(0); }
+        .toast-msg.toast-success { background: var(--success); }
+        .toast-msg.toast-error   { background: var(--danger); }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+<div id="toast-container" aria-live="polite"></div>
+<div class="container" style="max-width:900px; padding-top:36px; padding-bottom:60px;">
+<div class="app-card">
+
+    <!-- HEADER -->
+    <div class="app-header">
+        <div class="d-flex align-items-center justify-content-between gap-3">
+            <div>
+                <div style="font-size:1.2rem; font-weight:700; letter-spacing:-.02em; line-height:1.25;"
+                     th:text="${isNew} ? '✅ Nueva Solicitud VoBo UAT' : '✏️ Editar Solicitud VoBo UAT'">Nueva Solicitud VoBo UAT</div>
+                <div style="font-size:.75rem; opacity:.85; margin-top:3px;">Complete los datos para generar el correo de VoBo UAT</div>
+            </div>
+            <a href="/uat" class="btn-ghost" style="color:rgba(255,255,255,.85); border-color:rgba(255,255,255,.3); background:rgba(255,255,255,.1);">
+                ← Volver a la lista
+            </a>
+        </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="app-body">
+
+        <!-- 1. INFO GENERAL -->
+        <div class="section-block">
+            <div class="section-label">1. Información General</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Número de RFC <span class="required-mark">*</span></label>
+                    <input type="text" id="rfcNumber" class="form-control" placeholder="RFC 24015"
+                           th:value="${record.rfcNumber}">
+                    <div class="error-msg">Campo requerido.</div>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Nombre del RFC <span class="required-mark">*</span></label>
+                    <input type="text" id="rfcName" class="form-control" placeholder="Promociones combinen con 120 Mbps"
+                           th:value="${record.rfcName}">
+                    <div class="error-msg">Campo requerido.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Módulo / Sistema</label>
+                    <input type="text" id="moduleName" class="form-control" placeholder="Servicios_UAT"
+                           th:value="${record.moduleName}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Ambiente</label>
+                    <select id="environment" class="form-select">
+                        <option value="">— Seleccionar —</option>
+                        <option value="UAT" th:selected="${record.environment == 'UAT'}">UAT</option>
+                        <option value="QA"  th:selected="${record.environment == 'QA'}">QA</option>
+                        <option value="DEV" th:selected="${record.environment == 'DEV'}">DEV</option>
+                        <option value="Producción" th:selected="${record.environment == 'Producción'}">Producción</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Responsable QA <span class="required-mark">*</span></label>
+                    <input type="text" id="qaResponsible" class="form-control" placeholder="Nombre del tester"
+                           th:value="${record.qaResponsible}">
+                    <div class="error-msg">Campo requerido.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Fecha de Solicitud</label>
+                    <input type="text" id="requestDate" class="form-control" placeholder="dd/mm/yyyy"
+                           th:value="${record.requestDate}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Estado</label>
+                    <select id="status" class="form-select">
+                        <option value="Borrador"  th:selected="${record.status == 'Borrador'  or record.status == null}">Borrador</option>
+                        <option value="Enviado"   th:selected="${record.status == 'Enviado'}">Enviado</option>
+                        <option value="Aprobado"  th:selected="${record.status == 'Aprobado'}">Aprobado</option>
+                        <option value="Rechazado" th:selected="${record.status == 'Rechazado'}">Rechazado</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. ALCANCE -->
+        <div class="section-block">
+            <div class="section-label">2. Alcance de la Validación</div>
+            <div class="mb-3">
+                <label class="form-label">Descripción introductoria</label>
+                <textarea id="scopeDescription" class="form-control" rows="2"
+                          placeholder="Ej: Adjunto documentación de la validación del RFC..."
+                          th:text="${record.scopeDescription}"></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Alcance funcional / contexto adicional</label>
+                <textarea id="functionalScope" class="form-control" rows="2"
+                          placeholder="Ej: Este RFC permite que las promociones combinen con planes de 120 Mbps..."
+                          th:text="${record.functionalScope}"></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Elementos del alcance (servicios, planes, etc.)</label>
+                <div id="scopeItems-container">
+                    <div th:each="item : ${record.scopeItems}" class="dynamic-item">
+                        <div class="item-fields">
+                            <input type="text" class="form-control scope-item-input" placeholder="Ej: Servicio Triple Play 100 Mbps" th:value="${item}">
+                        </div>
+                        <button type="button" class="btn-remove" onclick="removeItem(this)">✕</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add mt-2" onclick="addScopeItem()">+ Agregar elemento</button>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Números de promoción (separados por coma)</label>
+                <input type="text" id="promotionNumbers" class="form-control"
+                       placeholder="5251, 3815, 3816, 4001..."
+                       th:value="${record.promotionNumbers}">
+            </div>
+        </div>
+
+        <!-- 3. ESCENARIOS -->
+        <div class="section-block">
+            <div class="section-label">3. Escenarios a Validar</div>
+            <div id="scenarios-container">
+                <div th:each="sc : ${record.scenarios}" class="dynamic-item">
+                    <div class="item-fields">
+                        <input type="text" class="form-control scenario-input" placeholder="Ej: Que las promociones convivan con el plan base" th:value="${sc}">
+                    </div>
+                    <button type="button" class="btn-remove" onclick="removeItem(this)">✕</button>
+                </div>
+            </div>
+            <button type="button" class="btn-add mt-2" onclick="addScenario()">+ Agregar escenario</button>
+        </div>
+
+        <!-- 4. REQUISITOS (NOTA) -->
+        <div class="section-block">
+            <div class="section-label">4. Nota — Requisitos para la Validación</div>
+            <p style="font-size:.8rem; color:var(--text-muted); margin-bottom:12px;">
+                Datos de cuentas / suscriptores necesarios para ejecutar la validación.
+            </p>
+            <div id="requirements-container">
+                <div th:each="req : ${record.requirements}" class="dynamic-item grid-item">
+                    <div class="item-fields row-layout">
+                        <div class="item-field">
+                            <label class="form-label" style="font-size:.75rem;">Sucursal</label>
+                            <input type="text" class="form-control req-sucursal" placeholder="Ej: CDMX" th:value="${req.sucursal}">
+                        </div>
+                        <div class="item-field">
+                            <label class="form-label" style="font-size:.75rem;">Suscriptor</label>
+                            <input type="text" class="form-control req-suscriptor" placeholder="Núm. suscriptor" th:value="${req.suscriptor}">
+                        </div>
+                        <div class="item-field">
+                            <label class="form-label" style="font-size:.75rem;">Servicio</label>
+                            <input type="text" class="form-control req-servicio" placeholder="Ej: Triple Play 100" th:value="${req.servicio}">
+                        </div>
+                        <div class="item-field" style="min-width:200px;">
+                            <label class="form-label" style="font-size:.75rem;">Datos adicionales</label>
+                            <input type="text" class="form-control req-additional" placeholder="Notas extra" th:value="${req.additionalData}">
+                        </div>
+                    </div>
+                    <button type="button" class="btn-remove" onclick="removeItem(this)">✕</button>
+                </div>
+            </div>
+            <button type="button" class="btn-add mt-2" onclick="addRequirement()">+ Agregar requisito</button>
+        </div>
+
+        <!-- 5. CASOS DE PRUEBA -->
+        <div class="section-block">
+            <div class="section-label">5. Casos de Prueba / Ejemplos Validados</div>
+            <div id="testcases-container">
+                <div th:each="tc : ${record.testCases}" class="dynamic-item grid-item">
+                    <div class="item-fields row-layout">
+                        <div class="item-field">
+                            <label class="form-label" style="font-size:.75rem;">Sucursal</label>
+                            <input type="text" class="form-control tc-sucursal" placeholder="Ej: GDL" th:value="${tc.sucursal}">
+                        </div>
+                        <div class="item-field">
+                            <label class="form-label" style="font-size:.75rem;">Suscriptor</label>
+                            <input type="text" class="form-control tc-suscriptor" placeholder="Núm." th:value="${tc.suscriptor}">
+                        </div>
+                        <div class="item-field">
+                            <label class="form-label" style="font-size:.75rem;">Servicio</label>
+                            <input type="text" class="form-control tc-servicio" placeholder="Servicio" th:value="${tc.servicio}">
+                        </div>
+                        <div class="item-field" style="min-width:140px;">
+                            <label class="form-label" style="font-size:.75rem;">Resultado Esperado</label>
+                            <input type="text" class="form-control tc-expected" placeholder="Esperado" th:value="${tc.expectedResult}">
+                        </div>
+                        <div class="item-field" style="min-width:140px;">
+                            <label class="form-label" style="font-size:.75rem;">Resultado Obtenido</label>
+                            <input type="text" class="form-control tc-obtained" placeholder="Obtenido" th:value="${tc.obtainedResult}">
+                        </div>
+                        <div class="item-field" style="min-width:140px;">
+                            <label class="form-label" style="font-size:.75rem;">Observaciones</label>
+                            <input type="text" class="form-control tc-observations" placeholder="Obs." th:value="${tc.observations}">
+                        </div>
+                    </div>
+                    <button type="button" class="btn-remove" onclick="removeItem(this)">✕</button>
+                </div>
+            </div>
+            <button type="button" class="btn-add mt-2" onclick="addTestCase()">+ Agregar caso de prueba</button>
+        </div>
+
+        <!-- 6. PASOS DE EJECUCIÓN -->
+        <div class="section-block">
+            <div class="section-label">6. Pasos de Ejecución</div>
+            <div id="steps-container">
+                <div th:each="step : ${record.executionSteps}" class="dynamic-item">
+                    <div class="item-fields">
+                        <input type="text" class="form-control step-input" placeholder="Ej: Acceder al portal con el suscriptor indicado" th:value="${step}">
+                    </div>
+                    <button type="button" class="btn-remove" onclick="removeItem(this)">✕</button>
+                </div>
+            </div>
+            <button type="button" class="btn-add mt-2" onclick="addStep()">+ Agregar paso</button>
+        </div>
+
+        <!-- 7. CONFIGURACIÓN TÉCNICA -->
+        <div class="section-block">
+            <div class="section-label">7. Configuración Técnica (opcional)</div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Servidor</label>
+                    <input type="text" id="server" class="form-control" placeholder="srv-uat-01"
+                           th:value="${record.server}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Ambiente técnico</label>
+                    <input type="text" id="technicalEnvironment" class="form-control" placeholder="UAT / QA / DEV"
+                           th:value="${record.technicalEnvironment}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Ruta</label>
+                    <input type="text" id="techPath" class="form-control" placeholder="/app/releases/uat/"
+                           th:value="${record.path}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">URL de la aplicación</label>
+                    <input type="text" id="appUrl" class="form-control" placeholder="https://uat.app.example.com"
+                           th:value="${record.appUrl}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Aplicación</label>
+                    <input type="text" id="application" class="form-control" placeholder="Portal Web / App Móvil"
+                           th:value="${record.application}">
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. ADJUNTOS -->
+        <div class="section-block">
+            <div class="section-label">8. Nombre de Archivos Adjuntos</div>
+            <div id="attachments-container">
+                <div th:each="att : ${record.attachmentNames}" class="dynamic-item">
+                    <div class="item-fields">
+                        <input type="text" class="form-control attachment-input" placeholder="Ej: RFC24015_Evidencia.xlsx" th:value="${att}">
+                    </div>
+                    <button type="button" class="btn-remove" onclick="removeItem(this)">✕</button>
+                </div>
+            </div>
+            <button type="button" class="btn-add mt-2" onclick="addAttachment()">+ Agregar adjunto</button>
+        </div>
+
+        <!-- COMENTARIOS FINALES -->
+        <div class="section-block">
+            <div class="section-label">Comentarios Finales</div>
+            <textarea id="finalComments" class="form-control" rows="3"
+                      placeholder="Ej: Quedamos al pendiente de cualquier duda o casos adicionales..."
+                      th:text="${record.finalComments}"></textarea>
+        </div>
+
+        <!-- PREVIEW -->
+        <div class="section-block" id="preview-section" style="display:none;">
+            <div class="section-label">Vista Previa del Correo</div>
+            <div class="preview-wrapper">
+                <div class="preview-toolbar">📧 Vista previa del correo generado</div>
+                <div class="preview-body" id="preview-body">
+                    <div class="preview-empty">Haz clic en "Vista Previa" para generar la vista del correo.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACTION BUTTONS -->
+        <div class="d-flex gap-3 flex-wrap mt-4">
+            <button type="button" class="btn-generate" onclick="saveRecord()">💾 Guardar Solicitud</button>
+            <button type="button" class="btn-preview"  onclick="previewEmail()">👁 Vista Previa</button>
+            <a href="/uat" class="btn-ghost">Cancelar</a>
+        </div>
+
+    </div><!-- /app-body -->
+</div><!-- /app-card -->
+</div>
+
+<input type="hidden" id="recordId" th:value="${record.id}">
+
+<script>
+    /* ── Dynamic list helpers ────────────────────────────────────────────── */
+    function removeItem(btn) { btn.closest('.dynamic-item').remove(); scheduleAutosave(); }
+
+    function addScopeItem() {
+        addDynamic('scopeItems-container',
+            `<div class="item-fields">
+                <input type="text" class="form-control scope-item-input" placeholder="Ej: Servicio Triple Play 100 Mbps">
+             </div>`);
+    }
+    function addScenario() {
+        addDynamic('scenarios-container',
+            `<div class="item-fields">
+                <input type="text" class="form-control scenario-input" placeholder="Ej: Que las promociones convivan con el plan base">
+             </div>`);
+    }
+    function addRequirement() {
+        addDynamic('requirements-container',
+            `<div class="item-fields row-layout">
+                <div class="item-field"><label class="form-label" style="font-size:.75rem;">Sucursal</label>
+                    <input type="text" class="form-control req-sucursal" placeholder="Ej: CDMX"></div>
+                <div class="item-field"><label class="form-label" style="font-size:.75rem;">Suscriptor</label>
+                    <input type="text" class="form-control req-suscriptor" placeholder="Núm. suscriptor"></div>
+                <div class="item-field"><label class="form-label" style="font-size:.75rem;">Servicio</label>
+                    <input type="text" class="form-control req-servicio" placeholder="Ej: Triple Play 100"></div>
+                <div class="item-field" style="min-width:200px;"><label class="form-label" style="font-size:.75rem;">Datos adicionales</label>
+                    <input type="text" class="form-control req-additional" placeholder="Notas extra"></div>
+             </div>`, true);
+    }
+    function addTestCase() {
+        addDynamic('testcases-container',
+            `<div class="item-fields row-layout">
+                <div class="item-field"><label class="form-label" style="font-size:.75rem;">Sucursal</label>
+                    <input type="text" class="form-control tc-sucursal" placeholder="Ej: GDL"></div>
+                <div class="item-field"><label class="form-label" style="font-size:.75rem;">Suscriptor</label>
+                    <input type="text" class="form-control tc-suscriptor" placeholder="Núm."></div>
+                <div class="item-field"><label class="form-label" style="font-size:.75rem;">Servicio</label>
+                    <input type="text" class="form-control tc-servicio" placeholder="Servicio"></div>
+                <div class="item-field" style="min-width:140px;"><label class="form-label" style="font-size:.75rem;">Resultado Esperado</label>
+                    <input type="text" class="form-control tc-expected" placeholder="Esperado"></div>
+                <div class="item-field" style="min-width:140px;"><label class="form-label" style="font-size:.75rem;">Resultado Obtenido</label>
+                    <input type="text" class="form-control tc-obtained" placeholder="Obtenido"></div>
+                <div class="item-field" style="min-width:140px;"><label class="form-label" style="font-size:.75rem;">Observaciones</label>
+                    <input type="text" class="form-control tc-observations" placeholder="Obs."></div>
+             </div>`, true);
+    }
+    function addStep() {
+        addDynamic('steps-container',
+            `<div class="item-fields">
+                <input type="text" class="form-control step-input" placeholder="Ej: Acceder al portal con el suscriptor indicado">
+             </div>`);
+    }
+    function addAttachment() {
+        addDynamic('attachments-container',
+            `<div class="item-fields">
+                <input type="text" class="form-control attachment-input" placeholder="Ej: RFC24015_Evidencia.xlsx">
+             </div>`);
+    }
+
+    function addDynamic(containerId, fieldsHtml, gridItem = false) {
+        const container = document.getElementById(containerId);
+        const div = document.createElement('div');
+        div.className = 'dynamic-item' + (gridItem ? ' grid-item' : '');
+        div.innerHTML = fieldsHtml
+            + `<button type="button" class="btn-remove" onclick="removeItem(this)">✕</button>`;
+        container.appendChild(div);
+        scheduleAutosave();
+    }
+
+    /* ── Collect form data ───────────────────────────────────────────────── */
+    function collectFormData() {
+        const scopeItems = [...document.querySelectorAll('.scope-item-input')].map(el => el.value);
+        const scenarios  = [...document.querySelectorAll('.scenario-input')].map(el => el.value);
+        const requirements = [...document.querySelectorAll('#requirements-container .dynamic-item')].map(div => ({
+            sucursal:       div.querySelector('.req-sucursal')?.value   || '',
+            suscriptor:     div.querySelector('.req-suscriptor')?.value || '',
+            servicio:       div.querySelector('.req-servicio')?.value   || '',
+            additionalData: div.querySelector('.req-additional')?.value || ''
+        }));
+        const testCases = [...document.querySelectorAll('#testcases-container .dynamic-item')].map(div => ({
+            sucursal:       div.querySelector('.tc-sucursal')?.value    || '',
+            suscriptor:     div.querySelector('.tc-suscriptor')?.value  || '',
+            servicio:       div.querySelector('.tc-servicio')?.value    || '',
+            expectedResult: div.querySelector('.tc-expected')?.value    || '',
+            obtainedResult: div.querySelector('.tc-obtained')?.value    || '',
+            observations:   div.querySelector('.tc-observations')?.value || ''
+        }));
+        const executionSteps  = [...document.querySelectorAll('.step-input')].map(el => el.value);
+        const attachmentNames = [...document.querySelectorAll('.attachment-input')].map(el => el.value);
+
+        return {
+            id:                   document.getElementById('recordId').value || null,
+            rfcNumber:            document.getElementById('rfcNumber').value,
+            rfcName:              document.getElementById('rfcName').value,
+            moduleName:           document.getElementById('moduleName').value,
+            environment:          document.getElementById('environment').value,
+            qaResponsible:        document.getElementById('qaResponsible').value,
+            requestDate:          document.getElementById('requestDate').value,
+            scopeDescription:     document.getElementById('scopeDescription').value,
+            functionalScope:      document.getElementById('functionalScope').value,
+            scopeItems,
+            promotionNumbers:     document.getElementById('promotionNumbers').value,
+            scenarios,
+            requirements,
+            testCases,
+            executionSteps,
+            server:               document.getElementById('server').value,
+            technicalEnvironment: document.getElementById('technicalEnvironment').value,
+            path:                 document.getElementById('techPath').value,
+            appUrl:               document.getElementById('appUrl').value,
+            application:          document.getElementById('application').value,
+            attachmentNames,
+            finalComments:        document.getElementById('finalComments').value,
+            status:               document.getElementById('status').value
+        };
+    }
+
+    /* ── Validation ─────────────────────────────────────────────────────── */
+    function validate() {
+        let ok = true;
+        [['rfcNumber','RFC es requerido.'],
+         ['rfcName','Nombre del RFC es requerido.'],
+         ['qaResponsible','Responsable QA es requerido.']].forEach(([id, msg]) => {
+            const el = document.getElementById(id);
+            const wrap = el.closest('.col-md-4, .col-md-8, .col-md-6') || el.parentElement;
+            const errEl = wrap.querySelector('.error-msg');
+            if (!el.value.trim()) {
+                wrap.classList.add('field-error');
+                if (errEl) errEl.textContent = msg;
+                ok = false;
+            } else {
+                wrap.classList.remove('field-error');
+            }
+        });
+        return ok;
+    }
+
+    /* ── Save ────────────────────────────────────────────────────────────── */
+    function saveRecord() {
+        if (!validate()) { showToast('Por favor completa los campos requeridos.', 'error'); return; }
+        const data = collectFormData();
+        fetch('/uat/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) })
+            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+            .then(j => {
+                localStorage.removeItem(draftKey());
+                showToast('Solicitud guardada exitosamente.', 'success');
+                setTimeout(() => { window.location.href = j.redirect; }, 900);
+            })
+            .catch(() => showToast('Error al guardar. Intenta de nuevo.', 'error'));
+    }
+
+    /* ── Preview ─────────────────────────────────────────────────────────── */
+    function previewEmail() {
+        const data = collectFormData();
+        fetch('/uat/preview', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) })
+            .then(r => r.text())
+            .then(html => {
+                document.getElementById('preview-body').innerHTML = html;
+                document.getElementById('preview-section').style.display = '';
+                document.getElementById('preview-section').scrollIntoView({ behavior:'smooth', block:'start' });
+            })
+            .catch(() => showToast('Error al generar la vista previa.', 'error'));
+    }
+
+    /* ── Autosave ────────────────────────────────────────────────────────── */
+    let _autosaveTimer;
+    function draftKey() { return 'uat-draft-' + (document.getElementById('recordId').value || 'new'); }
+    function scheduleAutosave() {
+        clearTimeout(_autosaveTimer);
+        _autosaveTimer = setTimeout(() => {
+            try { localStorage.setItem(draftKey(), JSON.stringify(collectFormData())); } catch(e) {}
+        }, 1500);
+    }
+    document.querySelectorAll('input,textarea,select').forEach(el => {
+        el.addEventListener('input', scheduleAutosave);
+        el.addEventListener('change', scheduleAutosave);
+    });
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    function showToast(msg, type) {
+        const container = document.getElementById('toast-container');
+        const el = document.createElement('div');
+        el.className = 'toast-msg' + (type ? ' toast-' + type : '');
+        el.textContent = msg;
+        container.appendChild(el);
+        requestAnimationFrame(() => { requestAnimationFrame(() => el.classList.add('show')); });
+        setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 3500);
+    }
+</script>
+</body>
+</html>
