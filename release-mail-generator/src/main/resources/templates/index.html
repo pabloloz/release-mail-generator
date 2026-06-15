@@ -264,6 +264,143 @@
             }
             showToast('\u2714 Correo copiado al portapapeles', 'success');
         }
+
+        // ── VoBo UAT ───────────────────────────────────────────────────────
+        function addUatScenario() {
+            const c = document.getElementById('uatScenarios');
+            const d = document.createElement('div');
+            d.className = 'uat-list-item d-flex align-items-center gap-2 mb-2';
+            d.innerHTML = `<span style="color:var(--text-muted);font-size:.9rem;flex-shrink:0;">&bull;</span>
+                <input type="text" class="form-control uat-scenario-input" placeholder="Ej: Validar disponibilidad de promociones">
+                <button type="button" class="btn-remove-rdl" onclick="removeUatItem(this)">&#x2715;</button>`;
+            c.appendChild(d);
+            document.getElementById('uatScenariosHint').style.display = 'none';
+        }
+        function addUatStep() {
+            const c = document.getElementById('uatSteps');
+            const n = c.querySelectorAll('.uat-list-item').length + 1;
+            const d = document.createElement('div');
+            d.className = 'uat-list-item d-flex align-items-center gap-2 mb-2';
+            d.innerHTML = `<span class="uat-step-num" style="color:var(--primary);font-weight:700;font-size:.8rem;min-width:22px;flex-shrink:0;">${n}.</span>
+                <input type="text" class="form-control uat-step-input" placeholder="Ej: Acceder al portal con el suscriptor indicado">
+                <button type="button" class="btn-remove-rdl" onclick="removeUatItem(this);renumberUatSteps()">&#x2715;</button>`;
+            c.appendChild(d);
+            document.getElementById('uatStepsHint').style.display = 'none';
+        }
+        function renumberUatSteps() {
+            document.querySelectorAll('#uatSteps .uat-step-num').forEach((el, i) => el.textContent = (i + 1) + '.');
+        }
+        function addUatAttachment() {
+            const c = document.getElementById('uatAttachments');
+            const d = document.createElement('div');
+            d.className = 'uat-list-item d-flex align-items-center gap-2 mb-2';
+            d.innerHTML = `<span style="color:var(--text-muted);font-size:.85rem;flex-shrink:0;">&#x1F4CE;</span>
+                <input type="text" class="form-control uat-att-input" placeholder="Ej: RFC24015_Evidencias.xlsx">
+                <button type="button" class="btn-remove-rdl" onclick="removeUatItem(this)">&#x2715;</button>`;
+            c.appendChild(d);
+            document.getElementById('uatAttHint').style.display = 'none';
+        }
+        function removeUatItem(btn) { btn.closest('.uat-list-item').remove(); }
+        function addUatDataRow() {
+            const tbody = document.getElementById('uatTestData');
+            const tr = document.createElement('tr');
+            tr.className = 'uat-data-row';
+            tr.innerHTML = `
+                <td><input type="text" class="form-control form-control-sm td-sucursal" placeholder="CDMX"></td>
+                <td><input type="text" class="form-control form-control-sm td-suscriptor" placeholder="123456"></td>
+                <td><input type="text" class="form-control form-control-sm td-servicio" placeholder="Triple Play 100"></td>
+                <td><input type="text" class="form-control form-control-sm td-obs" placeholder="Observaciones"></td>
+                <td class="text-center"><button type="button" class="btn-remove-rdl" onclick="removeUatRow(this)">&#x2715;</button></td>`;
+            tbody.appendChild(tr);
+            document.getElementById('uatDataHint').style.display = 'none';
+        }
+        function addUatCaseRow() {
+            const tbody = document.getElementById('uatCases');
+            const tr = document.createElement('tr');
+            tr.className = 'uat-case-row';
+            tr.innerHTML = `
+                <td><input type="text" class="form-control form-control-sm tc-sucursal" placeholder="GDL"></td>
+                <td><input type="text" class="form-control form-control-sm tc-suscriptor" placeholder="789012"></td>
+                <td><input type="text" class="form-control form-control-sm tc-servicio" placeholder="Internet 120 Mbps"></td>
+                <td><input type="text" class="form-control form-control-sm tc-resultado" placeholder="Correcto \u2713"></td>
+                <td class="text-center"><button type="button" class="btn-remove-rdl" onclick="removeUatRow(this)">&#x2715;</button></td>`;
+            tbody.appendChild(tr);
+            document.getElementById('uatCasesHint').style.display = 'none';
+        }
+        function removeUatRow(btn) { btn.closest('tr').remove(); }
+        function collectUatData() {
+            return {
+                rfcNumber:   document.getElementById('uatRfcNumber').value,
+                rfcName:     document.getElementById('uatRfcName').value,
+                moduleName:  document.getElementById('uatModuleName').value,
+                environment: document.getElementById('uatEnvironment').value,
+                releaseJira: document.getElementById('uatReleaseJira').value,
+                alcance:     document.getElementById('uatAlcance').value,
+                scenarios: [...document.querySelectorAll('#uatScenarios .uat-scenario-input')].map(el=>el.value).filter(v=>v.trim()),
+                testData: [...document.querySelectorAll('#uatTestData .uat-data-row')].map(tr=>({
+                    sucursal:      tr.querySelector('.td-sucursal')?.value  || '',
+                    suscriptor:    tr.querySelector('.td-suscriptor')?.value || '',
+                    servicio:      tr.querySelector('.td-servicio')?.value  || '',
+                    observaciones: tr.querySelector('.td-obs')?.value       || ''
+                })),
+                validatedCases: [...document.querySelectorAll('#uatCases .uat-case-row')].map(tr=>({
+                    sucursal:  tr.querySelector('.tc-sucursal')?.value   || '',
+                    suscriptor:tr.querySelector('.tc-suscriptor')?.value || '',
+                    servicio:  tr.querySelector('.tc-servicio')?.value   || '',
+                    resultado: tr.querySelector('.tc-resultado')?.value  || ''
+                })),
+                executionSteps:  [...document.querySelectorAll('#uatSteps .uat-step-input')].map(el=>el.value).filter(v=>v.trim()),
+                attachmentNames: [...document.querySelectorAll('#uatAttachments .uat-att-input')].map(el=>el.value).filter(v=>v.trim())
+            };
+        }
+        async function generateUatEmail() {
+            const btn = document.querySelector('#pane-uat .btn-generate');
+            const orig = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>&nbsp;Generando...';
+            try {
+                const resp = await fetch('/generate-uat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collectUatData()) });
+                if (!resp.ok) throw new Error('Error ' + resp.status);
+                const html = await resp.text();
+                document.getElementById('uatEmailPreview').innerHTML = html;
+                const s = document.getElementById('uatEmailSection');
+                s.style.display = 'block';
+                s.scrollIntoView({ behavior:'smooth', block:'start' });
+            } catch (err) { showToast('Error al generar el correo: ' + err.message, 'error'); }
+            finally { btn.disabled = false; btn.innerHTML = orig; }
+        }
+        async function downloadUatExport(type) {
+            try {
+                const resp = await fetch('/uat/export/' + type, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collectUatData()) });
+                if (!resp.ok) throw new Error('Error ' + resp.status);
+                const blob = await resp.blob();
+                const cd = resp.headers.get('Content-Disposition') || '';
+                const m = cd.match(/filename[*]?=(?:UTF-8'')?["']?([^;"'\n]+)/i);
+                const rfc = (document.getElementById('uatRfcNumber').value || 'VoBo-UAT').replace(/[^a-zA-Z0-9\-_]/g,'-');
+                const ext = type === 'markdown' ? 'md' : type;
+                const filename = m ? decodeURIComponent(m[1].trim()) : rfc + '.' + ext;
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = filename;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (err) { showToast('Error al exportar: ' + err.message, 'error'); }
+        }
+        async function copyUatEmail() {
+            const el = document.getElementById('uatEmailPreview');
+            try {
+                const htmlBlob = new Blob([el.innerHTML], {type:'text/html'});
+                const textBlob = new Blob([el.innerText],  {type:'text/plain'});
+                await navigator.clipboard.write([new ClipboardItem({'text/html':htmlBlob,'text/plain':textBlob})]);
+            } catch { await navigator.clipboard.writeText(el.innerText); }
+            showToast('\u2714 Correo VoBo UAT copiado al portapapeles', 'success');
+        }
+        function clearUatForm() {
+            ['uatRfcNumber','uatRfcName','uatModuleName','uatReleaseJira','uatAlcance'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+            document.getElementById('uatEnvironment').value='';
+            ['uatScenarios','uatTestData','uatCases','uatSteps','uatAttachments'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
+            ['uatScenariosHint','uatDataHint','uatCasesHint','uatStepsHint','uatAttHint'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
+            document.getElementById('uatEmailSection').style.display='none';
+        }
     </script>
     <style>
         /* ── Design Tokens ───────────────────────────────────────────── */
@@ -561,7 +698,39 @@
             padding-top: 20px;
             margin-top: 8px;
         }
-    </style>
+        /* ── VoBo UAT ────────────────────────────────────────────────── */
+        .btn-md {
+            background: #0f766e; color: white; border: none;
+            padding: 6px 14px; border-radius: var(--radius-xs);
+            font-size: .8rem; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: background .15s;
+        }
+        .btn-md:hover { background: #0d5e58; }
+        .btn-html-export {
+            background: var(--success); color: white; border: none;
+            padding: 6px 14px; border-radius: var(--radius-xs);
+            font-size: .8rem; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: background .15s;
+        }
+        .btn-html-export:hover { background: var(--success-hover); }
+        .btn-add-uat {
+            background: var(--primary-light); color: var(--primary);
+            border: 1.5px solid #bfdbfe;
+            padding: 4px 12px; border-radius: var(--radius-xs);
+            font-size: .78rem; font-weight: 700; cursor: pointer;
+            font-family: inherit; transition: background .15s; flex-shrink: 0;
+        }
+        .btn-add-uat:hover { background: #dbeafe; border-color: var(--primary); }
+        .uat-tbl { width: 100%; border-collapse: collapse; }
+        .uat-tbl thead th {
+            background: var(--bg-section); font-size: .7rem; font-weight: 700;
+            letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted);
+            padding: 7px 8px; text-align: left; border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+        .uat-tbl tbody td { padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        .uat-tbl tbody tr:last-child td { border-bottom: none; }
+        .uat-tbl .btn-remove-rdl { padding: 3px 7px; font-size: .7rem; }    </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body th:data-active-tab="${activeTab != null ? activeTab : 'releases'}">
@@ -616,10 +785,10 @@
             </a>
         </li>
         <li class="nav-item" role="presentation">
-            <a class="nav-link" href="/uat"
-               style="text-decoration:none; display:flex; align-items:center; gap:6px;">
+            <button class="nav-link" id="tab-uat" data-bs-toggle="tab"
+                    data-bs-target="#pane-uat" type="button" role="tab">
                 &#x2705; VoBo UAT
-            </a>
+            </button>
         </li>
     </ul>
 
@@ -899,6 +1068,166 @@
     </div>
 
     </div><!-- /pane-rdl -->
+
+    <!-- ═══════════════════════════════════ TAB: VoBo UAT ══════════════════ -->
+    <div class="tab-pane fade" id="pane-uat" role="tabpanel">
+
+        <!-- INFO GENERAL -->
+        <div class="section-block">
+            <div class="section-label">&#x2705; Informaci&#xF3;n General</div>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">N&#xFA;mero de RFC</label>
+                    <input type="text" id="uatRfcNumber" class="form-control" placeholder="RFC 24015">
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Nombre del RFC</label>
+                    <input type="text" id="uatRfcName" class="form-control" placeholder="Ej: Promociones combinen con 120 Mbps">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">M&#xF3;dulo / Sistema</label>
+                    <input type="text" id="uatModuleName" class="form-control" placeholder="Servicios_UAT">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Ambiente</label>
+                    <select id="uatEnvironment" class="form-select">
+                        <option value="">&#x2014; Seleccionar &#x2014;</option>
+                        <option value="UAT">UAT</option>
+                        <option value="QA">QA</option>
+                        <option value="DEV">DEV</option>
+                        <option value="Producci&#xF3;n">Producci&#xF3;n</option>
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Release &mdash; Jira <span class="fw-normal text-muted">(opcional)</span></label>
+                    <input type="text" id="uatReleaseJira" class="form-control" placeholder="https://megacablesfyc.atlassian.net/projects/...">
+                </div>
+            </div>
+        </div>
+
+        <!-- ALCANCE -->
+        <div class="section-block">
+            <div class="section-label">&#x1F5CE;&#xFE0F; Alcance de la Validaci&#xF3;n</div>
+            <textarea id="uatAlcance" class="form-control" rows="4"
+                      placeholder="Describe qu&#xE9; se va a validar. Ej: Este RFC permite que las promociones combinen con planes de 120 Mbps, incluyendo las promociones 5251, 3815 y 3816."></textarea>
+        </div>
+
+        <!-- ESCENARIOS -->
+        <div class="section-block">
+            <div class="section-label d-flex justify-content-between align-items-center">
+                <span>&#x1F535; Escenarios a Validar</span>
+                <button type="button" class="btn-add-uat" onclick="addUatScenario()">&#x2b; Agregar</button>
+            </div>
+            <div id="uatScenarios"></div>
+            <p id="uatScenariosHint" class="text-muted mb-0" style="font-size:.82rem;">
+                Haz clic en &ldquo;+ Agregar&rdquo; para a&#xF1;adir escenarios de validaci&#xF3;n.
+            </p>
+        </div>
+
+        <!-- DATOS PARA PRUEBAS -->
+        <div class="section-block">
+            <div class="section-label d-flex justify-content-between align-items-center">
+                <span>&#x26A0;&#xFE0F; Datos para Pruebas</span>
+                <button type="button" class="btn-add-uat" onclick="addUatDataRow()">&#x2b; Agregar fila</button>
+            </div>
+            <p class="form-text mb-2">Sucursales y suscriptores que los testers utilizar&#xE1;n para la validaci&#xF3;n.</p>
+            <div style="overflow-x:auto;">
+                <table class="uat-tbl">
+                    <thead>
+                        <tr>
+                            <th>Sucursal</th>
+                            <th>Suscriptor</th>
+                            <th>Servicio</th>
+                            <th>Observaciones</th>
+                            <th style="width:36px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="uatTestData"></tbody>
+                </table>
+            </div>
+            <p id="uatDataHint" class="text-muted mt-2 mb-0" style="font-size:.82rem;">
+                Haz clic en &ldquo;+ Agregar fila&rdquo; para a&#xF1;adir datos.
+            </p>
+        </div>
+
+        <!-- CASOS VALIDADOS -->
+        <div class="section-block">
+            <div class="section-label d-flex justify-content-between align-items-center">
+                <span>&#x2705; Casos Validados</span>
+                <button type="button" class="btn-add-uat" onclick="addUatCaseRow()">&#x2b; Agregar caso</button>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="uat-tbl">
+                    <thead>
+                        <tr>
+                            <th>Sucursal</th>
+                            <th>Suscriptor</th>
+                            <th>Servicio</th>
+                            <th>Resultado</th>
+                            <th style="width:36px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="uatCases"></tbody>
+                </table>
+            </div>
+            <p id="uatCasesHint" class="text-muted mt-2 mb-0" style="font-size:.82rem;">
+                Haz clic en &ldquo;+ Agregar caso&rdquo; para a&#xF1;adir casos validados.
+            </p>
+        </div>
+
+        <!-- PASOS DE EJECUCI&#xD3;N -->
+        <div class="section-block">
+            <div class="section-label d-flex justify-content-between align-items-center">
+                <span>&#x2699;&#xFE0F; Pasos de Ejecuci&#xF3;n</span>
+                <button type="button" class="btn-add-uat" onclick="addUatStep()">&#x2b; Agregar paso</button>
+            </div>
+            <div id="uatSteps"></div>
+            <p id="uatStepsHint" class="text-muted mb-0" style="font-size:.82rem;">
+                Haz clic en &ldquo;+ Agregar&rdquo; para a&#xF1;adir pasos numerados.
+            </p>
+        </div>
+
+        <!-- ADJUNTOS -->
+        <div class="section-block">
+            <div class="section-label d-flex justify-content-between align-items-center">
+                <span>&#x1F4CE; Adjuntos <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;">(opcional)</span></span>
+                <button type="button" class="btn-add-uat" onclick="addUatAttachment()">&#x2b; Agregar</button>
+            </div>
+            <div id="uatAttachments"></div>
+            <p id="uatAttHint" class="text-muted mb-0" style="font-size:.82rem;">
+                Nombre(s) de archivo(s) que se mencionar&#xE1;n en el correo.
+            </p>
+        </div>
+
+        <div class="form-actions d-flex gap-2 justify-content-end">
+            <button type="button" class="btn-clear" onclick="clearUatForm()">&#x2715; Limpiar</button>
+            <button type="button" class="btn-generate" onclick="generateUatEmail()">Generar Correo VoBo UAT &rarr;</button>
+        </div>
+
+        <!-- PREVIEW -->
+        <div id="uatEmailSection" class="mt-5" style="display:none;">
+            <div class="section-label" style="margin-top:0;">&#x1F4E7; Vista previa &mdash; VoBo UAT</div>
+            <div class="email-wrapper">
+                <div class="email-toolbar">
+                    <div class="d-flex gap-2 align-items-center">
+                        <span class="dot" style="background:#ef4444;"></span>
+                        <span class="dot" style="background:#f59e0b;"></span>
+                        <span class="dot" style="background:#10b981;"></span>
+                        <span style="margin-left:8px; opacity:.8;">Correo VoBo UAT</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn-pdf"         onclick="downloadUatExport('pdf')">&#x1F4E5; PDF</button>
+                        <button class="btn-md"          onclick="downloadUatExport('markdown')">&#x1F4C4; Markdown</button>
+                        <button class="btn-html-export" onclick="downloadUatExport('html')">&#x1F310; HTML</button>
+                        <button class="btn-copy"        onclick="copyUatEmail()">&#x1F4CB; Copiar</button>
+                    </div>
+                </div>
+                <div id="uatEmailPreview"
+                     style="background:white; padding:32px 36px; font-size:14px; color:#1e293b; line-height:1.6;"></div>
+            </div>
+        </div>
+
+    </div><!-- /pane-uat -->
 
     </div><!-- /tab-content -->
 
