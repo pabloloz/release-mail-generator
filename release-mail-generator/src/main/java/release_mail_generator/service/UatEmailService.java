@@ -89,6 +89,14 @@ public class UatEmailService {
                 .append("</p>");
         }
 
+        // Instrucciones fijas de validación
+        html.append("<p style=\"margin:18px 0 4px 0;\"><b>Favor de Validar con el m&oacute;dulo Servicios_UAT.</b></p>")
+            .append("<ol style=\"margin:0 0 14px 0;padding-left:28px;\">")
+            .append("<li style=\"margin-bottom:3px;\">Entrar a la carpeta M&oacute;dulos SFYC UAT</li>")
+            .append("<li style=\"margin-bottom:3px;\">Ejecutar el m&oacute;dulo Servicios_UAT</li>")
+            .append("<li style=\"margin-bottom:3px;\">En el campo Servidor seleccionar MEGANG-384</li>")
+            .append("</ol>");
+
         // Cierre
         String cierre = notBlank(r.getCierre()) ? r.getCierre() : "Quedo pendiente por cualquier duda o comentario.";
         html.append("<p style=\"margin:18px 0 0 0;\">").append(esc(cierre)).append("</p>");
@@ -153,8 +161,12 @@ public class UatEmailService {
         }
 
         // Bloques
+        List<UatBlock> pdfBlocks = orEmpty(r.getBlocks());
+        if (!pdfBlocks.isEmpty()) {
+            addPara(doc, "Ejemplos de validaci\u00f3n:", boldF, 8);
+        }
         int evidenciaNum = 1;
-        for (UatBlock block : orEmpty(r.getBlocks())) {
+        for (UatBlock block : pdfBlocks) {
             if (notBlank(block.getTexto())) {
                 addPara(doc, block.getTexto().trim(), bodyF, 8);
             }
@@ -179,6 +191,13 @@ public class UatEmailService {
         if (notBlank(r.getNota())) {
             addPara(doc, "NOTA:", noteF, 16);
             addPara(doc, r.getNota().trim(), bodyF, 12);
+        }
+
+        // Instrucciones fijas
+        addPara(doc, "Favor de Validar con el m\u00f3dulo Servicios_UAT.", boldF, 4);
+        for (String step : new String[]{"Entrar a la carpeta M\u00f3dulos SFYC UAT","Ejecutar el m\u00f3dulo Servicios_UAT","En el campo Servidor seleccionar MEGANG-384"}) {
+            Paragraph sp = new Paragraph(step, bodyF);
+            sp.setIndentationLeft(20); sp.setSpacingAfter(3); doc.add(sp);
         }
 
         // Cierre
@@ -211,8 +230,12 @@ public class UatEmailService {
             md.append("> ").append(r.getRequerimientos().trim().replace("\n", "\n> ")).append("\n\n");
         }
 
+        List<UatBlock> mdBlocks = orEmpty(r.getBlocks());
+        if (!mdBlocks.isEmpty()) {
+            md.append("**Ejemplos de validaci\u00f3n:**\n\n");
+        }
         int evidenciaNum = 1;
-        for (UatBlock block : orEmpty(r.getBlocks())) {
+        for (UatBlock block : mdBlocks) {
             if (notBlank(block.getTexto()))
                 md.append(block.getTexto().trim()).append("\n\n");
             if (notBlank(block.getImagenBase64()))
@@ -222,6 +245,11 @@ public class UatEmailService {
         if (notBlank(r.getNota())) {
             md.append("**NOTA:**\n\n").append(r.getNota().trim()).append("\n\n");
         }
+
+        md.append("**Favor de Validar con el m\u00f3dulo Servicios_UAT.**\n\n")
+          .append("1. Entrar a la carpeta M\u00f3dulos SFYC UAT\n")
+          .append("2. Ejecutar el m\u00f3dulo Servicios_UAT\n")
+          .append("3. En el campo Servidor seleccionar MEGANG-384\n\n");
 
         String cierre = notBlank(r.getCierre()) ? r.getCierre() : "Quedo pendiente por cualquier duda o comentario.";
         md.append(cierre).append("\n\n");
