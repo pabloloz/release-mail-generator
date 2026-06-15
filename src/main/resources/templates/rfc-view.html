@@ -69,6 +69,8 @@
         .btn-danger-sm:hover { background: #fee2e2; color: var(--danger); }
         .btn-pdf { background: #7c3aed; color: white; border: none; padding: 8px 18px; border-radius: var(--radius-xs); font-weight: 600; font-size: .875rem; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; transition: background .15s; }
         .btn-pdf:hover { background: #6d28d9; color: white; }
+        .btn-md { background: #0f766e; color: white; border: none; padding: 8px 18px; border-radius: var(--radius-xs); font-weight: 600; font-size: .875rem; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; transition: background .15s; }
+        .btn-md:hover { background: #0d6b63; color: white; }
         .meta-info { font-size: .75rem; color: var(--text-muted); }
         @media (max-width:640px) { .app-header { padding: 16px 18px; } .app-body { padding: 18px; } .info-grid { grid-template-columns: 1fr; } }
     </style>
@@ -105,7 +107,8 @@
 
     <!-- Action buttons -->
     <div class="d-flex gap-2 flex-wrap mb-4">
-        <a th:href="@{/rfc/{id}/pdf(id=${record.id})}" class="btn-pdf">📥 Descargar RFC en PDF</a>
+        <a th:href="@{/rfc/{id}/pdf(id=${record.id})}" class="btn-pdf">📥 Exportar PDF</a>
+        <a th:href="@{/rfc/{id}/markdown(id=${record.id})}" class="btn-md">📄 Exportar Markdown</a>
         <a th:href="@{/rfc/{id}/edit(id=${record.id})}" class="btn-ghost">✏️ Editar</a>
         <form th:action="@{/rfc/{id}/delete(id=${record.id})}" method="post"
               onsubmit="return confirm('¿Eliminar este RFC? Esta acción no se puede deshacer.')">
@@ -316,7 +319,8 @@
 
     <!-- Bottom action bar -->
     <div class="d-flex gap-2 flex-wrap pt-2 border-top" style="margin-top:8px; padding-top:20px;">
-        <a th:href="@{/rfc/{id}/pdf(id=${record.id})}" class="btn-pdf">📥 Descargar RFC en PDF</a>
+        <a th:href="@{/rfc/{id}/pdf(id=${record.id})}" class="btn-pdf">📥 Exportar PDF</a>
+        <a th:href="@{/rfc/{id}/markdown(id=${record.id})}" class="btn-md">📄 Exportar Markdown</a>
         <a th:href="@{/rfc/{id}/edit(id=${record.id})}" class="btn-primary-sm">✏️ Editar RFC</a>
         <a href="/rfc" class="btn-ghost">← Volver a la lista</a>
     </div>

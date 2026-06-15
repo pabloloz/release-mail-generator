@@ -21,7 +21,9 @@ import org.springframework.stereotype.Service;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -278,6 +280,156 @@ public class RfcTechnicalService {
         return bos.toByteArray();
     }
 
+    // ── Markdown Generation ───────────────────────────────────────────────
+
+    public byte[] generateMarkdown(RfcTechnicalRecord r) {
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        StringBuilder md = new StringBuilder();
+
+        // ── Front matter / header ────────────────────────────────────────
+        md.append("# RFC Técnico Final\n\n");
+        md.append("> **Propósito del documento:** Dejar evidencia clara, trazable y defendible de que un cambio fue "
+                + "validado y **cumple o no cumple** con lo solicitado.\n\n");
+        md.append("**Generado el:** ").append(now).append("  \n");
+        md.append("**RFC:** ").append(s(r.getRfcNumber())).append("  \n");
+        md.append("**Nombre del cambio:** ").append(s(r.getChangeName())).append("  \n");
+        md.append("**Tester responsable:** ").append(s(r.getTesterName())).append("  \n");
+        md.append("**Estado:** ").append(s(r.getStatus())).append("\n\n");
+        md.append("---\n\n");
+
+        // ── 1. Información General ───────────────────────────────────────
+        md.append("## 1. Información General\n\n");
+        md.append("| Campo | Valor |\n");
+        md.append("|-------|-------|\n");
+        mdRow(md, "RFC",                 s(r.getRfcNumber()));
+        mdRow(md, "Nombre del cambio",   s(r.getChangeName()));
+        mdRow(md, "Fecha de validación", s(r.getValidationDate()));
+        mdRow(md, "Tester responsable",  s(r.getTesterName()));
+        mdRow(md, "Solicitante / Área",  s(r.getRequester()));
+        mdRow(md, "Ambiente",            s(r.getEnvironment()));
+        mdRow(md, "Estado",              s(r.getStatus()));
+        md.append("\n---\n\n");
+
+        // ── 2. Contexto del Cambio ───────────────────────────────────────
+        md.append("## 2. Contexto del Cambio\n\n");
+        md.append(mdBlock(r.getChangeContext())).append("\n\n---\n\n");
+
+        // ── 3. Objetivo de la Validación ─────────────────────────────────
+        md.append("## 3. Objetivo de la Validación\n\n");
+        md.append("**Objetivo principal:**\n\n");
+        md.append(mdBlock(r.getMainObjective())).append("\n\n");
+        if (notBlank(r.getSpecificObjectives())) {
+            md.append("**Objetivos específicos:**\n\n");
+            md.append(r.getSpecificObjectives().trim()).append("\n\n");
+        }
+        md.append("---\n\n");
+
+        // ── 4. Componentes Técnicos Impactados ───────────────────────────
+        md.append("## 4. Componentes Técnicos Impactados\n\n");
+        md.append("| Componente | Detalle |\n");
+        md.append("|------------|---------|\n");
+        mdRow(md, "Módulos",             s(r.getModules()));
+        mdRow(md, "Stored Procedures",   s(r.getStoredProcedures()));
+        mdRow(md, "Jobs",                s(r.getJobs()));
+        mdRow(md, "Tablas",              s(r.getTables()));
+        mdRow(md, "Reportes",            s(r.getReports()));
+        mdRow(md, "Otros",               s(r.getOtherComponents()));
+        md.append("\n---\n\n");
+
+        // ── 5. Reglas de Negocio Validadas ───────────────────────────────
+        md.append("## 5. Reglas de Negocio Validadas\n\n");
+        List<BusinessRule> rules = orEmpty(r.getBusinessRules());
+        if (rules.isEmpty()) {
+            md.append("*Sin reglas de negocio registradas.*\n\n");
+        } else {
+            md.append("| # | Descripción | Estado |\n");
+            md.append("|---|-------------|--------|\n");
+            for (int i = 0; i < rules.size(); i++) {
+                BusinessRule rule = rules.get(i);
+                md.append("| ").append(i + 1)
+                  .append(" | ").append(mdCell(s(rule.getDescription())))
+                  .append(" | ").append(ruleEmoji(rule.getValidationStatus()))
+                  .append(" ").append(mdCell(s(rule.getValidationStatus())))
+                  .append(" |\n");
+            }
+            md.append("\n");
+        }
+        md.append("---\n\n");
+
+        // ── 6. Casos de Prueba Ejecutados ────────────────────────────────
+        md.append("## 6. Casos de Prueba Ejecutados\n\n");
+        List<TestCase> tcs = orEmpty(r.getTestCases());
+        if (tcs.isEmpty()) {
+            md.append("*Sin casos de prueba registrados.*\n\n");
+        } else {
+            md.append("| ID | Descripción | Resultado Esperado | Resultado Obtenido | Estado |\n");
+            md.append("|----|-------------|--------------------|--------------------|--------|\n");
+            for (TestCase tc : tcs) {
+                boolean passed = "Exitoso".equalsIgnoreCase(tc.getResult());
+                md.append("| ").append(mdCell(s(tc.getCaseId())))
+                  .append(" | ").append(mdCell(s(tc.getDescription())))
+                  .append(" | ").append(mdCell(s(tc.getExpectedResult())))
+                  .append(" | ").append(mdCell(s(tc.getObtainedResult())))
+                  .append(" | ").append(passed ? "✅" : "❌")
+                  .append(" ").append(mdCell(s(tc.getResult())))
+                  .append(" |\n");
+            }
+            md.append("\n");
+        }
+        md.append("---\n\n");
+
+        // ── 7. Bugs Relacionados ─────────────────────────────────────────
+        md.append("## 7. Bugs Relacionados\n\n");
+        List<RelatedBug> bugs = orEmpty(r.getRelatedBugs());
+        if (bugs.isEmpty()) {
+            md.append("*Sin bugs relacionados.*\n\n");
+        } else {
+            md.append("| Identificador | Descripción | Estatus |\n");
+            md.append("|---------------|-------------|---------|\n");
+            for (RelatedBug bug : bugs) {
+                md.append("| ").append(mdCell(s(bug.getIdentifier())))
+                  .append(" | ").append(mdCell(s(bug.getDescription())))
+                  .append(" | ").append(mdCell(s(bug.getBugStatus())))
+                  .append(" |\n");
+            }
+            md.append("\n");
+        }
+        md.append("---\n\n");
+
+        // ── 8. Conclusiones ──────────────────────────────────────────────
+        md.append("## 8. Conclusiones\n\n");
+        if (notBlank(r.getFinalResult())) {
+            boolean cumple = "Cumple".equalsIgnoreCase(r.getFinalResult());
+            md.append("**Resultado final del RFC:** ")
+              .append(cumple ? "✅" : "❌")
+              .append(" **").append(r.getFinalResult()).append("**\n\n");
+        }
+        if (notBlank(r.getObservations())) {
+            md.append("**Observaciones relevantes:**\n\n")
+              .append(r.getObservations().trim()).append("\n\n");
+        }
+        if (notBlank(r.getRisks())) {
+            md.append("**Riesgos identificados:**\n\n")
+              .append(r.getRisks().trim()).append("\n\n");
+        }
+        if (notBlank(r.getRecommendations())) {
+            md.append("**Recomendaciones:**\n\n")
+              .append(r.getRecommendations().trim()).append("\n\n");
+        }
+        md.append("---\n\n");
+
+        // ── 9. Notas Finales ─────────────────────────────────────────────
+        md.append("## 9. Notas Finales\n\n");
+        md.append(mdBlock(r.getFinalNotes())).append("\n\n");
+        md.append("---\n\n");
+
+        // ── Footer ────────────────────────────────────────────────────────
+        md.append("*Documento generado el ").append(now)
+          .append(" mediante el sistema **Release Notifier QA**.*\n");
+
+        return md.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
     // ── PDF Helper methods ─────────────────────────────────────────────────
 
     private String s(String v) {
@@ -390,6 +542,33 @@ public class RfcTechnicalService {
             case "Válida"   -> C_SUCCESS;
             case "Inválida" -> C_DANGER;
             default         -> C_WARNING;
+        };
+    }
+
+    // ── Markdown helpers ──────────────────────────────────────────────────
+
+    /** Escapes pipe and strips newlines so a value is safe inside a Markdown table cell. */
+    private String mdCell(String v) {
+        if (v == null || v.isBlank()) return "—";
+        return v.trim().replace("|", "\\|").replace("\r", "").replace("\n", " ");
+    }
+
+    /** Appends a two-column table row. */
+    private void mdRow(StringBuilder sb, String label, String value) {
+        sb.append("| ").append(mdCell(label)).append(" | ").append(mdCell(value)).append(" |\n");
+    }
+
+    /** Returns text or an italic placeholder if blank. */
+    private String mdBlock(String v) {
+        return (v == null || v.isBlank()) ? "*Sin información registrada.*" : v.trim();
+    }
+
+    private String ruleEmoji(String status) {
+        if (status == null) return "⏳";
+        return switch (status) {
+            case "Válida"   -> "✅";
+            case "Inválida" -> "❌";
+            default         -> "⏳";
         };
     }
 }

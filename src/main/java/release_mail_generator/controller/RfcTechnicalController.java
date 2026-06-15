@@ -86,6 +86,21 @@ public class RfcTechnicalController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/{id}/markdown")
+    public ResponseEntity<byte[]> downloadMarkdown(@PathVariable String id) {
+        return rfcService.findById(id)
+                .map(r -> {
+                    byte[] md = rfcService.generateMarkdown(r);
+                    String filename = "RFC_" + sanitize(r.getRfcNumber()) + ".md";
+                    return ResponseEntity.ok()
+                            .header(HttpHeaders.CONTENT_DISPOSITION,
+                                    "attachment; filename=\"" + filename + "\"")
+                            .contentType(MediaType.parseMediaType("text/markdown; charset=UTF-8"))
+                            .body(md);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable String id) {
         rfcService.delete(id);
