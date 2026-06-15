@@ -22,9 +22,4 @@ public class UatRequest {
     // Cierre
     private String nota;            // Sección "NOTA:" — texto libre
     private String cierre;          // "Quedo pendiente..." — default si está vacío
-
-    // Imágenes para los 3 pasos fijos de validación (opcionales)
-    private String stepImage1;      // Entrar a la carpeta Módulos SFYC UAT
-    private String stepImage2;      // Ejecutar el módulo Servicios_UAT
-    private String stepImage3;      // En el campo Servidor seleccionar MEGANG-384
 }

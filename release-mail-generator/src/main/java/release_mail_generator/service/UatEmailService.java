@@ -17,6 +17,9 @@ import com.lowagie.text.pdf.PdfWriter;
 import com.lowagie.text.pdf.draw.LineSeparator;
 import release_mail_generator.model.UatBlock;
 import release_mail_generator.model.UatRequest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 
 import java.awt.Color;
@@ -37,6 +40,25 @@ public class UatEmailService {
     private static final Color C_BG_REQ  = new Color(239, 246, 255);
     private static final Color C_TEXT    = new Color(15, 23, 42);
     private static final Color C_MUTED   = new Color(100, 116, 139);
+
+    @Autowired
+    private ResourceLoader resourceLoader;
+
+    /** Carga step{n}.png/jpg/gif desde classpath:/static/images/uat/ y retorna data URI base64. */
+    private String loadStepImage(int n) {
+        for (String ext : new String[]{"png", "jpg", "jpeg", "gif"}) {
+            try {
+                Resource res = resourceLoader.getResource(
+                        "classpath:/static/images/uat/step" + n + "." + ext);
+                if (res.exists()) {
+                    byte[] bytes = res.getInputStream().readAllBytes();
+                    String mime = (ext.equals("jpg") || ext.equals("jpeg")) ? "jpeg" : ext;
+                    return "data:image/" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
 
     // â”€â”€ Correo HTML â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -89,12 +111,12 @@ public class UatEmailService {
                 .append("</p>");
         }
 
-        // Instrucciones fijas de validación (con imágenes opcionales por paso)
+        // Instrucciones fijas — imágenes pre-cargadas desde /static/images/uat/
         html.append("<p style=\"margin:18px 0 4px 0;\"><b>Favor de Validar con el m&oacute;dulo Servicios_UAT.</b></p>")
             .append("<ol style=\"margin:0 0 14px 0;padding-left:28px;\">");
-        appendStep(html, "Entrar a la carpeta M\u00f3dulos SFYC UAT",          r.getStepImage1());
-        appendStep(html, "Ejecutar el m\u00f3dulo Servicios_UAT",               r.getStepImage2());
-        appendStep(html, "En el campo Servidor seleccionar MEGANG-384",       r.getStepImage3());
+        appendStep(html, "Entrar a la carpeta M\u00f3dulos SFYC UAT",       loadStepImage(1));
+        appendStep(html, "Ejecutar el m\u00f3dulo Servicios_UAT",            loadStepImage(2));
+        appendStep(html, "En el campo Servidor seleccionar MEGANG-384",    loadStepImage(3));
         html.append("</ol>");
 
         // Cierre
@@ -193,10 +215,10 @@ public class UatEmailService {
             addPara(doc, r.getNota().trim(), bodyF, 12);
         }
 
-        // Instrucciones fijas (con imágenes opcionales por paso)
+        // Instrucciones fijas — imágenes pre-cargadas desde /static/images/uat/
         addPara(doc, "Favor de Validar con el m\u00f3dulo Servicios_UAT.", boldF, 4);
         String[] stepTexts  = {"Entrar a la carpeta M\u00f3dulos SFYC UAT", "Ejecutar el m\u00f3dulo Servicios_UAT", "En el campo Servidor seleccionar MEGANG-384"};
-        String[] stepImages = {r.getStepImage1(), r.getStepImage2(), r.getStepImage3()};
+        String[] stepImages = {loadStepImage(1), loadStepImage(2), loadStepImage(3)};
         for (int i = 0; i < 3; i++) {
             Paragraph sp = new Paragraph((i + 1) + ". " + stepTexts[i], bodyF);
             sp.setIndentationLeft(20); sp.setSpacingAfter(notBlank(stepImages[i]) ? 4 : 3); doc.add(sp);
@@ -263,7 +285,7 @@ public class UatEmailService {
 
         md.append("**Favor de Validar con el m\u00f3dulo Servicios_UAT.**\n\n");
         String[] mdSteps    = {"Entrar a la carpeta M\u00f3dulos SFYC UAT", "Ejecutar el m\u00f3dulo Servicios_UAT", "En el campo Servidor seleccionar MEGANG-384"};
-        String[] mdStepImgs = {r.getStepImage1(), r.getStepImage2(), r.getStepImage3()};
+        String[] mdStepImgs = {loadStepImage(1), loadStepImage(2), loadStepImage(3)};
         for (int i = 0; i < 3; i++) {
             md.append(i + 1).append(". ").append(mdSteps[i]).append("\n");
             if (notBlank(mdStepImgs[i])) md.append("  _[Imagen del paso ").append(i + 1).append("]_\n");

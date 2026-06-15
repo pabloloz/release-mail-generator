@@ -313,22 +313,6 @@
             if (!document.querySelector('#uatBlocks .uat-block'))
                 document.getElementById('uatBlocksHint').style.display = '';
         }
-        function handleStepImage(input, num) {
-            if (!input.files || !input.files[0]) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('stepImage' + num).value = e.target.result;
-                document.getElementById('stepImg'   + num).src   = e.target.result;
-                document.getElementById('stepPreview' + num).style.display = '';
-            };
-            reader.readAsDataURL(input.files[0]);
-        }
-        function clearStepImage(num) {
-            document.getElementById('stepImage'   + num).value = '';
-            document.getElementById('stepImg'     + num).src   = '';
-            document.getElementById('stepPreview' + num).style.display = 'none';
-            document.getElementById('stepFile'    + num).value = '';
-        }
         function collectUatData() {
             const blocks = [...document.querySelectorAll('#uatBlocks .uat-block')].map(div => ({
                 texto:        div.querySelector('.block-texto')?.value      || '',
@@ -342,10 +326,7 @@
                 requerimientos: document.getElementById('uatRequerimientos').value,
                 blocks,
                 nota:           document.getElementById('uatNota').value,
-                cierre:         document.getElementById('uatCierre').value,
-                stepImage1:     document.getElementById('stepImage1').value,
-                stepImage2:     document.getElementById('stepImage2').value,
-                stepImage3:     document.getElementById('stepImage3').value
+                cierre:         document.getElementById('uatCierre').value
             };
         }
         async function generateUatEmail() {
@@ -395,7 +376,6 @@
             document.getElementById('uatCierre').value = 'Quedo pendiente por cualquier duda o comentario.';
             document.getElementById('uatBlocks').innerHTML = '';
             document.getElementById('uatBlocksHint').style.display = '';
-            ['1','2','3'].forEach(n => clearStepImage(n));
             document.getElementById('uatEmailSection').style.display = 'none';
         }
     </script>
@@ -1128,62 +1108,6 @@
             </div>
             <textarea id="uatNota" class="form-control" rows="5"
                       placeholder="Para esta promoci&#xF3;n solo se consideran servicios residenciales...&#10;&#10;Favor de Validar con el m&#xF3;dulo Servicios_UAT.&#10;1. Entrar a la carpeta M&#xF3;dulos SFYC UAT&#10;2. Ejecutar el m&#xF3;dulo Servicios_UAT&#10;3. En el campo Servidor seleccionar MEGANG-384"></textarea>
-        </div>
-
-        <!-- PASOS DE VALIDACIÓN - Imágenes opcionales -->
-        <div class="section-block">
-            <div class="section-label">&#x1F527; Pasos de Validaci&#xF3;n
-                <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.7rem;">(im&#xE1;genes opcionales)</span>
-            </div>
-            <p class="form-text text-muted mb-3" style="font-size:.82rem;">Los siguientes pasos se incluyen siempre en el correo. Adjunta una captura para cada uno si lo deseas.</p>
-            <!-- Paso 1 -->
-            <div class="mb-3">
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <span style="color:var(--primary);font-weight:700;min-width:20px;">1.</span>
-                    <span style="flex:1;font-size:.9rem;">Entrar a la carpeta <b>M&#xF3;dulos SFYC UAT</b></span>
-                    <label class="btn-add-uat" style="cursor:pointer;white-space:nowrap;">
-                        &#x1F4CE; Imagen
-                        <input type="file" id="stepFile1" accept="image/*" style="display:none;" onchange="handleStepImage(this,'1')">
-                    </label>
-                    <input type="hidden" id="stepImage1" value="">
-                </div>
-                <div id="stepPreview1" style="display:none;margin-left:26px;">
-                    <img id="stepImg1" style="max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:6px;display:block;">
-                    <button type="button" onclick="clearStepImage('1')" class="btn-remove-rdl mt-1" style="font-size:.75rem;">&#x2715; Quitar imagen</button>
-                </div>
-            </div>
-            <!-- Paso 2 -->
-            <div class="mb-3">
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <span style="color:var(--primary);font-weight:700;min-width:20px;">2.</span>
-                    <span style="flex:1;font-size:.9rem;">Ejecutar el m&#xF3;dulo <b>Servicios_UAT</b></span>
-                    <label class="btn-add-uat" style="cursor:pointer;white-space:nowrap;">
-                        &#x1F4CE; Imagen
-                        <input type="file" id="stepFile2" accept="image/*" style="display:none;" onchange="handleStepImage(this,'2')">
-                    </label>
-                    <input type="hidden" id="stepImage2" value="">
-                </div>
-                <div id="stepPreview2" style="display:none;margin-left:26px;">
-                    <img id="stepImg2" style="max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:6px;display:block;">
-                    <button type="button" onclick="clearStepImage('2')" class="btn-remove-rdl mt-1" style="font-size:.75rem;">&#x2715; Quitar imagen</button>
-                </div>
-            </div>
-            <!-- Paso 3 -->
-            <div class="mb-0">
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <span style="color:var(--primary);font-weight:700;min-width:20px;">3.</span>
-                    <span style="flex:1;font-size:.9rem;">En el campo <b>Servidor</b> seleccionar MEGANG-384</span>
-                    <label class="btn-add-uat" style="cursor:pointer;white-space:nowrap;">
-                        &#x1F4CE; Imagen
-                        <input type="file" id="stepFile3" accept="image/*" style="display:none;" onchange="handleStepImage(this,'3')">
-                    </label>
-                    <input type="hidden" id="stepImage3" value="">
-                </div>
-                <div id="stepPreview3" style="display:none;margin-left:26px;">
-                    <img id="stepImg3" style="max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:6px;display:block;">
-                    <button type="button" onclick="clearStepImage('3')" class="btn-remove-rdl mt-1" style="font-size:.75rem;">&#x2715; Quitar imagen</button>
-                </div>
-            </div>
         </div>
 
         <!-- CIERRE -->
