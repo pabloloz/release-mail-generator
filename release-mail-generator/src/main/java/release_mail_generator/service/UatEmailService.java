@@ -89,13 +89,13 @@ public class UatEmailService {
                 .append("</p>");
         }
 
-        // Instrucciones fijas de validación
+        // Instrucciones fijas de validación (con imágenes opcionales por paso)
         html.append("<p style=\"margin:18px 0 4px 0;\"><b>Favor de Validar con el m&oacute;dulo Servicios_UAT.</b></p>")
-            .append("<ol style=\"margin:0 0 14px 0;padding-left:28px;\">")
-            .append("<li style=\"margin-bottom:3px;\">Entrar a la carpeta M&oacute;dulos SFYC UAT</li>")
-            .append("<li style=\"margin-bottom:3px;\">Ejecutar el m&oacute;dulo Servicios_UAT</li>")
-            .append("<li style=\"margin-bottom:3px;\">En el campo Servidor seleccionar MEGANG-384</li>")
-            .append("</ol>");
+            .append("<ol style=\"margin:0 0 14px 0;padding-left:28px;\">");
+        appendStep(html, "Entrar a la carpeta M\u00f3dulos SFYC UAT",          r.getStepImage1());
+        appendStep(html, "Ejecutar el m\u00f3dulo Servicios_UAT",               r.getStepImage2());
+        appendStep(html, "En el campo Servidor seleccionar MEGANG-384",       r.getStepImage3());
+        html.append("</ol>");
 
         // Cierre
         String cierre = notBlank(r.getCierre()) ? r.getCierre() : "Quedo pendiente por cualquier duda o comentario.";
@@ -193,11 +193,26 @@ public class UatEmailService {
             addPara(doc, r.getNota().trim(), bodyF, 12);
         }
 
-        // Instrucciones fijas
+        // Instrucciones fijas (con imágenes opcionales por paso)
         addPara(doc, "Favor de Validar con el m\u00f3dulo Servicios_UAT.", boldF, 4);
-        for (String step : new String[]{"Entrar a la carpeta M\u00f3dulos SFYC UAT","Ejecutar el m\u00f3dulo Servicios_UAT","En el campo Servidor seleccionar MEGANG-384"}) {
-            Paragraph sp = new Paragraph(step, bodyF);
-            sp.setIndentationLeft(20); sp.setSpacingAfter(3); doc.add(sp);
+        String[] stepTexts  = {"Entrar a la carpeta M\u00f3dulos SFYC UAT", "Ejecutar el m\u00f3dulo Servicios_UAT", "En el campo Servidor seleccionar MEGANG-384"};
+        String[] stepImages = {r.getStepImage1(), r.getStepImage2(), r.getStepImage3()};
+        for (int i = 0; i < 3; i++) {
+            Paragraph sp = new Paragraph((i + 1) + ". " + stepTexts[i], bodyF);
+            sp.setIndentationLeft(20); sp.setSpacingAfter(notBlank(stepImages[i]) ? 4 : 3); doc.add(sp);
+            if (notBlank(stepImages[i])) {
+                try {
+                    String b64 = stepImages[i];
+                    if (b64.contains(",")) b64 = b64.substring(b64.indexOf(',') + 1);
+                    byte[] imgBytes = Base64.getDecoder().decode(b64.trim());
+                    Image img = Image.getInstance(imgBytes);
+                    img.scaleToFit(400, 280);
+                    img.setIndentationLeft(30); img.setSpacingAfter(8);
+                    doc.add(img);
+                } catch (Exception ex) {
+                    addPara(doc, "[Imagen del paso " + (i + 1) + " no disponible]", mutF, 4);
+                }
+            }
         }
 
         // Cierre
@@ -246,10 +261,14 @@ public class UatEmailService {
             md.append("**NOTA:**\n\n").append(r.getNota().trim()).append("\n\n");
         }
 
-        md.append("**Favor de Validar con el m\u00f3dulo Servicios_UAT.**\n\n")
-          .append("1. Entrar a la carpeta M\u00f3dulos SFYC UAT\n")
-          .append("2. Ejecutar el m\u00f3dulo Servicios_UAT\n")
-          .append("3. En el campo Servidor seleccionar MEGANG-384\n\n");
+        md.append("**Favor de Validar con el m\u00f3dulo Servicios_UAT.**\n\n");
+        String[] mdSteps    = {"Entrar a la carpeta M\u00f3dulos SFYC UAT", "Ejecutar el m\u00f3dulo Servicios_UAT", "En el campo Servidor seleccionar MEGANG-384"};
+        String[] mdStepImgs = {r.getStepImage1(), r.getStepImage2(), r.getStepImage3()};
+        for (int i = 0; i < 3; i++) {
+            md.append(i + 1).append(". ").append(mdSteps[i]).append("\n");
+            if (notBlank(mdStepImgs[i])) md.append("  _[Imagen del paso ").append(i + 1).append("]_\n");
+        }
+        md.append("\n");
 
         String cierre = notBlank(r.getCierre()) ? r.getCierre() : "Quedo pendiente por cualquier duda o comentario.";
         md.append(cierre).append("\n\n");
@@ -258,6 +277,15 @@ public class UatEmailService {
     }
 
     // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private void appendStep(StringBuilder html, String text, String imageB64) {
+        html.append("<li style=\"margin-bottom:8px;\">").append(text);
+        if (notBlank(imageB64)) {
+            html.append("<br><img src=\"").append(imageB64)
+                .append("\" style=\"max-width:100%;margin-top:6px;border:1px solid #e2e8f0;border-radius:4px;display:block;\">");
+        }
+        html.append("</li>");
+    }
 
     private String s(String v)          { return v != null && !v.isBlank() ? v.trim() : ""; }
     private boolean notBlank(String v)  { return v != null && !v.isBlank(); }
