@@ -10,10 +10,10 @@ COPY .mvn .mvn
 RUN chmod +x mvnw
 RUN ./mvnw dependency:go-offline -q
 
-# 2. Copiar el código fuente — esta capa se invalida con cada cambio
+# 2. Copiar el código fuente — esta capa se invalida con cada cambio en src/
 COPY src src
 
-RUN ./mvnw package -DskipTests -o
+RUN ./mvnw package -DskipTests
 
 EXPOSE 8080
 
