@@ -7,28 +7,19 @@ import java.util.List;
 @Data
 public class UatRequest {
 
-    // Información general
-    private String rfcNumber;
-    private String rfcName;
-    private String moduleName;
-    private String environment;
-    private String releaseJira;
+    // Encabezado del correo
+    private String rfcNumber;       // "RFC 24269"
+    private String rfcName;         // "Anexo a RFC 24015 Promociones combinen con 120 Mbps"
+    private String saludo;          // "Buenas tardes." — default si está vacío
+    private String adjunto;         // "Adjunto documentación y universo." — opcional
 
-    // Alcance (texto libre)
-    private String alcance;
+    // Cuerpo libre
+    private String requerimientos;  // Sección "Requerimientos:" — texto libre
 
-    // Escenarios a validar
-    private List<String> scenarios = new ArrayList<>();
+    // Bloques dinámicos: ejemplos, pasos, evidencias (texto + imagen opcional cada uno)
+    private List<UatBlock> blocks = new ArrayList<>();
 
-    // Datos para pruebas (sucursal / suscriptor / servicio / observaciones)
-    private List<UatRequirement> testData = new ArrayList<>();
-
-    // Casos validados (sucursal / suscriptor / servicio / resultado)
-    private List<UatTestCaseItem> validatedCases = new ArrayList<>();
-
-    // Pasos de ejecución
-    private List<String> executionSteps = new ArrayList<>();
-
-    // Adjuntos (solo nombres, se mencionan en el correo)
-    private List<String> attachmentNames = new ArrayList<>();
+    // Cierre
+    private String nota;            // Sección "NOTA:" — texto libre
+    private String cierre;          // "Quedo pendiente..." — default si está vacío
 }
