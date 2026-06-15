@@ -14,7 +14,8 @@ public class UatRequest {
     private String adjunto;         // "Adjunto documentación y universo." — opcional
 
     // Cuerpo libre
-    private String requerimientos;  // Sección "Requerimientos:" — texto libre
+    private String requerimientos;       // Sección "Requerimientos:" — texto libre
+    private String requerimientosImagen; // Imagen opcional bajo requerimientos (base64 data URI)
 
     // Bloques dinámicos: ejemplos, pasos, evidencias (texto + imagen opcional cada uno)
     private List<UatBlock> blocks = new ArrayList<>();

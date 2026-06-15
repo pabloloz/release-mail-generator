@@ -43,6 +43,18 @@
             const date = `${d}/${m}/${y}`;
             return timeVal ? `${date} ${timeVal}` : date;
         }
+        function showPane(name, triggerEl) {
+            document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+            const target = document.getElementById('pane-' + name);
+            if (target) target.classList.add('active');
+            document.querySelectorAll('.sidebar-nav-item[data-pane]').forEach(a => a.classList.remove('active'));
+            const navItem = triggerEl || document.querySelector(`.sidebar-nav-item[data-pane="${name}"]`);
+            if (navItem) navItem.classList.add('active');
+            if (name === 'rfc') {
+                const frame = document.getElementById('rfcFrame');
+                if (frame && !frame.dataset.loaded) { frame.src = '/rfc'; frame.dataset.loaded = 'true'; }
+            }
+        }
         window.addEventListener('DOMContentLoaded', () => {
             const now = new Date();
             document.getElementById('anio').value = now.getFullYear();
@@ -51,9 +63,8 @@
             document.getElementById('rdlAnio').value = now.getFullYear();
             document.getElementById('rdlSemana').value = getISOWeek(now);
             addRdlEntry();
-            const activeTab = document.body.dataset.activeTab || 'releases';
-            const tabEl = document.getElementById('tab-' + activeTab);
-            if (tabEl) bootstrap.Tab.getOrCreateInstance(tabEl).show();
+            const activePane = document.body.dataset.activeTab || 'dashboard';
+            showPane(activePane, null);
         });
         function clearAll() {
             document.querySelector('#pane-releases form').reset();
@@ -313,6 +324,26 @@
             if (!document.querySelector('#uatBlocks .uat-block'))
                 document.getElementById('uatBlocksHint').style.display = '';
         }
+        function handleReqImage(input) {
+            if (!input.files || !input.files[0]) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('reqImageData').value = e.target.result;
+                document.getElementById('reqImageImg').src    = e.target.result;
+                document.getElementById('reqImageName').textContent = input.files[0].name;
+                document.getElementById('reqImagePreview').style.display = '';
+                document.getElementById('reqImageClear').style.display  = '';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+        function clearReqImage() {
+            document.getElementById('reqImageData').value  = '';
+            document.getElementById('reqImageImg').src     = '';
+            document.getElementById('reqImageName').textContent = '';
+            document.getElementById('reqImageFile').value  = '';
+            document.getElementById('reqImagePreview').style.display = 'none';
+            document.getElementById('reqImageClear').style.display  = 'none';
+        }
         function collectUatData() {
             const blocks = [...document.querySelectorAll('#uatBlocks .uat-block')].map(div => ({
                 texto:        div.querySelector('.block-texto')?.value      || '',
@@ -371,7 +402,7 @@
             showToast('\u2714 Correo VoBo UAT copiado al portapapeles', 'success');
         }
         function clearUatForm() {
-            ['uatRfcNumber','uatRfcName','uatAdjunto','uatRequerimientos','uatNota'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+            ['uatRfcNumber','uatRfcName','uatAdjunto','uatRequerimientos','uatNota'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); clearReqImage();
             document.getElementById('uatSaludo').value = 'Buenas tardes.';
             document.getElementById('uatCierre').value = 'Quedo pendiente por cualquier duda o comentario.';
             document.getElementById('uatBlocks').innerHTML = '';
@@ -382,6 +413,7 @@
     <style>
         /* ── Design Tokens ───────────────────────────────────────────── */
         :root {
+
             --primary:        #2563eb;
             --primary-dark:   #1d4ed8;
             --primary-darker: #1e3a8a;
@@ -436,8 +468,8 @@
             background: var(--bg-section);
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
-            padding: 20px 22px;
-            margin-bottom: 16px;
+            padding: 22px 24px;
+            margin-bottom: 20px;
             transition: border-color .15s;
         }
         .section-label {
@@ -713,72 +745,194 @@
             border-radius: var(--radius-xs); padding: 14px 16px; margin-bottom: 8px;
         }
         .uat-block .block-img-preview { padding-top: 4px; }
+
+        /* ── App Layout ──────────────────────────────────────────────── */
+        .app-layout { display: flex; min-height: 100vh; }
+        body { margin: 0; overflow-x: hidden; }
+
+        /* ── Sidebar ─────────────────────────────────────────────────── */
+        .sidebar {
+            width: 228px; background: #0f172a; flex-shrink: 0;
+            display: flex; flex-direction: column;
+            position: sticky; top: 0; height: 100vh; overflow-y: auto; z-index: 200;
+        }
+        .sidebar-brand {
+            padding: 18px 14px 14px; border-bottom: 1px solid rgba(255,255,255,.1);
+            display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+        }
+        .sidebar-brand img { height: 52px; width: auto; max-width: 120px; object-fit: contain; border-radius: 6px; }
+        .sidebar-brand-name { color: white; font-weight: 700; font-size: .84rem; letter-spacing: -.01em; line-height: 1.3; }
+        .sidebar-brand-sub  { color: rgba(255,255,255,.4); font-size: .66rem; }
+        .sidebar-nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
+        .sidebar-nav-section { color: rgba(255,255,255,.3); font-size: .58rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; padding: 14px 8px 4px; }
+        .sidebar-nav-item {
+            display: flex; align-items: center; gap: 9px;
+            padding: 8px 11px; border-radius: 8px;
+            color: rgba(255,255,255,.68); font-size: .84rem; font-weight: 500;
+            cursor: pointer; transition: background .15s, color .15s;
+            text-decoration: none; margin-bottom: 2px;
+            border: none; background: transparent; width: 100%; text-align: left; font-family: inherit;
+        }
+        .sidebar-nav-item:hover { background: rgba(255,255,255,.09); color: white; }
+        .sidebar-nav-item.active { background: var(--primary); color: white; font-weight: 600; }
+        .nav-icon { font-size: .9rem; flex-shrink: 0; width: 18px; text-align: center; }
+        .sidebar-footer { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.1); display: flex; align-items: center; justify-content: center; }
+        .sidebar-footer img { height: 26px; width: auto; object-fit: contain; filter: brightness(0) invert(1) opacity(.5); }
+
+        /* ── Main area ───────────────────────────────────────────────── */
+        .main-area { flex: 1; display: flex; flex-direction: column; min-height: 100vh; overflow-y: auto; min-width: 0; }
+
+        /* ── Panes ───────────────────────────────────────────────────── */
+        .pane { display: none; flex-direction: column; flex: 1; }
+        .pane.active { display: flex; }
+        .pane-header { background: white; border-bottom: 1px solid var(--border); padding: 24px 64px 20px; flex-shrink: 0; }
+        .pane-breadcrumb { font-size: .72rem; color: var(--text-muted); margin-bottom: 3px; }
+        .pane-breadcrumb a { color: var(--text-muted); text-decoration: none; }
+        .pane-breadcrumb a:hover { color: var(--primary); }
+        .pane-breadcrumb span { color: var(--primary); font-weight: 600; }
+        .pane-title { font-size: 1.2rem; font-weight: 700; color: var(--text); margin: 0 0 2px; letter-spacing: -.02em; }
+        .pane-subtitle { font-size: .77rem; color: var(--text-muted); margin: 0; }
+        .pane-body { padding: 36px 64px 56px; flex: 1; max-width: 1340px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+
+        /* ── Dashboard ───────────────────────────────────────────────── */
+        .dashboard-hero {
+            background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 60%, #3b82f6 100%);
+            padding: 60px 64px 56px; flex-shrink: 0;
+        }
+        .dashboard-hero h1 { font-size: 1.7rem; font-weight: 700; color: white; margin: 0 0 8px; letter-spacing: -.03em; }
+        .dashboard-hero p { color: rgba(255,255,255,.82); margin: 0; font-size: .9rem; max-width: 640px; line-height: 1.65; }
+        .dash-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.24);
+            border-radius: 20px; padding: 4px 12px; font-size: .7rem; font-weight: 600;
+            color: rgba(255,255,255,.88); margin-bottom: 14px; letter-spacing: .04em;
+        }
+        .module-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 320px));
+            gap: 22px; padding: 44px 64px 48px; background: var(--bg);
+            justify-content: start;
+        }
+        .module-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 24px; cursor: pointer; transition: box-shadow .2s, transform .15s, border-color .2s; }
+        .module-card:hover { box-shadow: 0 8px 28px rgba(37,99,235,.13); transform: translateY(-2px); border-color: #bfdbfe; }
+        .module-card-icon { font-size: 1.8rem; margin-bottom: 12px; }
+        .module-card-title { font-size: .87rem; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+        .module-card-desc { font-size: .75rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; }
+        .module-card-action { font-size: .75rem; font-weight: 600; color: var(--primary); }
+        .quick-actions { padding: 0px 64px 52px; background: var(--bg); }
+        .quick-actions-title { font-size: .7rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+
+        /* ── Responsive ──────────────────────────────────────────────── */
+        @media (max-width: 900px) {
+            .sidebar { width: 56px; }
+            .sidebar-brand-name, .sidebar-brand-sub, .sidebar-nav-section { display: none; }
+            .sidebar-brand { padding: 12px 8px; }
+            .sidebar-brand img { max-width: 42px; height: 42px; }
+            .sidebar-nav-item { justify-content: center; padding: 9px 8px; gap: 0; }
+            .sidebar-nav-item > *:not(.nav-icon) { display: none; }
+            .sidebar-footer img { height: 20px; }
+            .pane-header { padding: 14px 20px 12px; }
+            .pane-body { padding: 20px 20px 32px; }
+            .module-grid { grid-template-columns: 1fr 1fr; padding: 20px; gap: 14px; justify-content: stretch; }
+            .dashboard-hero { padding: 32px 20px 28px; }
+            .quick-actions { padding: 0 20px 28px; }
+        }
+        @media (max-width: 520px) {
+            .module-grid { grid-template-columns: 1fr; }
+            #emailPreview, #rdlEmailPreview { padding: 16px; }
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
-<body th:data-active-tab="${activeTab != null ? activeTab : 'releases'}">
+<body th:data-active-tab="${activeTab != null ? activeTab : 'dashboard'}">
 <div id="toast-container" aria-live="polite"></div>
-<div class="container" style="max-width:960px; padding-top:36px; padding-bottom:60px;">
-<div class="app-card">
+<div class="app-layout">
 
-    <!-- HEADER -->
-    <div class="app-header">
-        <div class="d-flex align-items-center justify-content-between gap-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="logo-pill">
-                    <img src="/images/logo-empresa.png" alt="Logo empresa"
-                         style="height:36px; width:auto; object-fit:contain; max-width:130px;"
-                         onerror="this.closest('.logo-pill').style.display='none'">
-                </div>
-                <div class="header-sep"></div>
-                <div>
-                    <div style="font-size:1.2rem; font-weight:700; letter-spacing:-.02em; line-height:1.25;">Release Notifier QA</div>
-                    <div style="font-size:.75rem; opacity:.85; margin-top:3px; font-weight:400; letter-spacing:.01em;">Plataforma de notificaciones de liberaci&#xF3;n &mdash; Equipo QA</div>
-                </div>
+    <!-- ── SIDEBAR ────────────────────────────────────── -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <img src="/images/logo-empresa.png" alt=""
+                 onerror="this.style.display='none'">
+            <div class="sidebar-brand-name">Release Notifier QA</div>
+            <div class="sidebar-brand-sub">Plataforma QA &amp; Liberaciones</div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="sidebar-nav-section">Plataforma</div>
+            <button class="sidebar-nav-item" data-pane="dashboard" onclick="showPane('dashboard',this)">
+                <span class="nav-icon">&#x229E;</span> Dashboard
+            </button>
+            <div class="sidebar-nav-section">M&#xF3;dulos</div>
+            <button class="sidebar-nav-item" data-pane="releases" onclick="showPane('releases',this)">
+                <span class="nav-icon">&#x1F4E6;</span> Artefactos
+            </button>
+            <button class="sidebar-nav-item" data-pane="rdl" onclick="showPane('rdl',this)">
+                <span class="nav-icon">&#x1F4CA;</span> Reportes RDL
+            </button>
+            <button class="sidebar-nav-item" data-pane="rfc" onclick="showPane('rfc',this)">
+                <span class="nav-icon">&#x1F4CB;</span> RFC T&#xE9;cnico
+            </button>
+            <button class="sidebar-nav-item" data-pane="uat" onclick="showPane('uat',this)">
+                <span class="nav-icon">&#x2705;</span> VoBo UAT
+            </button>
+        </nav>
+        <div class="sidebar-footer">
+            <img src="/images/logo-qa.png" alt="QA" onerror="this.style.display='none'">
+        </div>
+    </aside>
+
+    <!-- ── MAIN AREA ──────────────────────────────────── -->
+    <main class="main-area">
+
+    <!-- ════════════════════ PANE: DASHBOARD ════════════ -->
+    <div class="pane" id="pane-dashboard">
+        <div class="dashboard-hero">
+            <div class="dash-badge">&#x1F3E2; Megacable &mdash; Equipo QA &amp; Liberaciones</div>
+            <h1>Release Notifier QA</h1>
+            <p>Plataforma corporativa de gesti&#xF3;n de liberaciones y notificaciones para equipos de QA, Desarrollo y Liberaciones.</p>
+        </div>
+        <div class="module-grid">
+            <div class="module-card" onclick="showPane('releases',null)">
+                <div class="module-card-icon">&#x1F4E6;</div>
+                <div class="module-card-title">Artefactos de Liberaci&#xF3;n</div>
+                <div class="module-card-desc">Genera correos con rutas de m&#xF3;dulos, Citrix, DLLs, scripts SQL, SPs, branches y RFCs.</div>
+                <div class="module-card-action">Abrir m&#xF3;dulo &#x2192;</div>
             </div>
-            <div class="logo-pill">
-                <img src="/images/logo-qa.png" alt="Logo QA"
-                     style="height:36px; width:auto; object-fit:contain; max-width:130px;"
-                     onerror="this.closest('.logo-pill').style.display='none'">
+            <div class="module-card" onclick="showPane('rdl',null)">
+                <div class="module-card-icon">&#x1F4CA;</div>
+                <div class="module-card-title">Reportes RDL</div>
+                <div class="module-card-desc">Genera correos de liberaci&#xF3;n para reportes SSRS en MEGANG&#x2011;612 y NTRS02.</div>
+                <div class="module-card-action">Abrir m&#xF3;dulo &#x2192;</div>
+            </div>
+            <div class="module-card" onclick="showPane('rfc',null)">
+                <div class="module-card-icon">&#x1F4CB;</div>
+                <div class="module-card-title">RFC T&#xE9;cnico</div>
+                <div class="module-card-desc">Crea documentaci&#xF3;n t&#xE9;cnica estructurada para RFCs con desglose de cambios y artefactos.</div>
+                <div class="module-card-action">Abrir m&#xF3;dulo &#x2192;</div>
+            </div>
+            <div class="module-card" onclick="showPane('uat',null)">
+                <div class="module-card-icon">&#x2705;</div>
+                <div class="module-card-title">VoBo UAT</div>
+                <div class="module-card-desc">Genera correos de VoBo UAT con instrucciones de validaci&#xF3;n, evidencias y pasos autom&#xE1;ticos.</div>
+                <div class="module-card-action">Abrir m&#xF3;dulo &#x2192;</div>
             </div>
         </div>
+        <div class="quick-actions">
+            <div class="quick-actions-title">Acciones r&#xE1;pidas</div>
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;" onclick="showPane('releases',null)">&#x1F4E6; Nuevo correo de artefactos</button>
+                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#6366f1;" onclick="showPane('rdl',null)">&#x1F4CA; Nuevo correo RDL</button>
+                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#059669;" onclick="showPane('uat',null)">&#x2705; Nuevo VoBo UAT</button>
+            </div>
+        </div>
+    </div><!-- /pane-dashboard -->
+
+    <!-- ════════════════ PANE: ARTEFACTOS DE LIBERACIÓN ═══════ -->
+    <div class="pane" id="pane-releases">
+    <div class="pane-header">
+        <div class="pane-breadcrumb"><a href="#" onclick="showPane('dashboard',null);return false;">Inicio</a> / <span>Artefactos de Liberación</span></div>
+        <h2 class="pane-title">&#x1F4E6; Artefactos de Liberación</h2>
+        <p class="pane-subtitle">Genera correos de notificación con rutas de módulos, Citrix, DLLs, scripts SQL, SPs, branches y RFCs.</p>
     </div>
-
-    <!-- BODY -->
-    <div class="app-body">
-
-    <!-- TABS NAV -->
-    <ul class="nav nav-tabs" id="mainTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-releases" data-bs-toggle="tab"
-                    data-bs-target="#pane-releases" type="button" role="tab">
-                &#x1F4E6; M&#xF3;dulos / Artefactos
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-rdl" data-bs-toggle="tab"
-                    data-bs-target="#pane-rdl" type="button" role="tab">
-                &#x1F4CA; Reportes RDL
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <a class="nav-link" href="/rfc"
-               style="text-decoration:none; display:flex; align-items:center; gap:6px;">
-                &#x1F4CB; RFC T&#xE9;cnico
-            </a>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-uat" data-bs-toggle="tab"
-                    data-bs-target="#pane-uat" type="button" role="tab">
-                &#x2705; VoBo UAT
-            </button>
-        </li>
-    </ul>
-
-    <div class="tab-content">
-
-    <!-- ═══════════════════════════ TAB: M&#xD3;DULOS / ARTEFACTOS ══════ -->
-    <div class="tab-pane fade" id="pane-releases" role="tabpanel">
+    <div class="pane-body">
     <form action="/generate" method="post" onsubmit="onReleasesFormSubmit(event)">
 
         <!-- DATOS GENERALES -->
@@ -951,10 +1105,18 @@
         </div>
     </div>
 
+    </div><!-- /pane-body -->
     </div><!-- /pane-releases -->
 
     <!-- ═══════════════════════════════════ TAB: REPORTES RDL ══════════════ -->
-    <div class="tab-pane fade" id="pane-rdl" role="tabpanel">
+    <!-- ══════════════════════════════════════ PANE: REPORTES RDL ═══════════════════ -->
+    <div class="pane" id="pane-rdl">
+    <div class="pane-header">
+        <div class="pane-breadcrumb"><a href="#" onclick="showPane('dashboard',null);return false;">Inicio</a> / <span>Reportes RDL</span></div>
+        <h2 class="pane-title">&#x1F4CA; Reportes RDL</h2>
+        <p class="pane-subtitle">Genera correos de liberaci&#xF3;n para reportes SSRS (MEGANG-612 y NTRS02).</p>
+    </div>
+    <div class="pane-body">
     <form action="/generate-rdl" method="post" id="rdlForm">
 
         <!-- SEMANA / AÑO compartido -->
@@ -1050,10 +1212,17 @@
         </div>
     </div>
 
+    </div><!-- /pane-body -->
     </div><!-- /pane-rdl -->
 
-    <!-- ═══════════════════════════════════ TAB: VoBo UAT ══════════════════ -->
-    <div class="tab-pane fade" id="pane-uat" role="tabpanel">
+    <!-- ══════════════════════════════════════ PANE: VoBo UAT ═══════════════════ -->
+    <div class="pane" id="pane-uat">
+    <div class="pane-header">
+        <div class="pane-breadcrumb"><a href="#" onclick="showPane('dashboard',null);return false;">Inicio</a> / <span>VoBo UAT</span></div>
+        <h2 class="pane-title">&#x2705; VoBo UAT</h2>
+        <p class="pane-subtitle">Genera correos de validaci&#xF3;n para el proceso de UAT con evidencias y requerimientos.</p>
+    </div>
+    <div class="pane-body">
 
         <!-- RFC / INTRO -->
         <div class="section-block">
@@ -1085,6 +1254,18 @@
             </div>
             <textarea id="uatRequerimientos" class="form-control" rows="6"
                       placeholder="Describe las promociones, servicios o condiciones a considerar, resultado esperado...&#10;&#10;Ej:&#10;Promociones:&#10;2315 - Doble se vuelve Triple&#10;&#10;Resultado esperado: &#x2713; Que la promoci&#xF3;n conviva con los servicios 131 y 331."></textarea>
+            <div class="d-flex align-items-center gap-2 mt-2">
+                <label class="btn-add-uat" style="cursor:pointer;">
+                    &#x1F4CE; Agregar imagen
+                    <input type="file" id="reqImageFile" accept="image/*" style="display:none;" onchange="handleReqImage(this)">
+                </label>
+                <input type="hidden" id="reqImageData" value="">
+                <span id="reqImageName" class="text-muted" style="font-size:.8rem;"></span>
+                <button type="button" id="reqImageClear" onclick="clearReqImage()" class="btn-remove-rdl" style="display:none;font-size:.75rem;">&#x2715; Quitar</button>
+            </div>
+            <div id="reqImagePreview" style="display:none;margin-top:8px;">
+                <img id="reqImageImg" style="max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:6px;display:block;">
+            </div>
         </div>
 
         <!-- BLOQUES LIBRES (ejemplos / pasos / evidencias) -->
@@ -1144,13 +1325,18 @@
             </div>
         </div>
 
+    </div><!-- /pane-body -->
     </div><!-- /pane-uat -->
 
-    </div><!-- /tab-content -->
+    <!-- ══════════════════════════════════════ PANE: RFC TÉCNICO ══════════════ -->
+    <div class="pane" id="pane-rfc">
+        <iframe id="rfcFrame" src="about:blank"
+                style="width:100%; min-height:calc(100vh - 1px); border:none; display:block;"
+                title="RFC T&#xE9;cnico"></iframe>
+    </div>
 
-    </div><!-- /app-body -->
-</div>
-</div>
+    </main>
+</div><!-- /app-layout -->
 
 <!-- Template para entradas dinámicas de RDL -->
 <template id="rdlEntryTemplate">

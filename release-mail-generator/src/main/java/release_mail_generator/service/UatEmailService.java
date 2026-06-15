@@ -83,13 +83,25 @@ public class UatEmailService {
         if (notBlank(r.getRequerimientos())) {
             html.append("<p style=\"margin:0 0 4px 0;\"><b>Requerimientos:</b></p>")
                 .append("<div style=\"border:1px solid #c7d2fe;border-radius:6px;padding:12px 16px;"
-                      + "background:#f0f4ff;margin-bottom:16px;font-size:10.5pt;\">")
+                      + "background:#f0f4ff;margin-bottom:" + (notBlank(r.getRequerimientosImagen()) ? "10px" : "16px") + ";font-size:10.5pt;\">")
                 .append(esc(r.getRequerimientos()).replace("\n", "<br>"))
                 .append("</div>");
+            if (notBlank(r.getRequerimientosImagen())) {
+                html.append("<p style=\"margin:0 0 16px 0;\">")
+                    .append("<img src=\"").append(r.getRequerimientosImagen())
+                    .append("\" style=\"max-width:100%;border:1px solid #e2e8f0;border-radius:4px;\">")
+                    .append("</p>");
+            }
         }
 
         // Bloques libres (texto + imagen de evidencia)
-        for (UatBlock block : orEmpty(r.getBlocks())) {
+        List<UatBlock> blocks = orEmpty(r.getBlocks()).stream()
+                .filter(b -> notBlank(b.getTexto()) || notBlank(b.getImagenBase64()))
+                .collect(java.util.stream.Collectors.toList());
+        if (!blocks.isEmpty()) {
+            html.append("<p style=\"margin:16px 0 6px 0;\"><b>Ejemplos de validaci&oacute;n:</b></p>");
+        }
+        for (UatBlock block : blocks) {
             if (notBlank(block.getTexto())) {
                 html.append("<p style=\"margin:0 0 10px 0;\">")
                     .append(esc(block.getTexto()).replace("\n", "<br>"))
@@ -177,9 +189,22 @@ public class UatEmailService {
         if (notBlank(r.getRequerimientos())) {
             addPara(doc, "Requerimientos:", boldF, 12);
             Paragraph reqP = new Paragraph(r.getRequerimientos().trim(), bodyF);
-            reqP.setSpacingAfter(12);
+            reqP.setSpacingAfter(notBlank(r.getRequerimientosImagen()) ? 4 : 12);
             reqP.setIndentationLeft(12);
             doc.add(reqP);
+            if (notBlank(r.getRequerimientosImagen())) {
+                try {
+                    String b64 = r.getRequerimientosImagen();
+                    if (b64.contains(",")) b64 = b64.substring(b64.indexOf(',') + 1);
+                    byte[] imgBytes = Base64.getDecoder().decode(b64.trim());
+                    Image img = Image.getInstance(imgBytes);
+                    img.scaleToFit(400, 280);
+                    img.setIndentationLeft(12); img.setSpacingAfter(12);
+                    doc.add(img);
+                } catch (Exception ex) {
+                    addPara(doc, "[Imagen de requerimientos no disponible]", mutF, 12);
+                }
+            }
         }
 
         // Bloques
@@ -265,6 +290,7 @@ public class UatEmailService {
         if (notBlank(r.getRequerimientos())) {
             md.append("**Requerimientos:**\n\n");
             md.append("> ").append(r.getRequerimientos().trim().replace("\n", "\n> ")).append("\n\n");
+            if (notBlank(r.getRequerimientosImagen())) md.append("_[Imagen de requerimientos adjunta]_\n\n");
         }
 
         List<UatBlock> mdBlocks = orEmpty(r.getBlocks());
