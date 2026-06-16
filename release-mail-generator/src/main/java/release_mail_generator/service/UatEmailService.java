@@ -89,7 +89,7 @@ public class UatEmailService {
             if (notBlank(r.getRequerimientosImagen())) {
                 html.append("<p style=\"margin:0 0 16px 0;\">")
                     .append("<img src=\"").append(r.getRequerimientosImagen())
-                    .append("\" style=\"max-width:100%;border:1px solid #e2e8f0;border-radius:4px;\">")
+                    .append("\" style=\"max-width:420px;height:auto;display:block;\">")
                     .append("</p>");
             }
         }
@@ -110,7 +110,7 @@ public class UatEmailService {
             if (notBlank(block.getImagenBase64())) {
                 html.append("<p style=\"margin:0 0 16px 0;\">")
                     .append("<img src=\"").append(block.getImagenBase64())
-                    .append("\" style=\"max-width:100%;border:1px solid #e2e8f0;border-radius:4px;\">")
+                    .append("\" style=\"max-width:420px;height:auto;display:block;\">")
                     .append("</p>");
             }
         }
@@ -126,9 +126,9 @@ public class UatEmailService {
         // Instrucciones fijas — imágenes pre-cargadas desde /static/images/uat/
         html.append("<p style=\"margin:18px 0 4px 0;\"><b>Favor de Validar con el m&oacute;dulo Servicios_UAT.</b></p>")
             .append("<ol style=\"margin:0 0 14px 0;padding-left:28px;\">");
-        appendStep(html, "Entrar a la carpeta M\u00f3dulos SFYC UAT",       loadStepImage(1));
-        appendStep(html, "Ejecutar el m\u00f3dulo Servicios_UAT",            loadStepImage(2));
-        appendStep(html, "En el campo Servidor seleccionar MEGANG-384",    loadStepImage(3));
+        appendStep(html, "Entrar a la carpeta M\u00f3dulos SFYC UAT",       loadStepImage(1), 420);
+        appendStep(html, "Ejecutar el m\u00f3dulo Servicios_UAT",            loadStepImage(2), 260);
+        appendStep(html, "En el campo Servidor seleccionar MEGANG-384",    loadStepImage(3), 260);
         html.append("</ol>");
 
         // Cierre
@@ -326,11 +326,12 @@ public class UatEmailService {
 
     // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    private void appendStep(StringBuilder html, String text, String imageB64) {
+    private void appendStep(StringBuilder html, String text, String imageB64, int maxWidthPx) {
         html.append("<li style=\"margin-bottom:8px;\">").append(text);
         if (notBlank(imageB64)) {
             html.append("<br><img src=\"").append(imageB64)
-                .append("\" style=\"max-width:100%;margin-top:6px;border:1px solid #e2e8f0;border-radius:4px;display:block;\">");
+                .append("\" style=\"max-width:").append(maxWidthPx).append("px;height:auto;"
+                      + "margin-top:6px;display:block;\">" );
         }
         html.append("</li>");
     }
