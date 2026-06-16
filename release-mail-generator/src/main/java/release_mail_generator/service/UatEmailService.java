@@ -21,6 +21,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
@@ -33,6 +35,8 @@ import java.util.List;
 
 @Service
 public class UatEmailService {
+
+    private static final Logger log = LoggerFactory.getLogger(UatEmailService.class);
 
     private static final Color C_PRIMARY = new Color(37, 99, 235);
     private static final Color C_DARK    = new Color(30, 58, 138);
@@ -202,6 +206,7 @@ public class UatEmailService {
                     img.setIndentationLeft(12); img.setSpacingAfter(12);
                     doc.add(img);
                 } catch (Exception ex) {
+                    log.warn("No se pudo incrustar imagen de requerimientos en PDF: {}", ex.getMessage());
                     addPara(doc, "[Imagen de requerimientos no disponible]", mutF, 12);
                 }
             }
@@ -228,6 +233,7 @@ public class UatEmailService {
                     img.setSpacingAfter(12);
                     doc.add(img);
                 } catch (Exception ex) {
+                    log.warn("No se pudo incrustar imagen de evidencia {} en PDF: {}", evidenciaNum, ex.getMessage());
                     addPara(doc, "[Imagen de evidencia " + evidenciaNum + " no disponible en PDF]", mutF, 8);
                 }
                 evidenciaNum++;
@@ -257,6 +263,7 @@ public class UatEmailService {
                     img.setIndentationLeft(30); img.setSpacingAfter(8);
                     doc.add(img);
                 } catch (Exception ex) {
+                    log.warn("No se pudo incrustar imagen del paso {} en PDF: {}", i + 1, ex.getMessage());
                     addPara(doc, "[Imagen del paso " + (i + 1) + " no disponible]", mutF, 4);
                 }
             }

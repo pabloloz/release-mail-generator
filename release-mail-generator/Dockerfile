@@ -1,20 +1,26 @@
-FROM eclipse-temurin:17
+# ── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM eclipse-temurin:17-jdk AS builder
 
 WORKDIR /app
 
-# 1. Copiar solo pom.xml y mvnw para cachear dependencias
-COPY pom.xml .
-COPY mvnw .
+# Copiar solo pom.xml y mvnw primero para cachear dependencias
+COPY pom.xml mvnw ./
 COPY .mvn .mvn
 
-RUN chmod +x mvnw
-RUN ./mvnw dependency:go-offline -q
+RUN chmod +x mvnw && ./mvnw dependency:go-offline -q
 
-# 2. Copiar el código fuente — esta capa se invalida con cada cambio en src/
+# Copiar fuente — esta capa se invalida solo cuando cambia src/
 COPY src src
 
 RUN ./mvnw package -DskipTests
 
+# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
+FROM eclipse-temurin:17-jre
+
+WORKDIR /app
+
+COPY --from=builder /app/target/app.jar app.jar
+
 EXPOSE 8080
 
-CMD ["java", "-jar", "target/release-mail-generator-0.0.1-SNAPSHOT.jar"]
+CMD ["java", "-Dspring.profiles.active=prod", "-jar", "app.jar"]

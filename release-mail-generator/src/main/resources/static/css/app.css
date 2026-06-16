@@ -1,0 +1,210 @@
+/* ── Release Mail Generator — Estilos compartidos ────────────────────────── */
+
+:root {
+    --primary:        #2563eb;
+    --primary-dark:   #1d4ed8;
+    --primary-darker: #1e3a8a;
+    --primary-light:  #eff6ff;
+    --success:        #059669;
+    --danger:         #dc2626;
+    --border:         #e2e8f0;
+    --bg:             #f1f5f9;
+    --bg-section:     #f8fafc;
+    --text:           #0f172a;
+    --text-muted:     #64748b;
+    --shadow-md:      0 4px 24px rgba(0,0,0,.09);
+    --radius:         14px;
+    --radius-sm:      10px;
+    --radius-xs:      7px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    background: var(--bg);
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Card layout ─────────────────────────────────────────────────────────── */
+.app-card {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+}
+
+.app-header {
+    background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 65%, #3b82f6 100%);
+    color: white;
+    padding: 20px 32px;
+}
+
+.app-body { padding: 28px 32px; }
+
+/* ── Section blocks ──────────────────────────────────────────────────────── */
+.section-block {
+    background: var(--bg-section);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 22px 24px;
+    margin-bottom: 20px;
+}
+
+.section-label {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1.5px solid var(--border);
+}
+
+/* ── Form controls ───────────────────────────────────────────────────────── */
+.form-label { font-size: .8rem; font-weight: 600; margin-bottom: 4px; color: #374151; }
+
+.form-control,
+.form-select {
+    font-size: .875rem;
+    font-family: inherit;
+    border-color: var(--border);
+    border-radius: var(--radius-xs);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+
+.form-control::placeholder { color: #94a3b8; font-size: .82rem; }
+
+textarea.form-control { resize: vertical; line-height: 1.55; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn-primary-action {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 28px;
+    border-radius: var(--radius-xs);
+    font-weight: 700;
+    font-size: .95rem;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background .15s;
+}
+.btn-primary-action:hover { background: var(--primary-dark); }
+.btn-primary-action:disabled { opacity: .6; cursor: not-allowed; }
+
+.btn-ghost {
+    background: white;
+    color: var(--text-muted);
+    border: 1.5px solid var(--border);
+    padding: 8px 18px;
+    border-radius: var(--radius-xs);
+    font-size: .875rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background .15s;
+}
+.btn-ghost:hover { background: var(--bg); color: var(--text); }
+
+.btn-add {
+    background: var(--primary-light);
+    color: var(--primary);
+    border: 1.5px solid #bfdbfe;
+    padding: 6px 14px;
+    border-radius: var(--radius-xs);
+    font-size: .8rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s;
+}
+.btn-add:hover { background: #dbeafe; }
+
+.btn-remove {
+    background: #fef2f2;
+    color: var(--danger);
+    border: 1.5px solid #fecaca;
+    padding: 4px 10px;
+    border-radius: var(--radius-xs);
+    font-size: .78rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    flex-shrink: 0;
+}
+.btn-remove:hover { background: #fee2e2; }
+
+/* ── Dynamic items ───────────────────────────────────────────────────────── */
+.dynamic-item {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+/* ── Toast notifications ─────────────────────────────────────────────────── */
+#toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.toast-msg {
+    background: #1e293b;
+    color: white;
+    padding: 10px 18px;
+    border-radius: var(--radius-xs);
+    font-size: .84rem;
+    font-weight: 500;
+    font-family: inherit;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .2s, transform .2s;
+    max-width: 300px;
+}
+.toast-msg.show    { opacity: 1; transform: translateY(0); }
+.toast-msg.toast-success { background: var(--success); }
+.toast-msg.toast-error   { background: var(--danger); }
+
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+.spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .app-header { padding: 16px 18px; }
+    .app-body   { padding: 18px; }
+}

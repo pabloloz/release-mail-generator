@@ -4,6 +4,9 @@ import release_mail_generator.model.ReleaseRequest;
 import release_mail_generator.model.RdlReleaseRequest;
 import release_mail_generator.model.RdlItem;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.annotation.PostConstruct;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -14,20 +17,25 @@ import java.util.List;
 @Service
 public class EmailGeneratorService {
 
-    /** Base64 de la imagen MegaCarteraDRP; se carga una sola vez de forma lazy. */
-    private volatile String megaCarteraDrpImg = null;
+    private static final Logger log = LoggerFactory.getLogger(EmailGeneratorService.class);
+
+    /** Base64 de la imagen MegaCarteraDRP; se carga una sola vez al inicio. */
+    private String megaCarteraDrpImg;
+
+    @PostConstruct
+    private void init() {
+        try (var is = getClass().getResourceAsStream("/static/images/MegaCarteraDRP.png")) {
+            megaCarteraDrpImg = (is != null)
+                ? Base64.getEncoder().encodeToString(is.readAllBytes())
+                : "";
+        } catch (IOException e) {
+            log.warn("No se pudo cargar imagen MegaCarteraDRP: {}", e.getMessage());
+            megaCarteraDrpImg = "";
+        }
+    }
 
     private String getMegaCarteraDrpImg() {
-        if (megaCarteraDrpImg == null) {
-            try (var is = getClass().getResourceAsStream("/static/images/MegaCarteraDRP.png")) {
-                megaCarteraDrpImg = (is != null)
-                    ? Base64.getEncoder().encodeToString(is.readAllBytes())
-                    : "";
-            } catch (IOException e) {
-                megaCarteraDrpImg = "";
-            }
-        }
-        return megaCarteraDrpImg;
+        return megaCarteraDrpImg != null ? megaCarteraDrpImg : "";
     }
 
     private String clean(String value) {
@@ -53,8 +61,8 @@ public class EmailGeneratorService {
         String path = raw.trim();
         String href;
         if (path.startsWith("\\\\")) {
-            // UNC → file://servidor/ruta
-            href = "file://" + path.substring(2).replace('\\', '/');
+            // UNC → file://servidor/ruta  (el href también se escapa)
+            href = "file://" + esc(path.substring(2).replace('\\', '/'));
         } else {
             href = esc(path);
         }

@@ -17,7 +17,11 @@ import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import com.lowagie.text.pdf.draw.LineSeparator;
 import release_mail_generator.model.*;
+import release_mail_generator.repository.RfcTechnicalRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
@@ -25,12 +29,14 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class RfcTechnicalService {
 
-    private final Map<String, RfcTechnicalRecord> store = new ConcurrentHashMap<>();
+    private static final Logger log = LoggerFactory.getLogger(RfcTechnicalService.class);
+
+    @Autowired
+    private RfcTechnicalRepository repository;
 
     // ── Color palette ──────────────────────────────────────────────────────
     private static final Color C_PRIMARY    = new Color(37, 99, 235);
@@ -47,15 +53,11 @@ public class RfcTechnicalService {
     // ── CRUD ───────────────────────────────────────────────────────────────
 
     public List<RfcTechnicalRecord> findAll() {
-        return store.values().stream()
-                .sorted(Comparator.comparing(
-                        r -> r.getCreatedAt() == null ? LocalDateTime.MIN : r.getCreatedAt(),
-                        Comparator.reverseOrder()))
-                .toList();
+        return repository.findAllByOrderByCreatedAtDesc();
     }
 
     public Optional<RfcTechnicalRecord> findById(String id) {
-        return Optional.ofNullable(store.get(id));
+        return repository.findById(id);
     }
 
     public RfcTechnicalRecord save(RfcTechnicalRecord record) {
@@ -69,16 +71,21 @@ public class RfcTechnicalService {
             record.setId(UUID.randomUUID().toString());
             record.setCreatedAt(LocalDateTime.now());
         } else {
-            findById(record.getId()).ifPresent(e -> record.setCreatedAt(e.getCreatedAt()));
+            repository.findById(record.getId())
+                    .ifPresent(existing -> record.setCreatedAt(existing.getCreatedAt()));
             if (record.getCreatedAt() == null) record.setCreatedAt(LocalDateTime.now());
         }
         record.setUpdatedAt(LocalDateTime.now());
-        store.put(record.getId(), record);
-        return record;
+        RfcTechnicalRecord saved = repository.save(record);
+        log.info("RFC guardado: id={} rfc={} status={}", saved.getId(), saved.getRfcNumber(), saved.getStatus());
+        return saved;
     }
 
     public boolean delete(String id) {
-        return store.remove(id) != null;
+        if (!repository.existsById(id)) return false;
+        repository.deleteById(id);
+        log.info("RFC eliminado: id={}", id);
+        return true;
     }
 
     // ── PDF Generation ─────────────────────────────────────────────────────
@@ -97,8 +104,7 @@ public class RfcTechnicalService {
                     Font footerFont = new Font(Font.HELVETICA, 8, Font.NORMAL, C_MUTED);
                     // Footer rule
                     cb.setLineWidth(0.5f);
-                    cb.setColorStroke(C_BORDER);
-                    cb.moveTo(d.left(), d.bottom() - 4);
+                    cb.setColorStroke(C_BORDER);                    cb.moveTo(d.left(), d.bottom() - 4);
                     cb.lineTo(d.right(), d.bottom() - 4);
                     cb.stroke();
                     // Page number right
