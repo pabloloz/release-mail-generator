@@ -357,13 +357,19 @@
             document.getElementById('reqImagePreview').style.display = 'none';
             document.getElementById('reqImageClear').style.display  = 'none';
         }
+        function formatUatRfcNumber(value) {
+            const raw = (value || '').trim();
+            if (!raw) return '';
+            const withoutPrefix = raw.replace(/^rfc\s*/i, '').trim();
+            return withoutPrefix ? `RFC ${withoutPrefix}` : 'RFC';
+        }
         function collectUatData() {
             const blocks = [...document.querySelectorAll('#uatBlocks .uat-block')].map(div => ({
                 texto:        div.querySelector('.block-texto')?.value      || '',
                 imagenBase64: div.querySelector('.block-image-data')?.value || ''
             }));
             return {
-                rfcNumber:      document.getElementById('uatRfcNumber').value,
+                rfcNumber:      formatUatRfcNumber(document.getElementById('uatRfcNumber').value),
                 rfcName:        document.getElementById('uatRfcName').value,
                 saludo:         document.getElementById('uatSaludo').value,
                 adjunto:        document.getElementById('uatAdjunto').value,
@@ -397,7 +403,7 @@
                 const blob = await resp.blob();
                 const cd = resp.headers.get('Content-Disposition') || '';
                 const m = cd.match(/filename[*]?=(?:UTF-8'')?["']?([^;"'\n]+)/i);
-                const rfc = (document.getElementById('uatRfcNumber').value || 'VoBo-UAT').replace(/[^a-zA-Z0-9\-_]/g,'-');
+                const rfc = (formatUatRfcNumber(document.getElementById('uatRfcNumber').value) || 'VoBo-UAT').replace(/[^a-zA-Z0-9\-_]/g,'-');
                 const ext = type === 'markdown' ? 'md' : type;
                 const filename = m ? decodeURIComponent(m[1].trim()) : rfc + '.' + ext;
                 const url = URL.createObjectURL(blob);
@@ -1268,7 +1274,8 @@
             <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">N&#xFA;mero de RFC</label>
-                    <input type="text" id="uatRfcNumber" class="form-control" placeholder="RFC 24269">
+                    <input type="text" id="uatRfcNumber" class="form-control" placeholder="24269">
+                    <div class="form-text">Se agrega autom&#xE1;ticamente el prefijo RFC.</div>
                 </div>
                 <div class="col-md-9">
                     <label class="form-label">Nombre del RFC</label>
