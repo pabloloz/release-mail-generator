@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class EmailGeneratorService {
@@ -36,6 +38,20 @@ public class EmailGeneratorService {
 
     private String getMegaCarteraDrpImg() {
         return megaCarteraDrpImg != null ? megaCarteraDrpImg : "";
+    }
+
+    private static final Set<String> ALLOWED_DISTRIBUTION_MODULES = Set.of(
+        "Cartera", "Servicios", "Control", "Hightech", "Equipos", "Ventas"
+    );
+
+    private List<String> normalizedDistributionModules(ReleaseRequest r) {
+        if (r.getDistributionModules() == null) return List.of();
+        return r.getDistributionModules().stream()
+            .map(this::clean)
+            .filter(v -> !v.isEmpty())
+            .filter(ALLOWED_DISTRIBUTION_MODULES::contains)
+            .distinct()
+            .collect(Collectors.toList());
     }
 
     private String clean(String value) {
@@ -71,6 +87,10 @@ public class EmailGeneratorService {
 
     public String generateEmail(ReleaseRequest r) {
         StringBuilder html = new StringBuilder();
+        List<String> selectedDistributionModules = normalizedDistributionModules(r);
+        String selectedModulesLabel = selectedDistributionModules.isEmpty()
+            ? "Sin módulos seleccionados"
+            : String.join(", ", selectedDistributionModules);
 
         html.append("<div style=\"font-family: Calibri, Arial, sans-serif; font-size: 11pt;"
                   + " color: #000000; line-height: 1.5;\">");
@@ -82,7 +102,9 @@ public class EmailGeneratorService {
         boolean hasSps = r.getSpsTickets() != null && !r.getSpsTickets().isBlank();
 
         List<String> introItems = new ArrayList<>();
-        if (r.isHasModules()) introItems.add("<b>Módulos</b>");
+        if (r.isHasModules()) {
+            introItems.add("<b>Módulos (" + esc(selectedModulesLabel) + ")</b>");
+        }
         if (r.isHasCitrix())  introItems.add("<b>Citrix</b>");
         if (r.isHasDll())     introItems.add("<b><i>SFyCWSDLL</i></b>");
         if (r.isHasWinterX()) introItems.add("<b><i>WinterX</i></b>");
@@ -105,6 +127,9 @@ public class EmailGeneratorService {
             if (r.isHasModules()) {
                 html.append("<li style=\"margin-bottom: 8px;\">")
                     .append("<b>Módulos</b><br>")
+                    .append("Módulos seleccionados: <b>")
+                    .append(esc(selectedModulesLabel))
+                    .append("</b><br>")
                     .append("Se encuentra en la siguiente ubicación:&nbsp;")
                     .append(pathLink(clean(r.getPathModules())))
                     .append("</li>");
@@ -201,7 +226,11 @@ public class EmailGeneratorService {
         boolean hasBranchM = r.getBranchModules() != null && !r.getBranchModules().isBlank();
         boolean hasBranchW = r.getBranchWinter()  != null && !r.getBranchWinter().isBlank();
         if (hasBranchM || hasBranchW) {
-            html.append("<p style=\"margin: 0 0 12px 0;\"><b>Branches de Compilación:</b><br>");
+            int branchCount = (hasBranchM ? 1 : 0) + (hasBranchW ? 1 : 0);
+            String branchTitle = branchCount == 1 ? "Branch de Compilación" : "Branches de Compilación";
+            html.append("<p style=\"margin: 0 0 12px 0;\"><b>")
+                .append(branchTitle)
+                .append(":</b><br>");
             if (hasBranchM) html.append("<b>Módulos:</b>&nbsp;").append(esc(r.getBranchModules().trim())).append("<br>");
             if (hasBranchW) html.append("<b>WinterX:</b>&nbsp;").append(esc(r.getBranchWinter().trim())).append("<br>");
             html.append("</p>");

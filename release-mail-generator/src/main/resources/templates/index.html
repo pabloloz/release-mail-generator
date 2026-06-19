@@ -88,6 +88,19 @@
             }, 2400);
         }
         function onReleasesFormSubmit(e) {
+            const hasModules = document.getElementById('hasModules');
+            const selectedModuleChecks = document.querySelectorAll('input[name="distributionModules"]:checked');
+            const modulesSelectionError = document.getElementById('modulesSelectionError');
+
+            if (hasModules && hasModules.checked && selectedModuleChecks.length === 0) {
+                e.preventDefault();
+                if (modulesSelectionError) modulesSelectionError.style.display = 'block';
+                showToast('Selecciona al menos un módulo para distribuir.', 'error');
+                return;
+            }
+
+            if (modulesSelectionError) modulesSelectionError.style.display = 'none';
+
             const btn = e.target.querySelector('button[type="submit"]');
             if (btn) {
                 btn.disabled = true;
@@ -355,6 +368,7 @@
                 saludo:         document.getElementById('uatSaludo').value,
                 adjunto:        document.getElementById('uatAdjunto').value,
                 requerimientos: document.getElementById('uatRequerimientos').value,
+                requerimientosImagen: document.getElementById('reqImageData').value || '',
                 blocks,
                 nota:           document.getElementById('uatNota').value,
                 cierre:         document.getElementById('uatCierre').value
@@ -985,6 +999,30 @@
                     <label for="hasModules">&nbsp;Módulos</label>
                 </div>
                 <div id="pathModulesGroup" class="artifact-path">
+                    <label class="form-label">Módulos a distribuir</label>
+                    <div class="d-flex flex-wrap gap-2 mb-2">
+                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
+                            <input type="checkbox" name="distributionModules" value="Cartera" style="margin-right:6px;">Cartera
+                        </label>
+                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
+                            <input type="checkbox" name="distributionModules" value="Servicios" style="margin-right:6px;">Servicios
+                        </label>
+                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
+                            <input type="checkbox" name="distributionModules" value="Control" style="margin-right:6px;">Control
+                        </label>
+                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
+                            <input type="checkbox" name="distributionModules" value="Hightech" style="margin-right:6px;">Hightech
+                        </label>
+                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
+                            <input type="checkbox" name="distributionModules" value="Equipos" style="margin-right:6px;">Equipos
+                        </label>
+                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
+                            <input type="checkbox" name="distributionModules" value="Ventas" style="margin-right:6px;">Ventas
+                        </label>
+                    </div>
+                    <div id="modulesSelectionError" class="text-danger" style="display:none;font-size:.8rem;margin-bottom:8px;">
+                        Selecciona al menos un módulo para el artefacto de Módulos.
+                    </div>
                     <input type="text" class="form-control form-control-sm font-monospace" name="pathModules"
                            placeholder="\\servidor\sprints$\RFC'S Semana 19 2026\Modulos">
                 </div>

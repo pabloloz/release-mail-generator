@@ -1,6 +1,7 @@
 package release_mail_generator.model;
 
 import lombok.Data;
+import java.util.List;
 
 @Data
 public class ReleaseRequest {
@@ -28,6 +29,9 @@ public class ReleaseRequest {
     private boolean hasDll;
     private boolean hasWinterX;
     private boolean hasScripts;
+
+    // Módulos funcionales a distribuir cuando hasModules = true
+    private List<String> distributionModules;
 
     // Scripts SQL (uno por línea)
     private String scripts;
