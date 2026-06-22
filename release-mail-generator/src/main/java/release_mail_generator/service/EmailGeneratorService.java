@@ -8,7 +8,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;
 
+import com.lowagie.text.Document;
+import com.lowagie.text.Element;
+import com.lowagie.text.Font;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.Phrase;
+import com.lowagie.text.pdf.ColumnText;
+import com.lowagie.text.pdf.PdfContentByte;
+import com.lowagie.text.pdf.PdfPageEventHelper;
+import com.lowagie.text.pdf.PdfWriter;
+import com.lowagie.text.pdf.draw.LineSeparator;
+
+import java.awt.Color;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -679,5 +696,280 @@ public class EmailGeneratorService {
         }
 
         return msg.toString().trim();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // EXPORT: RELEASE EMAIL → PDF / MARKDOWN
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private static final Color PDF_PRIMARY = new Color(37, 99, 235);
+    private static final Color PDF_TEXT    = new Color(15, 23, 42);
+    private static final Color PDF_MUTED   = new Color(100, 116, 139);
+    private static final Color PDF_BORDER  = new Color(226, 232, 240);
+
+    public byte[] generateReleasePdf(ReleaseRequest r) throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        Document doc = new Document(PageSize.A4, 50, 50, 60, 50);
+        PdfWriter writer = PdfWriter.getInstance(doc, bos);
+        final String headerLabel = "Correo de Liberación — v" + clean(r.getVersion());
+        writer.setPageEvent(new PdfPageEventHelper() {
+            @Override public void onEndPage(PdfWriter w, Document d) {
+                try {
+                    PdfContentByte cb = w.getDirectContent();
+                    Font f = new Font(Font.HELVETICA, 8, Font.NORMAL, PDF_MUTED);
+                    cb.setLineWidth(0.5f); cb.setColorStroke(PDF_BORDER);
+                    cb.moveTo(d.left(), d.bottom()-4); cb.lineTo(d.right(), d.bottom()-4); cb.stroke();
+                    ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT, new Phrase("Página "+w.getPageNumber(), f), d.right(), d.bottom()-16, 0);
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,  new Phrase(headerLabel, f), d.left(), d.bottom()-16, 0);
+                } catch (Exception ignored) {}
+            }
+        });
+        doc.open();
+
+        Font titleF = new Font(Font.HELVETICA, 18, Font.BOLD,   PDF_TEXT);
+        Font secF   = new Font(Font.HELVETICA, 12, Font.BOLD,   PDF_PRIMARY);
+        Font bodyF  = new Font(Font.HELVETICA, 10, Font.NORMAL, PDF_TEXT);
+        Font boldF  = new Font(Font.HELVETICA, 10, Font.BOLD,   PDF_TEXT);
+        Font monoF  = new Font(Font.COURIER,   9,  Font.NORMAL, PDF_TEXT);
+
+        Paragraph title = new Paragraph("Correo de Liberación — v" + clean(r.getVersion()), titleF);
+        title.setAlignment(Element.ALIGN_CENTER); title.setSpacingAfter(12); doc.add(title);
+        doc.add(new LineSeparator(1.5f, 100, PDF_PRIMARY, Element.ALIGN_CENTER, -4));
+
+        // Datos generales
+        pdfSection(doc, secF, "Datos Generales");
+        pdfLine(doc, boldF, bodyF, "Versión:", clean(r.getVersion()));
+        pdfLine(doc, boldF, bodyF, "Rollback:", clean(r.getRollbackVersion()));
+        pdfLine(doc, boldF, bodyF, "Fecha:", formatDateEs(r.getPublishDate()));
+
+        // Artefactos
+        pdfSection(doc, secF, "Artefactos");
+        List<String> mods = normalizedDistributionModules(r);
+        if (r.isHasModules() && !mods.isEmpty())
+            pdfLine(doc, boldF, bodyF, "Módulos:", String.join(", ", mods));
+        if (r.isHasCitrix()) pdfLine(doc, boldF, monoF, "Citrix:", clean(r.getPathCitrix()));
+        if (r.isHasDll())    pdfLine(doc, boldF, monoF, "SFyCWSDLL:", clean(r.getPathDll()));
+        if (r.isHasWinterX()) pdfLine(doc, boldF, monoF, "WinterX:", clean(r.getPathWinterX()));
+        if (r.isHasScripts()) {
+            pdfLine(doc, boldF, monoF, "Scripts:", clean(r.getPathScripts()));
+            linesFromText(r.getScripts()).forEach(s -> {
+                try { addPara(doc, "  • " + s, monoF, 2); } catch (Exception e) {}
+            });
+        }
+
+        // SPS
+        if (r.getSpsTickets() != null && !r.getSpsTickets().isBlank()) {
+            pdfSection(doc, secF, "SPS — @DBAs TI");
+            linesFromText(r.getSpsTickets()).forEach(line -> {
+                try { addPara(doc, line, bodyF, 2); } catch (Exception e) {}
+            });
+        }
+
+        // Branches
+        String bm = clean(r.getBranchModules()), bw = clean(r.getBranchWinter());
+        if (!bm.isEmpty() || !bw.isEmpty()) {
+            pdfSection(doc, secF, "Branches de Compilación");
+            if (!bm.isEmpty()) pdfLine(doc, boldF, bodyF, "Módulos:", bm);
+            if (!bw.isEmpty()) pdfLine(doc, boldF, bodyF, "WinterX:", bw);
+        }
+
+        // Proyectos
+        List<String> projects = linesFromText(r.getProjects());
+        if (!projects.isEmpty()) {
+            pdfSection(doc, secF, "Proyectos / RFCs");
+            projects.forEach(p -> { try { addPara(doc, "• " + p, bodyF, 3); } catch (Exception e) {} });
+        }
+
+        // Notas
+        if (r.getNotes() != null && !r.getNotes().isBlank()) {
+            pdfSection(doc, secF, "Nota");
+            addPara(doc, r.getNotes().trim(), bodyF, 4);
+        }
+
+        doc.close();
+        return bos.toByteArray();
+    }
+
+    public byte[] generateReleaseMarkdown(ReleaseRequest r) {
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        StringBuilder md = new StringBuilder();
+        md.append("# Correo de Liberación — v").append(clean(r.getVersion())).append("\n\n");
+        md.append("> Generado el ").append(now).append("\n\n");
+
+        md.append("## Datos Generales\n\n");
+        md.append("| Campo | Valor |\n|-------|-------|\n");
+        md.append("| Versión | ").append(clean(r.getVersion())).append(" |\n");
+        md.append("| Rollback | ").append(clean(r.getRollbackVersion())).append(" |\n");
+        md.append("| Fecha | ").append(formatDateEs(r.getPublishDate())).append(" |\n\n");
+
+        md.append("## Artefactos\n\n");
+        List<String> mods = normalizedDistributionModules(r);
+        if (r.isHasModules() && !mods.isEmpty())
+            md.append("- **Módulos:** ").append(String.join(", ", mods)).append("\n");
+        if (r.isHasCitrix()) md.append("- **Citrix:** `").append(clean(r.getPathCitrix())).append("`\n");
+        if (r.isHasDll())    md.append("- **SFyCWSDLL:** `").append(clean(r.getPathDll())).append("`\n");
+        if (r.isHasWinterX()) md.append("- **WinterX:** `").append(clean(r.getPathWinterX())).append("`\n");
+        if (r.isHasScripts()) {
+            md.append("- **Scripts:** `").append(clean(r.getPathScripts())).append("`\n");
+            linesFromText(r.getScripts()).forEach(s -> md.append("  - `").append(s).append("`\n"));
+        }
+        md.append("\n");
+
+        if (r.getSpsTickets() != null && !r.getSpsTickets().isBlank()) {
+            md.append("## SPS — @DBAs TI\n\n```\n").append(r.getSpsTickets().trim()).append("\n```\n\n");
+        }
+
+        String bm = clean(r.getBranchModules()), bw = clean(r.getBranchWinter());
+        if (!bm.isEmpty() || !bw.isEmpty()) {
+            md.append("## Branches\n\n");
+            if (!bm.isEmpty()) md.append("- **Módulos:** `").append(bm).append("`\n");
+            if (!bw.isEmpty()) md.append("- **WinterX:** `").append(bw).append("`\n");
+            md.append("\n");
+        }
+
+        List<String> projects = linesFromText(r.getProjects());
+        if (!projects.isEmpty()) {
+            md.append("## Proyectos / RFCs\n\n");
+            projects.forEach(p -> md.append("- ").append(p).append("\n"));
+            md.append("\n");
+        }
+
+        if (r.getNotes() != null && !r.getNotes().isBlank()) {
+            md.append("## Nota\n\n").append(r.getNotes().trim()).append("\n\n");
+        }
+
+        String url = clean(r.getReleaseUrl());
+        if (!url.isEmpty()) md.append("**Release URL:** ").append(url).append("\n\n");
+
+        md.append("---\n_Generado mediante **Release Notifier QA**._\n");
+        return md.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // EXPORT: RDL EMAIL → PDF / MARKDOWN
+    // ══════════════════════════════════════════════════════════════════════════
+
+    public byte[] generateRdlPdf(RdlReleaseRequest r) throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        Document doc = new Document(PageSize.A4, 50, 50, 60, 50);
+        PdfWriter writer = PdfWriter.getInstance(doc, bos);
+        final String headerLabel = "Reporte RDL — " + clean(r.getRdlReleaseDate());
+        writer.setPageEvent(new PdfPageEventHelper() {
+            @Override public void onEndPage(PdfWriter w, Document d) {
+                try {
+                    PdfContentByte cb = w.getDirectContent();
+                    Font f = new Font(Font.HELVETICA, 8, Font.NORMAL, PDF_MUTED);
+                    cb.setLineWidth(0.5f); cb.setColorStroke(PDF_BORDER);
+                    cb.moveTo(d.left(), d.bottom()-4); cb.lineTo(d.right(), d.bottom()-4); cb.stroke();
+                    ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT, new Phrase("Página "+w.getPageNumber(), f), d.right(), d.bottom()-16, 0);
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,  new Phrase(headerLabel, f), d.left(), d.bottom()-16, 0);
+                } catch (Exception ignored) {}
+            }
+        });
+        doc.open();
+
+        Font titleF = new Font(Font.HELVETICA, 18, Font.BOLD,   PDF_TEXT);
+        Font secF   = new Font(Font.HELVETICA, 12, Font.BOLD,   PDF_PRIMARY);
+        Font bodyF  = new Font(Font.HELVETICA, 10, Font.NORMAL, PDF_TEXT);
+        Font boldF  = new Font(Font.HELVETICA, 10, Font.BOLD,   PDF_TEXT);
+        Font monoF  = new Font(Font.COURIER,   9,  Font.NORMAL, PDF_TEXT);
+
+        Paragraph title = new Paragraph("Reporte RDL — Liberación", titleF);
+        title.setAlignment(Element.ALIGN_CENTER); title.setSpacingAfter(12); doc.add(title);
+        doc.add(new LineSeparator(1.5f, 100, PDF_PRIMARY, Element.ALIGN_CENTER, -4));
+
+        String date = clean(r.getRdlReleaseDate());
+        if (!date.isEmpty()) pdfLine(doc, boldF, bodyF, "Fecha de liberación:", date);
+        String url = clean(r.getRdlReleaseUrl());
+        if (!url.isEmpty()) pdfLine(doc, boldF, bodyF, "Release Jira:", url);
+
+        List<RdlItem> rdls = r.getRdls() != null ? r.getRdls() : List.of();
+        for (int i = 0; i < rdls.size(); i++) {
+            RdlItem item = rdls.get(i);
+            pdfSection(doc, secF, "RDL #" + (i+1) + ": " + clean(item.getRdlReportName()));
+            if (item.getRdlReportFolder() != null && !item.getRdlReportFolder().isBlank())
+                pdfLine(doc, boldF, monoF, "Carpeta SSRS:", clean(item.getRdlReportFolder()));
+            if (item.getRdlUrlMegang() != null && !item.getRdlUrlMegang().isBlank())
+                pdfLine(doc, boldF, monoF, "MEGANG-612:", clean(item.getRdlUrlMegang()));
+            if (item.getRdlUrlNtrs02() != null && !item.getRdlUrlNtrs02().isBlank())
+                pdfLine(doc, boldF, monoF, "NTRS02:", clean(item.getRdlUrlNtrs02()));
+            if (item.getRdlPathMegang() != null && !item.getRdlPathMegang().isBlank())
+                pdfLine(doc, boldF, monoF, "Sprint MEGANG:", clean(item.getRdlPathMegang()));
+            if (item.getRdlPathNtrs02() != null && !item.getRdlPathNtrs02().isBlank())
+                pdfLine(doc, boldF, monoF, "Sprint NTRS02:", clean(item.getRdlPathNtrs02()));
+            if (item.isHasRdlSp()) {
+                linesFromText(item.getRdlSpName()).forEach(sp -> {
+                    try { addPara(doc, "  SP: " + sp, monoF, 2); } catch (Exception e) {}
+                });
+                linesFromText(item.getRdlSpTicket()).forEach(t -> {
+                    try { addPara(doc, "  Ticket: " + t, bodyF, 2); } catch (Exception e) {}
+                });
+            }
+            if (item.getRdlProject() != null && !item.getRdlProject().isBlank())
+                pdfLine(doc, boldF, bodyF, "Proyecto:", clean(item.getRdlProject()));
+        }
+
+        doc.close();
+        return bos.toByteArray();
+    }
+
+    public byte[] generateRdlMarkdown(RdlReleaseRequest r) {
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        StringBuilder md = new StringBuilder();
+        md.append("# Reporte RDL — Liberación\n\n");
+        md.append("> Generado el ").append(now).append("\n\n");
+
+        String date = clean(r.getRdlReleaseDate());
+        if (!date.isEmpty()) md.append("**Fecha de liberación:** ").append(date).append("\n\n");
+        String url = clean(r.getRdlReleaseUrl());
+        if (!url.isEmpty()) md.append("**Release Jira:** ").append(url).append("\n\n");
+
+        List<RdlItem> rdls = r.getRdls() != null ? r.getRdls() : List.of();
+        for (int i = 0; i < rdls.size(); i++) {
+            RdlItem item = rdls.get(i);
+            md.append("## RDL #").append(i+1).append(": ").append(clean(item.getRdlReportName())).append("\n\n");
+            if (item.getRdlReportFolder() != null && !item.getRdlReportFolder().isBlank())
+                md.append("- **Carpeta SSRS:** `").append(clean(item.getRdlReportFolder())).append("`\n");
+            if (item.getRdlUrlMegang() != null && !item.getRdlUrlMegang().isBlank())
+                md.append("- **MEGANG-612:** `").append(clean(item.getRdlUrlMegang())).append("`\n");
+            if (item.getRdlUrlNtrs02() != null && !item.getRdlUrlNtrs02().isBlank())
+                md.append("- **NTRS02:** `").append(clean(item.getRdlUrlNtrs02())).append("`\n");
+            if (item.getRdlPathMegang() != null && !item.getRdlPathMegang().isBlank())
+                md.append("- **Sprint MEGANG:** `").append(clean(item.getRdlPathMegang())).append("`\n");
+            if (item.getRdlPathNtrs02() != null && !item.getRdlPathNtrs02().isBlank())
+                md.append("- **Sprint NTRS02:** `").append(clean(item.getRdlPathNtrs02())).append("`\n");
+            if (item.isHasRdlSp()) {
+                linesFromText(item.getRdlSpName()).forEach(sp -> md.append("- **SP:** `").append(sp).append("`\n"));
+                linesFromText(item.getRdlSpTicket()).forEach(t -> md.append("- **Ticket:** ").append(t).append("\n"));
+            }
+            if (item.getRdlProject() != null && !item.getRdlProject().isBlank())
+                md.append("- **Proyecto:** ").append(clean(item.getRdlProject())).append("\n");
+            md.append("\n");
+        }
+
+        md.append("---\n_Generado mediante **Release Notifier QA**._\n");
+        return md.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    // ── PDF helpers ──────────────────────────────────────────────────────────
+
+    private void pdfSection(Document doc, Font secF, String title) throws Exception {
+        Paragraph p = new Paragraph(title, secF);
+        p.setSpacingBefore(14); p.setSpacingAfter(6); doc.add(p);
+        doc.add(new LineSeparator(0.5f, 100, PDF_BORDER, Element.ALIGN_CENTER, -2));
+    }
+
+    private void pdfLine(Document doc, Font labelF, Font valueF, String label, String value) throws Exception {
+        Paragraph p = new Paragraph();
+        p.add(new Phrase(label + " ", labelF));
+        p.add(new Phrase(value, valueF));
+        p.setSpacingAfter(3);
+        doc.add(p);
+    }
+
+    private void addPara(Document doc, String text, Font f, float spacingAfter) throws Exception {
+        Paragraph p = new Paragraph(text, f);
+        p.setSpacingAfter(spacingAfter);
+        doc.add(p);
     }
 }

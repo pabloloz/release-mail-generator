@@ -91,10 +91,13 @@ public class UatEmailService {
                 .append(esc(r.getRequerimientos()).replace("\n", "<br>"))
                 .append("</div>");
             if (notBlank(r.getRequerimientosImagen())) {
+                String safeSrc = safeImgSrc(r.getRequerimientosImagen());
+                if (!safeSrc.isEmpty()) {
                 html.append("<p style=\"margin:0 0 16px 0;\">")
-                    .append("<img src=\"").append(r.getRequerimientosImagen())
+                    .append("<img src=\"").append(safeSrc)
                     .append("\" style=\"max-width:420px;height:auto;display:block;\">")
                     .append("</p>");
+                }
             }
         }
 
@@ -112,10 +115,13 @@ public class UatEmailService {
                     .append("</p>");
             }
             if (notBlank(block.getImagenBase64())) {
+                String safeSrc = safeImgSrc(block.getImagenBase64());
+                if (!safeSrc.isEmpty()) {
                 html.append("<p style=\"margin:0 0 16px 0;\">")
-                    .append("<img src=\"").append(block.getImagenBase64())
+                    .append("<img src=\"").append(safeSrc)
                     .append("\" style=\"max-width:420px;height:auto;display:block;\">")
                     .append("</p>");
+                }
             }
         }
 
@@ -349,6 +355,11 @@ public class UatEmailService {
     private String esc(String v) {
         if (v == null || v.isBlank()) return "";
         return v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;");
+    }
+    /** Only allow data:image/ URIs to prevent XSS via img src. */
+    private String safeImgSrc(String v) {
+        if (v == null || v.isBlank()) return "";
+        return v.startsWith("data:image/") ? v : "";
     }
     private void addPara(Document doc, String text, Font font, float spacingAfter) throws DocumentException {
         Paragraph p = new Paragraph(text, font);

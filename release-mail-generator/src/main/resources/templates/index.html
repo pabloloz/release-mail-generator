@@ -37,6 +37,53 @@
             const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
             return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
         }
+
+        // ── Version segmented inputs ──────────────────────────────────
+        function syncVersionFields() {
+            const y = document.getElementById('vPubYear').value;
+            const m = document.getElementById('vPubMinor').value;
+            const p = document.getElementById('vPubPatch').value;
+            const parts = [y, m, p].filter(v => v !== '');
+            document.getElementById('versionHidden').value = parts.join('.');
+        }
+        function syncRollbackFields() {
+            const y = document.getElementById('vRbYear').value;
+            const m = document.getElementById('vRbMinor').value;
+            const p = document.getElementById('vRbPatch').value;
+            const parts = [y, m, p].filter(v => v !== '');
+            document.getElementById('rollbackVersionHidden').value = parts.join('.');
+        }
+        function initVersionYear() {
+            const yr = String(new Date().getFullYear()).slice(-2);
+            ['vPubYear', 'vRbYear'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.value) el.value = yr;
+            });
+            syncVersionFields();
+            syncRollbackFields();
+            // Auto-advance: pressing dot or Enter moves to next segment
+            document.querySelectorAll('.version-input-group').forEach(group => {
+                const segs = [...group.querySelectorAll('.version-seg')];
+                segs.forEach((seg, i) => {
+                    seg.addEventListener('keydown', (e) => {
+                        if ((e.key === '.' || e.key === 'Enter') && i < segs.length - 1) {
+                            e.preventDefault();
+                            segs[i + 1].focus();
+                            segs[i + 1].select();
+                        }
+                    });
+                });
+            });
+        }
+        function getVersionValue() { return document.getElementById('versionHidden').value; }
+        function getRollbackValue() { return document.getElementById('rollbackVersionHidden').value; }
+        function setVersionSegments(version, prefix) {
+            if (!version) return;
+            const parts = version.split('.');
+            const ids = [prefix + 'Year', prefix + 'Minor', prefix + 'Patch'];
+            parts.forEach((v, i) => { if (ids[i]) { const el = document.getElementById(ids[i]); if (el) el.value = v; } });
+        }
+
         function formatDate(dateVal, timeVal) {
             if (!dateVal) return '';
             const [y, m, d] = dateVal.split('-');
@@ -91,6 +138,11 @@
             setVal('version', data.version);
             setVal('rollbackVersion', data.rollbackVersion);
             setVal('publishDate', data.publishDate);
+            // Restore segmented version fields
+            setVersionSegments(data.version, 'vPub');
+            setVersionSegments(data.rollbackVersion, 'vRb');
+            syncVersionFields();
+            syncRollbackFields();
 
             setCheck('hasModules', data.hasModules);
             setCheck('hasCitrix', data.hasCitrix);
@@ -232,6 +284,7 @@
             document.getElementById('anio').value = now.getFullYear();
             document.getElementById('semana').value = getISOWeek(now);
             updatePaths();
+            initVersionYear();
             document.getElementById('rdlAnio').value = now.getFullYear();
             document.getElementById('rdlSemana').value = getISOWeek(now);
             addRdlEntry();
@@ -268,6 +321,8 @@
         });
         function clearAll() {
             document.querySelector('#pane-releases form').reset();
+            // Re-init version year after reset
+            initVersionYear();
             // Ocultar rutas de artefactos
             document.querySelectorAll('#pane-releases .artifact-path').forEach(el => el.classList.remove('visible'));
             // Ocultar preview
@@ -289,6 +344,10 @@
             }, 2400);
         }
         function onReleasesFormSubmit(e) {
+            // Sync version hidden fields before submit
+            syncVersionFields();
+            syncRollbackFields();
+
             const hasModules = document.getElementById('hasModules');
             const selectedModuleChecks = document.querySelectorAll('input[name="distributionModules"]:checked');
             const modulesSelectionError = document.getElementById('modulesSelectionError');
@@ -375,10 +434,6 @@
             const grp = cb.closest('.artifact-row').querySelector('.rdl-sp-group');
             if (grp) grp.style.display = cb.checked ? 'block' : 'none';
         }
-        function toggleRdlSp() {
-            document.getElementById('rdlSpGroup').style.display =
-                document.getElementById('hasRdlSp').checked ? 'block' : 'none';
-        }
         function clearRdlForm() {
             document.getElementById('rdlForm').reset();
             const preview = document.getElementById('rdlEmailSection');
@@ -392,6 +447,64 @@
             updateRemoveButtons();
             updateRdlPaths();
         }
+
+        // ── Export helpers (Release + RDL) ───────────────────────────────
+        async function downloadReleaseExport(type) {
+            try {
+                const form = document.querySelector('#pane-releases form');
+                const fd = new FormData(form);
+                const payload = {};
+                for (const [key, val] of fd.entries()) {
+                    if (key === 'distributionModules' || key === 'telegramModules') {
+                        if (!payload[key]) payload[key] = [];
+                        payload[key].push(val);
+                    } else {
+                        payload[key] = val;
+                    }
+                }
+                // Booleans from checkboxes
+                ['hasModules','hasCitrix','hasDll','hasWinterX','hasScripts'].forEach(k => {
+                    payload[k] = !!payload[k];
+                });
+                const resp = await fetch('/release/export/' + type, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!resp.ok) throw new Error('Error ' + resp.status);
+                const blob = await resp.blob();
+                const cd = resp.headers.get('Content-Disposition') || '';
+                const m = cd.match(/filename[*]?=(?:UTF-8'')?["']?([^;"'\n]+)/i);
+                const ext = type === 'markdown' ? 'md' : type;
+                const filename = m ? decodeURIComponent(m[1].trim()) : 'Liberacion.' + ext;
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = filename;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (err) { showToast('Error al exportar: ' + err.message, 'error'); }
+        }
+
+        async function downloadRdlExport(type) {
+            try {
+                const payload = collectRdlPayload();
+                const resp = await fetch('/rdl/export/' + type, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!resp.ok) throw new Error('Error ' + resp.status);
+                const blob = await resp.blob();
+                const cd = resp.headers.get('Content-Disposition') || '';
+                const m = cd.match(/filename[*]?=(?:UTF-8'')?["']?([^;"'\n]+)/i);
+                const ext = type === 'markdown' ? 'md' : type;
+                const filename = m ? decodeURIComponent(m[1].trim()) : 'RDL.' + ext;
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = filename;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (err) { showToast('Error al exportar: ' + err.message, 'error'); }
+        }
+
         function downloadRdlPdf() {
             const content = document.getElementById('rdlEmailPreview').innerHTML;
             const win = window.open('', '_blank');
@@ -407,12 +520,12 @@
               + '</body></html>'
             );
             win.document.close();
-            // El primer encabezado no necesita salto de página
             const headers = win.document.querySelectorAll('.rdl-hdr');
             if (headers.length > 0) headers[0].style.pageBreakBefore = 'auto';
             win.focus();
             setTimeout(() => win.print(), 400);
         }
+
         function collectRdlPayload() {
             const entries = document.querySelectorAll('#rdlEntries .rdl-entry');
             const rdls = [];
@@ -636,6 +749,7 @@
         }
         async function copyRdlEmail() {
             const el = document.getElementById('rdlEmailPreview');
+            if (!el || !el.innerHTML.trim()) { showToast('No hay correo generado para copiar.', 'error'); return; }
             try {
                 const htmlBlob = new Blob([el.innerHTML], { type: 'text/html' });
                 const textBlob = new Blob([el.innerText], { type: 'text/plain' });
@@ -649,6 +763,7 @@
         }
         async function copyEmail() {
             const el = document.getElementById('emailPreview');
+            if (!el || !el.innerHTML.trim()) { showToast('No hay correo generado para copiar.', 'error'); return; }
             try {
                 const htmlBlob = new Blob([el.innerHTML], { type: 'text/html' });
                 const textBlob = new Blob([el.innerText], { type: 'text/plain' });
@@ -1270,6 +1385,40 @@
             cursor: pointer;
         }
 
+        /* ── Version segmented input ─────────────────────────────────── */
+        .version-input-group {
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+        .version-input-group .version-seg {
+            width: 58px;
+            text-align: center;
+            font-weight: 600;
+            font-size: .9rem;
+            padding: .4rem .3rem;
+            border-radius: 0;
+            -moz-appearance: textfield;
+        }
+        .version-input-group .version-seg::-webkit-inner-spin-button,
+        .version-input-group .version-seg::-webkit-outer-spin-button {
+            -webkit-appearance: none; margin: 0;
+        }
+        .version-input-group .version-seg:first-child { border-radius: var(--radius-xs) 0 0 var(--radius-xs); }
+        .version-input-group .version-seg:last-child  { border-radius: 0 var(--radius-xs) var(--radius-xs) 0; }
+        .version-input-group .version-seg:not(:first-child) { border-left: none; }
+        .version-input-group .version-dot {
+            background: var(--bg-section);
+            border-top: 1.5px solid var(--border);
+            border-bottom: 1.5px solid var(--border);
+            padding: .4rem 4px;
+            font-weight: 700;
+            font-size: .9rem;
+            color: var(--text-muted);
+            user-select: none;
+            line-height: 1.5;
+        }
+
         /* ── Toast Notifications ─────────────────────────────────────── */
         #toast-container {
             position: fixed; bottom: 24px; right: 24px;
@@ -1428,22 +1577,22 @@
         /* ── Panes ───────────────────────────────────────────────────── */
         .pane { display: none; flex-direction: column; flex: 1; }
         .pane.active { display: flex; }
-        .pane-header { background: white; border-bottom: 1px solid var(--border); padding: 24px 64px 20px; flex-shrink: 0; }
-        .pane-breadcrumb { font-size: .72rem; color: var(--text-muted); margin-bottom: 3px; }
+        .pane-header { background: white; border-bottom: 1px solid var(--border); padding: 28px 48px 22px; flex-shrink: 0; }
+        .pane-breadcrumb { font-size: .72rem; color: var(--text-muted); margin-bottom: 4px; }
         .pane-breadcrumb a { color: var(--text-muted); text-decoration: none; }
         .pane-breadcrumb a:hover { color: var(--primary); }
         .pane-breadcrumb span { color: var(--primary); font-weight: 600; }
         .pane-title { font-size: 1.25rem; font-weight: 700; color: var(--text); margin: 0 0 2px; letter-spacing: -.02em; }
         .pane-subtitle { font-size: .8rem; color: var(--text-muted); margin: 0; line-height: 1.5; }
-        .pane-body { padding: 36px 64px 56px; flex: 1; max-width: 1340px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+        .pane-body { padding: 36px 48px 56px; flex: 1; max-width: 960px; width: 100%; margin: 0 auto; box-sizing: border-box; }
 
         /* ── Dashboard ───────────────────────────────────────────────── */
         .dashboard-hero {
             background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 60%, #3b82f6 100%);
-            padding: 60px 64px 56px; flex-shrink: 0;
+            padding: 52px 48px 48px; flex-shrink: 0;
         }
-        .dashboard-hero h1 { font-size: 1.7rem; font-weight: 700; color: white; margin: 0 0 8px; letter-spacing: -.03em; }
-        .dashboard-hero p { color: rgba(255,255,255,.82); margin: 0; font-size: .9rem; max-width: 640px; line-height: 1.65; }
+        .dashboard-hero h1 { font-size: 1.6rem; font-weight: 700; color: white; margin: 0 0 8px; letter-spacing: -.03em; }
+        .dashboard-hero p { color: rgba(255,255,255,.82); margin: 0; font-size: .88rem; max-width: 600px; line-height: 1.65; }
         .dash-badge {
             display: inline-flex; align-items: center; gap: 6px;
             background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.24);
@@ -1451,17 +1600,17 @@
             color: rgba(255,255,255,.88); margin-bottom: 14px; letter-spacing: .04em;
         }
         .module-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 320px));
-            gap: 22px; padding: 44px 64px 48px; background: var(--bg);
-            justify-content: start;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 20px; padding: 40px 48px; background: var(--bg);
+            max-width: 960px;
         }
-        .module-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 24px; cursor: pointer; transition: box-shadow .2s, transform .15s, border-color .2s; }
+        .module-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 22px; cursor: pointer; transition: box-shadow .2s, transform .15s, border-color .2s; }
         .module-card:hover { box-shadow: 0 8px 28px rgba(37,99,235,.13); transform: translateY(-2px); border-color: #bfdbfe; }
-        .module-card-icon { font-size: 1.8rem; margin-bottom: 12px; }
-        .module-card-title { font-size: .87rem; font-weight: 700; color: var(--text); margin-bottom: 5px; }
-        .module-card-desc { font-size: .75rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; }
-        .module-card-action { font-size: .75rem; font-weight: 600; color: var(--primary); }
-        .quick-actions { padding: 0px 64px 52px; background: var(--bg); }
+        .module-card-icon { font-size: 1.7rem; margin-bottom: 10px; }
+        .module-card-title { font-size: .85rem; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+        .module-card-desc { font-size: .74rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; }
+        .module-card-action { font-size: .74rem; font-weight: 600; color: var(--primary); }
+        .quick-actions { padding: 0px 48px 44px; background: var(--bg); max-width: 960px; }
         .quick-actions-title { font-size: .7rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
 
         /* ── Responsive ──────────────────────────────────────────────── */
@@ -1473,15 +1622,21 @@
             .sidebar-nav-item { justify-content: center; padding: 9px 8px; gap: 0; }
             .sidebar-nav-item > *:not(.nav-icon) { display: none; }
             .sidebar-footer img { height: 20px; }
-            .pane-header { padding: 14px 20px 12px; }
+            .pane-header { padding: 16px 20px 14px; }
             .pane-body { padding: 20px 20px 32px; }
-            .module-grid { grid-template-columns: 1fr 1fr; padding: 20px; gap: 14px; justify-content: stretch; }
+            .module-grid { grid-template-columns: 1fr 1fr; padding: 20px; gap: 14px; }
             .dashboard-hero { padding: 32px 20px 28px; }
             .quick-actions { padding: 0 20px 28px; }
         }
         @media (max-width: 520px) {
             .module-grid { grid-template-columns: 1fr; }
             #emailPreview, #rdlEmailPreview { padding: 16px; }
+        }
+
+        /* ── Animations ──────────────────────────────────────────────── */
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -1598,17 +1753,25 @@
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Versión a publicar</label>
-                    <input type="text" class="form-control" name="version" placeholder="Ej: 26.4.30"
-                           pattern="[0-9]+(\.[0-9]+)*" title="Solo números y puntos (Ej: 26.4.30)"
-                           oninvalid="this.setCustomValidity('Formato inválido — solo números y puntos, p. ej. 26.4.30')"
-                           oninput="this.setCustomValidity('')">
+                    <div class="version-input-group">
+                        <input type="number" class="form-control version-seg" id="vPubYear" min="1" max="99" placeholder="26" oninput="syncVersionFields(); updatePaths()">
+                        <span class="version-dot">.</span>
+                        <input type="number" class="form-control version-seg" id="vPubMinor" min="0" max="99" placeholder="6" oninput="syncVersionFields(); updatePaths()">
+                        <span class="version-dot">.</span>
+                        <input type="number" class="form-control version-seg" id="vPubPatch" min="0" max="999" placeholder="18" oninput="syncVersionFields(); updatePaths()">
+                    </div>
+                    <input type="hidden" name="version" id="versionHidden">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Versión de rollback</label>
-                    <input type="text" class="form-control" name="rollbackVersion" placeholder="Ej: 26.4.17"
-                           pattern="[0-9]+(\.[0-9]+)*" title="Solo números y puntos (Ej: 26.4.17)"
-                           oninvalid="this.setCustomValidity('Formato inválido — solo números y puntos, p. ej. 26.4.17')"
-                           oninput="this.setCustomValidity('')">
+                    <div class="version-input-group">
+                        <input type="number" class="form-control version-seg" id="vRbYear" min="1" max="99" placeholder="26" oninput="syncRollbackFields()">
+                        <span class="version-dot">.</span>
+                        <input type="number" class="form-control version-seg" id="vRbMinor" min="0" max="99" placeholder="4" oninput="syncRollbackFields()">
+                        <span class="version-dot">.</span>
+                        <input type="number" class="form-control version-seg" id="vRbPatch" min="0" max="999" placeholder="12" oninput="syncRollbackFields()">
+                    </div>
+                    <input type="hidden" name="rollbackVersion" id="rollbackVersionHidden">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Fecha de publicación</label>
@@ -1781,7 +1944,12 @@
                     <span class="dot" style="background:#10b981;"></span>
                     <span style="margin-left:8px; opacity:.8;">Correo de liberación</span>
                 </div>
-                <button class="btn-copy" onclick="copyEmail()">&#x1F4CB; Copiar</button>
+                <div class="d-flex gap-2">
+                    <button class="btn-pdf" onclick="downloadReleaseExport('pdf')">&#x1F4E5; PDF</button>
+                    <button class="btn-md" onclick="downloadReleaseExport('markdown')">&#x1F4C4; Markdown</button>
+                    <button class="btn-html-export" onclick="downloadReleaseExport('html')">&#x1F310; HTML</button>
+                    <button class="btn-copy" onclick="copyEmail()">&#x1F4CB; Copiar</button>
+                </div>
             </div>
             <div id="emailPreview" th:utext="${generatedEmail}"></div>
         </div>
@@ -1999,7 +2167,9 @@
                     <span style="margin-left:8px; opacity:.8;">Correo RDL</span>
                 </div>
                 <div class="d-flex gap-2">
-                    <button class="btn-pdf" onclick="downloadRdlPdf()">&#x1F4E5; Descargar PDF</button>
+                    <button class="btn-pdf" onclick="downloadRdlPdf()">&#x1F4E5; PDF</button>
+                    <button class="btn-md" onclick="downloadRdlExport('markdown')">&#x1F4C4; Markdown</button>
+                    <button class="btn-html-export" onclick="downloadRdlExport('html')">&#x1F310; HTML</button>
                     <button class="btn-copy" onclick="copyRdlEmail()">&#x1F4CB; Copiar</button>
                 </div>
             </div>
