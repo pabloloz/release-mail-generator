@@ -33,6 +33,36 @@ public class ReleaseRequest {
     // Módulos funcionales a distribuir cuando hasModules = true
     private List<String> distributionModules;
 
+    // Telegram: módulos para sección Acción
+    private List<String> telegramModules;
+
+    // Telegram: scripts a ejecutar (lista dinámica)
+    private List<String> telegramScripts;
+
+    // Telegram: notas/instrucciones
+    private String telegramNotes;
+
+    // Telegram: versiones
+    private String telegramVersionModule;
+    private String telegramVersionDllCsharp;
+    private String telegramVersionWinterX;
+
+    // Telegram: cambios de release (listas paralelas)
+    private List<String> telegramChangeIds;
+    private List<String> telegramChangeDescriptions;
+
+    // Telegram: rollback
+    private String telegramRollbackVersion;
+
+    // Telegram: branches
+    private String telegramBranchModules;
+    private String telegramBranchWinterX;
+    private String telegramBranchDllRepoUrl;
+    private String telegramBranchDllName;
+
+    // Telegram: link de release
+    private String telegramReleaseUrl;
+
     // Scripts SQL (uno por línea)
     private String scripts;
 

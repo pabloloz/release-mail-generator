@@ -43,16 +43,188 @@
             const date = `${d}/${m}/${y}`;
             return timeVal ? `${date} ${timeVal}` : date;
         }
+
+        const RELEASE_FORM_DRAFT_KEY = 'release-form-draft-v1';
+        const MESSAGE_FORM_DRAFT_KEY = 'release-message-draft-v1';
+
+        function collectReleaseFormData() {
+            const form = document.querySelector('#pane-releases form');
+            if (!form) return {};
+            return {
+                version: form.querySelector('[name="version"]')?.value || '',
+                rollbackVersion: form.querySelector('[name="rollbackVersion"]')?.value || '',
+                publishDate: form.querySelector('[name="publishDate"]')?.value || '',
+                hasModules: !!form.querySelector('[name="hasModules"]')?.checked,
+                hasCitrix: !!form.querySelector('[name="hasCitrix"]')?.checked,
+                hasDll: !!form.querySelector('[name="hasDll"]')?.checked,
+                hasWinterX: !!form.querySelector('[name="hasWinterX"]')?.checked,
+                hasScripts: !!form.querySelector('[name="hasScripts"]')?.checked,
+                distributionModules: [...form.querySelectorAll('input[name="distributionModules"]:checked')].map(el => el.value),
+                pathModules: form.querySelector('[name="pathModules"]')?.value || '',
+                pathCitrix: form.querySelector('[name="pathCitrix"]')?.value || '',
+                pathDll: form.querySelector('[name="pathDll"]')?.value || '',
+                pathWinterX: form.querySelector('[name="pathWinterX"]')?.value || '',
+                pathScripts: form.querySelector('[name="pathScripts"]')?.value || '',
+                scripts: form.querySelector('[name="scripts"]')?.value || '',
+                spsTickets: form.querySelector('[name="spsTickets"]')?.value || '',
+                branchModules: form.querySelector('[name="branchModules"]')?.value || '',
+                branchWinter: form.querySelector('[name="branchWinter"]')?.value || '',
+                projects: form.querySelector('[name="projects"]')?.value || '',
+                releaseUrl: form.querySelector('[name="releaseUrl"]')?.value || '',
+                notes: form.querySelector('[name="notes"]')?.value || ''
+            };
+        }
+
+        function restoreReleaseFormData(data) {
+            const form = document.querySelector('#pane-releases form');
+            if (!form || !data) return;
+
+            const setVal = (name, value) => {
+                const el = form.querySelector(`[name="${name}"]`);
+                if (el) el.value = value || '';
+            };
+            const setCheck = (name, checked) => {
+                const el = form.querySelector(`[name="${name}"]`);
+                if (el) el.checked = !!checked;
+            };
+
+            setVal('version', data.version);
+            setVal('rollbackVersion', data.rollbackVersion);
+            setVal('publishDate', data.publishDate);
+
+            setCheck('hasModules', data.hasModules);
+            setCheck('hasCitrix', data.hasCitrix);
+            setCheck('hasDll', data.hasDll);
+            setCheck('hasWinterX', data.hasWinterX);
+            setCheck('hasScripts', data.hasScripts);
+
+            form.querySelectorAll('input[name="distributionModules"]').forEach(cb => {
+                cb.checked = (data.distributionModules || []).includes(cb.value);
+            });
+
+            setVal('pathModules', data.pathModules);
+            setVal('pathCitrix', data.pathCitrix);
+            setVal('pathDll', data.pathDll);
+            setVal('pathWinterX', data.pathWinterX);
+            setVal('pathScripts', data.pathScripts);
+            setVal('scripts', data.scripts);
+            setVal('spsTickets', data.spsTickets);
+            setVal('branchModules', data.branchModules);
+            setVal('branchWinter', data.branchWinter);
+            setVal('projects', data.projects);
+            setVal('releaseUrl', data.releaseUrl);
+            setVal('notes', data.notes);
+
+            ['hasModules', 'hasCitrix', 'hasDll', 'hasWinterX', 'hasScripts'].forEach(id => {
+                const groupMap = {
+                    hasModules: 'pathModulesGroup',
+                    hasCitrix: 'pathCitrixGroup',
+                    hasDll: 'pathDllGroup',
+                    hasWinterX: 'pathWinterXGroup',
+                    hasScripts: 'pathScriptsGroup'
+                };
+                const cb = document.getElementById(id);
+                const grp = document.getElementById(groupMap[id]);
+                if (cb && grp) grp.classList.toggle('visible', cb.checked);
+            });
+        }
+
+        function saveReleaseFormDraft() {
+            try {
+                localStorage.setItem(RELEASE_FORM_DRAFT_KEY, JSON.stringify(collectReleaseFormData()));
+            } catch (e) {}
+        }
+
+        function saveMessageFormDraft() {
+            try {
+                const payload = {
+                    ...collectReleaseMessageData(),
+                    messageChannel: document.getElementById('messageChannel')?.value || 'telegram'
+                };
+                localStorage.setItem(MESSAGE_FORM_DRAFT_KEY, JSON.stringify(payload));
+            } catch (e) {}
+        }
+
+        function restoreMessageFormDraft(data) {
+            if (!data) return;
+            const channel = document.getElementById('messageChannel');
+            if (channel) channel.value = data.messageChannel || 'telegram';
+
+            document.querySelectorAll('input[name="telegramModules"]').forEach(cb => {
+                cb.checked = (data.telegramModules || []).includes(cb.value);
+            });
+
+            const setById = (id, value) => {
+                const el = document.getElementById(id);
+                if (el) el.value = value || '';
+            };
+
+            setById('telegramNotes', data.telegramNotes);
+            setById('telegramPublishDate', data.publishDate);
+            setById('telegramVersionModule', data.telegramVersionModule);
+            setById('telegramVersionDllCsharp', data.telegramVersionDllCsharp);
+            setById('telegramVersionWinterX', data.telegramVersionWinterX);
+            setById('telegramRollbackVersion', data.telegramRollbackVersion);
+            setById('telegramBranchModules', data.telegramBranchModules);
+            setById('telegramBranchWinterX', data.telegramBranchWinterX);
+            setById('telegramBranchDllName', data.telegramBranchDllName);
+            setById('telegramBranchDllRepoUrl', data.telegramBranchDllRepoUrl);
+            setById('telegramReleaseUrl', data.telegramReleaseUrl);
+
+            const scriptsContainer = document.getElementById('telegramScriptsContainer');
+            const changesContainer = document.getElementById('telegramChangesContainer');
+
+            if (scriptsContainer) {
+                scriptsContainer.innerHTML = '';
+                const scripts = data.telegramScripts || [];
+                if (scripts.length === 0) addTelegramScriptRow();
+                scripts.forEach(s => {
+                    addTelegramScriptRow();
+                    const last = scriptsContainer.querySelector('.dynamic-item:last-child input[name="telegramScripts"]');
+                    if (last) last.value = s;
+                });
+            }
+
+            if (changesContainer) {
+                changesContainer.innerHTML = '';
+                const ids = data.telegramChangeIds || [];
+                const descs = data.telegramChangeDescriptions || [];
+                const max = Math.max(ids.length, descs.length);
+                if (max === 0) addTelegramChangeRow();
+                for (let i = 0; i < max; i++) {
+                    addTelegramChangeRow();
+                    const last = changesContainer.querySelector('.dynamic-item:last-child');
+                    const idInput = last?.querySelector('input[name="telegramChangeIds"]');
+                    const descInput = last?.querySelector('input[name="telegramChangeDescriptions"]');
+                    if (idInput) idInput.value = ids[i] || '';
+                    if (descInput) descInput.value = descs[i] || '';
+                }
+            }
+        }
         function showPane(name, triggerEl) {
             document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
             const target = document.getElementById('pane-' + name);
             if (target) target.classList.add('active');
             document.querySelectorAll('.sidebar-nav-item[data-pane]').forEach(a => a.classList.remove('active'));
-            const navItem = triggerEl || document.querySelector(`.sidebar-nav-item[data-pane="${name}"]`);
+            let navItem = triggerEl;
+            if (!navItem) {
+                if (name === 'releases') navItem = document.getElementById('nav-artifacts-mail');
+                else if (name === 'messages') navItem = document.getElementById('nav-artifacts-telegram');
+                else if (name === 'rdl') navItem = document.getElementById('nav-rdl-mail');
+                else if (name === 'rdl-telegram') navItem = document.getElementById('nav-rdl-telegram');
+                else navItem = document.querySelector(`.sidebar-nav-item[data-pane="${name}"]`);
+            }
             if (navItem) navItem.classList.add('active');
             if (name === 'rfc') {
                 const frame = document.getElementById('rfcFrame');
                 if (frame && !frame.dataset.loaded) { frame.src = '/rfc'; frame.dataset.loaded = 'true'; }
+            }
+        }
+        function openArtifactsSubmenu(type) {
+            if (type === 'telegram') {
+                showPane('messages', document.getElementById('nav-artifacts-telegram'));
+            } else {
+                showPane('releases', document.getElementById('nav-artifacts-mail'));
             }
         }
         window.addEventListener('DOMContentLoaded', () => {
@@ -63,6 +235,34 @@
             document.getElementById('rdlAnio').value = now.getFullYear();
             document.getElementById('rdlSemana').value = getISOWeek(now);
             addRdlEntry();
+            if (!document.querySelector('#telegramScriptsContainer .dynamic-item')) addTelegramScriptRow();
+            if (!document.querySelector('#telegramChangesContainer .dynamic-item')) addTelegramChangeRow();
+            if (!document.querySelector('#rdlTgRdlsContainer .dynamic-item')) addRdlTgRdlRow();
+            if (!document.querySelector('#rdlTgSpsContainer .dynamic-item')) addRdlTgSpRow();
+            if (!document.querySelector('#rdlTgProjectsContainer .dynamic-item')) addRdlTgProjectRow();
+
+            try {
+                const releaseDraft = JSON.parse(localStorage.getItem(RELEASE_FORM_DRAFT_KEY) || 'null');
+                if (releaseDraft) restoreReleaseFormData(releaseDraft);
+            } catch (e) {}
+
+            try {
+                const messageDraft = JSON.parse(localStorage.getItem(MESSAGE_FORM_DRAFT_KEY) || 'null');
+                if (messageDraft) restoreMessageFormDraft(messageDraft);
+            } catch (e) {}
+
+            const releaseForm = document.querySelector('#pane-releases form');
+            if (releaseForm) {
+                releaseForm.addEventListener('input', saveReleaseFormDraft);
+                releaseForm.addEventListener('change', saveReleaseFormDraft);
+            }
+
+            const releaseMessageForm = document.getElementById('releaseMessageForm');
+            if (releaseMessageForm) {
+                releaseMessageForm.addEventListener('input', saveMessageFormDraft);
+                releaseMessageForm.addEventListener('change', saveMessageFormDraft);
+            }
+
             const activePane = document.body.dataset.activeTab || 'dashboard';
             showPane(activePane, null);
         });
@@ -73,6 +273,7 @@
             // Ocultar preview
             const preview = document.getElementById('emailSection');
             if (preview) preview.style.display = 'none';
+            localStorage.removeItem(RELEASE_FORM_DRAFT_KEY);
         }
         function showToast(msg, type) {
             const container = document.getElementById('toast-container');
@@ -212,11 +413,7 @@
             win.focus();
             setTimeout(() => win.print(), 400);
         }
-        async function submitRdlForm() {
-            const btn = document.querySelector('#rdlForm .btn-generate');
-            const origHTML = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span>&nbsp;Generando...';
+        function collectRdlPayload() {
             const entries = document.querySelectorAll('#rdlEntries .rdl-entry');
             const rdls = [];
             entries.forEach((entry, idx) => {
@@ -232,22 +429,29 @@
                     hasRdlSp:        gc('hasRdlSp'),
                     rdlSpName:       g('rdlSpName'),
                     rdlSpTicket:     g('rdlSpTicket'),
-                    rdlReleaseDate:  formatDate(g('rdlReleaseDatePicker'), g('rdlReleaseTimePicker')),
                     rdlProject:      g('rdlProject')
                 });
             });
+
+            return {
+                rdls,
+                rdlReleaseDate: formatDate(
+                    document.getElementById('rdlReleaseDatePicker').value,
+                    document.getElementById('rdlReleaseTimePicker').value
+                ),
+                rdlReleaseUrl: (document.getElementById('rdlReleaseUrl') || {}).value || ''
+            };
+        }
+        async function submitRdlForm() {
+            const btn = document.getElementById('btnGenerateRdlEmail');
+            const origHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>&nbsp;Generando...';
             try {
                 const resp = await fetch('/generate-rdl', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        rdls,
-                        rdlReleaseDate: formatDate(
-                            document.getElementById('rdlReleaseDatePicker').value,
-                            document.getElementById('rdlReleaseTimePicker').value
-                        ),
-                        rdlReleaseUrl: (document.getElementById('rdlReleaseUrl') || {}).value || ''
-                    })
+                    body: JSON.stringify(collectRdlPayload())
                 });
                 if (!resp.ok) throw new Error('Error ' + resp.status);
                 const html = await resp.text();
@@ -261,6 +465,174 @@
                 btn.disabled = false;
                 btn.innerHTML = origHTML;
             }
+        }
+        // ── RDL Telegram form management ──────────────────────────
+        function addRdlTgRdlRow() {
+            const container = document.getElementById('rdlTgRdlsContainer');
+            if (!container) return;
+            const row = document.createElement('div');
+            row.className = 'dynamic-item';
+            row.innerHTML = `
+                <div class="item-fields">
+                    <input type="text" class="form-control form-control-sm" name="rdlTgRdls" placeholder="Ej: CON_AuxiliarInstalacionesQuejas">
+                </div>
+                <button type="button" class="btn-remove-rdl" onclick="this.closest('.dynamic-item').remove()">&#x2715;</button>`;
+            container.appendChild(row);
+        }
+        function addRdlTgSpRow() {
+            const container = document.getElementById('rdlTgSpsContainer');
+            if (!container) return;
+            const row = document.createElement('div');
+            row.className = 'dynamic-item';
+            row.innerHTML = `
+                <div class="item-fields">
+                    <input type="text" class="form-control form-control-sm" name="rdlTgSps" placeholder="Ej: dbo.mcab_rdl_auxiliar_trabajos.sql">
+                </div>
+                <button type="button" class="btn-remove-rdl" onclick="this.closest('.dynamic-item').remove()">&#x2715;</button>`;
+            container.appendChild(row);
+        }
+        function addRdlTgProjectRow() {
+            const container = document.getElementById('rdlTgProjectsContainer');
+            if (!container) return;
+            const row = document.createElement('div');
+            row.className = 'dynamic-item';
+            row.innerHTML = `
+                <div class="item-fields">
+                    <input type="text" class="form-control form-control-sm" name="rdlTgProjects" placeholder="Ej: Problema 33162 – Corrección de CheckBox en campo Sucursal">
+                </div>
+                <button type="button" class="btn-remove-rdl" onclick="this.closest('.dynamic-item').remove()">&#x2715;</button>`;
+            container.appendChild(row);
+        }
+        function collectRdlTelegramPayload() {
+            const rdlNames = [...document.querySelectorAll('input[name="rdlTgRdls"]')]
+                .map(el => el.value.trim()).filter(v => v);
+            const spNames = [...document.querySelectorAll('input[name="rdlTgSps"]')]
+                .map(el => el.value.trim()).filter(v => v);
+            const projects = [...document.querySelectorAll('input[name="rdlTgProjects"]')]
+                .map(el => el.value.trim()).filter(v => v);
+
+            const rdls = [];
+            const maxLen = Math.max(rdlNames.length, spNames.length, projects.length, 1);
+            for (let i = 0; i < maxLen; i++) {
+                rdls.push({
+                    rdlReportName: i < rdlNames.length ? rdlNames[i] : '',
+                    rdlSpName: i < spNames.length ? spNames[i] : '',
+                    rdlProject: i < projects.length ? projects[i] : ''
+                });
+            }
+
+            return {
+                rdls,
+                rdlReleaseDate: formatDate(
+                    document.getElementById('rdlTgDate').value,
+                    document.getElementById('rdlTgTime').value
+                ),
+                rdlAction: (document.getElementById('rdlTgAction') || {}).value || ''
+            };
+        }
+        function importRdlDataToTelegram() {
+            const entries = document.querySelectorAll('#rdlEntries .rdl-entry');
+            if (!entries || entries.length === 0) {
+                showToast('No hay datos en el formulario de Correo RDL para importar.', 'error');
+                return;
+            }
+
+            // Import action
+            const actionEl = document.getElementById('rdlAction');
+            const tgActionEl = document.getElementById('rdlTgAction');
+            if (actionEl && tgActionEl) tgActionEl.value = actionEl.value;
+
+            // Import date/time
+            const datePicker = document.getElementById('rdlReleaseDatePicker');
+            const timePicker = document.getElementById('rdlReleaseTimePicker');
+            if (datePicker) document.getElementById('rdlTgDate').value = datePicker.value;
+            if (timePicker) document.getElementById('rdlTgTime').value = timePicker.value;
+
+            // Import RDLs, SPs and projects
+            const rdlsContainer = document.getElementById('rdlTgRdlsContainer');
+            const spsContainer = document.getElementById('rdlTgSpsContainer');
+            const projectsContainer = document.getElementById('rdlTgProjectsContainer');
+            rdlsContainer.innerHTML = '';
+            spsContainer.innerHTML = '';
+            projectsContainer.innerHTML = '';
+
+            entries.forEach((entry, idx) => {
+                const g = name => { const el = entry.querySelector(`[name="rdls[${idx}].${name}"]`); return el ? el.value.trim() : ''; };
+                const reportName = g('rdlReportName');
+                if (reportName) {
+                    addRdlTgRdlRow();
+                    const last = rdlsContainer.querySelector('.dynamic-item:last-child input');
+                    if (last) last.value = reportName;
+                }
+                const spName = g('rdlSpName');
+                if (spName) {
+                    spName.split(/\r?\n/).filter(s => s.trim()).forEach(sp => {
+                        addRdlTgSpRow();
+                        const last = spsContainer.querySelector('.dynamic-item:last-child input');
+                        if (last) last.value = sp.trim();
+                    });
+                }
+                const project = g('rdlProject');
+                if (project) {
+                    addRdlTgProjectRow();
+                    const last = projectsContainer.querySelector('.dynamic-item:last-child input');
+                    if (last) last.value = project;
+                }
+            });
+
+            // Ensure at least one row in each
+            if (!rdlsContainer.querySelector('.dynamic-item')) addRdlTgRdlRow();
+            if (!spsContainer.querySelector('.dynamic-item')) addRdlTgSpRow();
+            if (!projectsContainer.querySelector('.dynamic-item')) addRdlTgProjectRow();
+
+            showToast('\u2714 Datos importados desde Correo RDL', 'success');
+        }
+        function clearRdlTelegramForm() {
+            document.getElementById('rdlTelegramForm').reset();
+            document.getElementById('rdlTgRdlsContainer').innerHTML = '';
+            document.getElementById('rdlTgSpsContainer').innerHTML = '';
+            document.getElementById('rdlTgProjectsContainer').innerHTML = '';
+            addRdlTgRdlRow();
+            addRdlTgSpRow();
+            addRdlTgProjectRow();
+            document.getElementById('rdlTgAction').value = 'Deployment de RDLs y Stored Procedures';
+            const preview = document.getElementById('rdlTelegramSection');
+            if (preview) preview.style.display = 'none';
+        }
+        async function generateRdlTelegramMessage() {
+            const btn = document.getElementById('btnGenerateRdlTelegram');
+            const origHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>&nbsp;Generando...';
+
+            try {
+                const resp = await fetch('/generate-rdl-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(collectRdlTelegramPayload())
+                });
+                if (!resp.ok) throw new Error('Error ' + resp.status);
+
+                const text = await resp.text();
+                const output = document.getElementById('rdlTelegramMessageText');
+                if (output) output.textContent = text || '';
+                const section = document.getElementById('rdlTelegramSection');
+                if (section) {
+                    section.style.display = 'block';
+                    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            } catch (err) {
+                showToast('Error al generar el mensaje RDL: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHTML;
+            }
+        }
+        async function copyRdlTelegramMessage() {
+            const el = document.getElementById('rdlTelegramMessageText');
+            if (!el) return;
+            await navigator.clipboard.writeText(el.innerText || el.textContent || '');
+            showToast('\u2714 Mensaje RDL copiado al portapapeles', 'success');
         }
         async function copyRdlEmail() {
             const el = document.getElementById('rdlEmailPreview');
@@ -287,6 +659,185 @@
                 await navigator.clipboard.writeText(el.innerText);
             }
             showToast('\u2714 Correo copiado al portapapeles', 'success');
+        }
+
+        function addTelegramScriptRow() {
+            const container = document.getElementById('telegramScriptsContainer');
+            if (!container) return;
+            const row = document.createElement('div');
+            row.className = 'dynamic-item';
+            row.innerHTML = `
+                <div class="item-fields">
+                    <input type="text" class="form-control form-control-sm" name="telegramScripts" placeholder="Ej: Updated-RFC24015.sql">
+                </div>
+                <button type="button" class="btn-remove-rdl" onclick="this.closest('.dynamic-item').remove()">&#x2715;</button>`;
+            container.appendChild(row);
+        }
+
+        function addTelegramChangeRow() {
+            const container = document.getElementById('telegramChangesContainer');
+            if (!container) return;
+            const row = document.createElement('div');
+            row.className = 'dynamic-item grid-item';
+            row.innerHTML = `
+                <div class="item-fields row-layout">
+                    <div class="item-field" style="min-width:180px;">
+                        <input type="text" class="form-control form-control-sm" name="telegramChangeIds" placeholder="Ej: RFC 24015 / Problema 33520">
+                    </div>
+                    <div class="item-field" style="min-width:260px;">
+                        <input type="text" class="form-control form-control-sm" name="telegramChangeDescriptions" placeholder="Descripción del cambio">
+                    </div>
+                </div>
+                <button type="button" class="btn-remove-rdl" onclick="this.closest('.dynamic-item').remove()">&#x2715;</button>`;
+            container.appendChild(row);
+        }
+
+        async function copyTelegramMessage() {
+            const textEl = document.getElementById('telegramMessageText');
+            if (!textEl) return;
+            await navigator.clipboard.writeText(textEl.innerText || textEl.textContent || '');
+            showToast('\u2714 Mensaje de Telegram copiado', 'success');
+        }
+
+        function collectReleaseMessageData() {
+            const scripts = [...document.querySelectorAll('#telegramScriptsContainer input[name="telegramScripts"]')]
+                .map(el => el.value.trim())
+                .filter(Boolean);
+            const changeIds = [...document.querySelectorAll('#telegramChangesContainer input[name="telegramChangeIds"]')]
+                .map(el => el.value.trim());
+            const changeDescriptions = [...document.querySelectorAll('#telegramChangesContainer input[name="telegramChangeDescriptions"]')]
+                .map(el => el.value.trim());
+            const modules = [...document.querySelectorAll('input[name="telegramModules"]:checked')]
+                .map(el => el.value);
+
+            return {
+                telegramModules: modules,
+                telegramScripts: scripts,
+                telegramNotes: document.getElementById('telegramNotes')?.value || '',
+                publishDate: document.getElementById('telegramPublishDate')?.value || '',
+                telegramVersionModule: document.getElementById('telegramVersionModule')?.value || '',
+                telegramVersionDllCsharp: document.getElementById('telegramVersionDllCsharp')?.value || '',
+                telegramVersionWinterX: document.getElementById('telegramVersionWinterX')?.value || '',
+                telegramChangeIds: changeIds,
+                telegramChangeDescriptions: changeDescriptions,
+                telegramRollbackVersion: document.getElementById('telegramRollbackVersion')?.value || '',
+                telegramBranchModules: document.getElementById('telegramBranchModules')?.value || '',
+                telegramBranchWinterX: document.getElementById('telegramBranchWinterX')?.value || '',
+                telegramBranchDllName: document.getElementById('telegramBranchDllName')?.value || '',
+                telegramBranchDllRepoUrl: document.getElementById('telegramBranchDllRepoUrl')?.value || '',
+                telegramReleaseUrl: document.getElementById('telegramReleaseUrl')?.value || ''
+            };
+        }
+
+        async function generateReleaseMessage() {
+            const btn = document.getElementById('btnGenerateReleaseMessage');
+            const original = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>&nbsp;Generando...';
+            try {
+                const resp = await fetch('/generate-release-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(collectReleaseMessageData())
+                });
+                if (!resp.ok) throw new Error('Error ' + resp.status);
+                const text = await resp.text();
+                const pre = document.getElementById('telegramMessageText');
+                pre.textContent = text;
+                const section = document.getElementById('telegramSection');
+                section.style.display = 'block';
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (err) {
+                showToast('Error al generar mensaje: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = original;
+            }
+        }
+
+        async function importReleaseDataToMessage() {
+            try {
+                const modules = [];
+                const selectedReleaseModules = [...document.querySelectorAll('input[name="distributionModules"]:checked')].map(el => el.value);
+                modules.push(...selectedReleaseModules);
+                if (document.getElementById('hasCitrix')?.checked) modules.push('Citrix');
+                if (document.getElementById('hasDll')?.checked) modules.push('DLL');
+                if (document.getElementById('hasWinterX')?.checked) modules.push('WinterX');
+
+                const publishDate = document.querySelector('input[name="publishDate"]')?.value || '';
+                const version = document.querySelector('input[name="version"]')?.value || '';
+                const rollback = document.querySelector('input[name="rollbackVersion"]')?.value || '';
+                const branchModules = document.querySelector('input[name="branchModules"]')?.value || '';
+                const branchWinter = document.querySelector('input[name="branchWinter"]')?.value || '';
+                const releaseUrl = document.querySelector('input[name="releaseUrl"]')?.value || '';
+                const notes = document.querySelector('textarea[name="notes"]')?.value || '';
+                const scriptsRaw = document.querySelector('textarea[name="scripts"]')?.value || '';
+                const projectsRaw = document.querySelector('textarea[name="projects"]')?.value || '';
+
+                const hasSourceData = modules.length > 0 || publishDate || version || rollback || branchModules || branchWinter || releaseUrl || notes || scriptsRaw || projectsRaw;
+                if (!hasSourceData) {
+                    showToast('No hay datos en Correo de Liberación para importar.', 'error');
+                    return;
+                }
+
+                const uniqueModules = [...new Set(modules)];
+                document.querySelectorAll('input[name="telegramModules"]').forEach(cb => {
+                    cb.checked = uniqueModules.includes(cb.value);
+                });
+
+                document.getElementById('telegramPublishDate').value = publishDate;
+                document.getElementById('telegramVersionModule').value = version;
+                document.getElementById('telegramRollbackVersion').value = rollback;
+                document.getElementById('telegramBranchModules').value = branchModules;
+                document.getElementById('telegramBranchWinterX').value = branchWinter;
+                document.getElementById('telegramReleaseUrl').value = releaseUrl;
+                document.getElementById('telegramNotes').value = notes;
+
+                const scriptRows = scriptsRaw
+                    .split(/\r?\n/)
+                    .map(v => v.trim())
+                    .filter(Boolean);
+                const scriptsContainer = document.getElementById('telegramScriptsContainer');
+                scriptsContainer.innerHTML = '';
+                if (scriptRows.length === 0) addTelegramScriptRow();
+                scriptRows.forEach(s => {
+                    addTelegramScriptRow();
+                    const last = scriptsContainer.querySelector('.dynamic-item:last-child input[name="telegramScripts"]');
+                    if (last) last.value = s;
+                });
+
+                const changes = projectsRaw
+                    .split(/\r?\n/)
+                    .map(v => v.trim())
+                    .filter(Boolean);
+                const changesContainer = document.getElementById('telegramChangesContainer');
+                changesContainer.innerHTML = '';
+                if (changes.length === 0) addTelegramChangeRow();
+                changes.forEach(c => {
+                    addTelegramChangeRow();
+                    const lastDesc = changesContainer.querySelector('.dynamic-item:last-child input[name="telegramChangeDescriptions"]');
+                    if (lastDesc) lastDesc.value = c;
+                });
+
+                showToast('Datos importados desde Correo de Liberación.', 'success');
+                await generateReleaseMessage();
+            } catch (err) {
+                showToast('No se pudo importar: ' + (err?.message || 'error desconocido'), 'error');
+            }
+        }
+
+        function clearReleaseMessageForm() {
+            const form = document.getElementById('releaseMessageForm');
+            if (form) form.reset();
+            const scriptsContainer = document.getElementById('telegramScriptsContainer');
+            const changesContainer = document.getElementById('telegramChangesContainer');
+            if (scriptsContainer) scriptsContainer.innerHTML = '';
+            if (changesContainer) changesContainer.innerHTML = '';
+            addTelegramScriptRow();
+            addTelegramChangeRow();
+            const section = document.getElementById('telegramSection');
+            if (section) section.style.display = 'none';
+            localStorage.removeItem(MESSAGE_FORM_DRAFT_KEY);
         }
 
         // ── VoBo UAT ───────────────────────────────────────────────────────
@@ -493,7 +1044,7 @@
             transition: border-color .15s;
         }
         .section-label {
-            font-size: .7rem;
+            font-size: .72rem;
             font-weight: 700;
             letter-spacing: .08em;
             text-transform: uppercase;
@@ -502,6 +1053,10 @@
             display: flex;
             align-items: center;
             gap: 5px;
+        }
+        .section-label > span:first-child,
+        .section-label::first-letter {
+            font-size: 1rem;
         }
 
         /* ── Form Controls ───────────────────────────────────────────── */
@@ -610,6 +1165,13 @@
         }
         .btn-remove-rdl:hover { background: #fee2e2; }
 
+        /* ── Form Actions ───────────────────────────────────────────── */
+        .form-actions {
+            margin-top: 12px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
         /* ── Tabs ────────────────────────────────────────────────────── */
         .nav-tabs { border-bottom: 2px solid var(--border); gap: 2px; }
         .nav-tabs .nav-link {
@@ -646,6 +1208,58 @@
 
         /* ── RDL Entry ───────────────────────────────────────────────── */
         .rdl-entry { border: 1.5px solid #bfdbfe !important; }
+
+        /* ── Dynamic Items (scripts, changes, RDL TG rows) ────────── */
+        .dynamic-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .dynamic-item .item-fields { flex: 1; min-width: 0; }
+        .dynamic-item .item-fields.row-layout {
+            display: flex;
+            gap: 8px;
+        }
+        .dynamic-item .item-field { flex: 1; min-width: 0; }
+        .dynamic-item .btn-remove-rdl { flex-shrink: 0; }
+
+        /* ── Module badge checkboxes ──────────────────────────────── */
+        .module-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #eef2ff;
+            color: #1e3a8a;
+            padding: 7px 12px;
+            border-radius: 6px;
+            font-size: .82rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1.5px solid transparent;
+            transition: border-color .15s, background .15s;
+            user-select: none;
+        }
+        .module-badge:has(input:checked) {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+        .module-badge input[type="checkbox"] {
+            accent-color: var(--primary);
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+
+        /* ── Sidebar parent items (non-clickable group headers) ───── */
+        .sidebar-nav-item[data-pane]:not(.sidebar-subnav-item) + .sidebar-subnav-item {
+            /* connected to parent group */
+        }
+
+        /* ── Section block subtle hover ───────────────────────────── */
+        .section-block:focus-within {
+            border-color: #bfdbfe;
+        }
 
         /* ── Release date picker ─────────────────────────────────────── */
         .release-time-select {
@@ -795,6 +1409,15 @@
         }
         .sidebar-nav-item:hover { background: rgba(255,255,255,.09); color: white; }
         .sidebar-nav-item.active { background: var(--primary); color: white; font-weight: 600; }
+        .sidebar-subnav-item {
+            margin-left: 10px;
+            width: calc(100% - 10px);
+            font-size: .8rem;
+            color: rgba(255,255,255,.58);
+            padding-top: 7px;
+            padding-bottom: 7px;
+        }
+        .sidebar-subnav-item .nav-icon { font-size: .78rem; }
         .nav-icon { font-size: .9rem; flex-shrink: 0; width: 18px; text-align: center; }
         .sidebar-footer { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.1); display: flex; align-items: center; justify-content: center; }
         .sidebar-footer img { height: 42px; width: auto; object-fit: contain; border-radius: 50%; opacity: .88; }
@@ -810,8 +1433,8 @@
         .pane-breadcrumb a { color: var(--text-muted); text-decoration: none; }
         .pane-breadcrumb a:hover { color: var(--primary); }
         .pane-breadcrumb span { color: var(--primary); font-weight: 600; }
-        .pane-title { font-size: 1.2rem; font-weight: 700; color: var(--text); margin: 0 0 2px; letter-spacing: -.02em; }
-        .pane-subtitle { font-size: .77rem; color: var(--text-muted); margin: 0; }
+        .pane-title { font-size: 1.25rem; font-weight: 700; color: var(--text); margin: 0 0 2px; letter-spacing: -.02em; }
+        .pane-subtitle { font-size: .8rem; color: var(--text-muted); margin: 0; line-height: 1.5; }
         .pane-body { padding: 36px 64px 56px; flex: 1; max-width: 1340px; width: 100%; margin: 0 auto; box-sizing: border-box; }
 
         /* ── Dashboard ───────────────────────────────────────────────── */
@@ -884,8 +1507,20 @@
             <button class="sidebar-nav-item" data-pane="releases" onclick="showPane('releases',this)">
                 <span class="nav-icon">&#x1F4E6;</span> Artefactos
             </button>
+            <button id="nav-artifacts-mail" class="sidebar-nav-item sidebar-subnav-item" data-pane="releases" onclick="showPane('releases',this)">
+                <span class="nav-icon">&#x1F4E7;</span> Correo de Liberación
+            </button>
+            <button id="nav-artifacts-telegram" class="sidebar-nav-item sidebar-subnav-item" data-pane="messages" onclick="showPane('messages',this)">
+                <span class="nav-icon">&#x2708;&#xFE0F;</span> Telegram
+            </button>
             <button class="sidebar-nav-item" data-pane="rdl" onclick="showPane('rdl',this)">
                 <span class="nav-icon">&#x1F4CA;</span> Reportes RDL
+            </button>
+            <button id="nav-rdl-mail" class="sidebar-nav-item sidebar-subnav-item" data-pane="rdl" onclick="showPane('rdl',this)">
+                <span class="nav-icon">&#x1F4E7;</span> Correo RDL
+            </button>
+            <button id="nav-rdl-telegram" class="sidebar-nav-item sidebar-subnav-item" data-pane="rdl-telegram" onclick="showPane('rdl-telegram',this)">
+                <span class="nav-icon">&#x2708;&#xFE0F;</span> Telegram RDL
             </button>
             <button class="sidebar-nav-item" data-pane="rfc" onclick="showPane('rfc',this)">
                 <span class="nav-icon">&#x1F4CB;</span> RFC T&#xE9;cnico
@@ -910,16 +1545,16 @@
             <p>Plataforma corporativa de gesti&#xF3;n de liberaciones y notificaciones para equipos de QA, Desarrollo y Liberaciones.</p>
         </div>
         <div class="module-grid">
-            <div class="module-card" onclick="showPane('releases',null)">
+            <div class="module-card" onclick="openArtifactsSubmenu('correo')">
                 <div class="module-card-icon">&#x1F4E6;</div>
                 <div class="module-card-title">Artefactos de Liberaci&#xF3;n</div>
-                <div class="module-card-desc">Genera correos con rutas de m&#xF3;dulos, Citrix, DLLs, scripts SQL, SPs, branches y RFCs.</div>
+                <div class="module-card-desc">Incluye subm&#xF3;dulos independientes para Correo de Liberaci&#xF3;n y Telegram.</div>
                 <div class="module-card-action">Abrir m&#xF3;dulo &#x2192;</div>
             </div>
             <div class="module-card" onclick="showPane('rdl',null)">
                 <div class="module-card-icon">&#x1F4CA;</div>
                 <div class="module-card-title">Reportes RDL</div>
-                <div class="module-card-desc">Genera correos de liberaci&#xF3;n para reportes SSRS en MEGANG&#x2011;612 y NTRS02.</div>
+                <div class="module-card-desc">Incluye subm&#xF3;dulos independientes para Correo RDL y Telegram RDL.</div>
                 <div class="module-card-action">Abrir m&#xF3;dulo &#x2192;</div>
             </div>
             <div class="module-card" onclick="showPane('rfc',null)">
@@ -938,8 +1573,10 @@
         <div class="quick-actions">
             <div class="quick-actions-title">Acciones r&#xE1;pidas</div>
             <div class="d-flex flex-wrap gap-2">
-                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;" onclick="showPane('releases',null)">&#x1F4E6; Nuevo correo de artefactos</button>
-                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#6366f1;" onclick="showPane('rdl',null)">&#x1F4CA; Nuevo correo RDL</button>
+                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;" onclick="openArtifactsSubmenu('correo')">&#x1F4E7; Artefactos / Correo de liberaci&#xF3;n</button>
+                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#0f766e;" onclick="openArtifactsSubmenu('telegram')">&#x2708;&#xFE0F; Artefactos / Telegram</button>
+                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#6366f1;" onclick="showPane('rdl',null)">&#x1F4E7; RDL / Correo</button>
+                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#7c3aed;" onclick="showPane('rdl-telegram',null)">&#x1F4F2; RDL / Telegram</button>
                 <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#059669;" onclick="showPane('uat',null)">&#x2705; Nuevo VoBo UAT</button>
             </div>
         </div>
@@ -948,9 +1585,9 @@
     <!-- ════════════════ PANE: ARTEFACTOS DE LIBERACIÓN ═══════ -->
     <div class="pane" id="pane-releases">
     <div class="pane-header">
-        <div class="pane-breadcrumb"><a href="#" onclick="showPane('dashboard',null);return false;">Inicio</a> / <span>Artefactos de Liberación</span></div>
-        <h2 class="pane-title">&#x1F4E6; Artefactos de Liberación</h2>
-        <p class="pane-subtitle">Genera correos de notificación con rutas de módulos, Citrix, DLLs, scripts SQL, SPs, branches y RFCs.</p>
+        <div class="pane-breadcrumb"><a href="#" onclick="showPane('dashboard',null);return false;">Inicio</a> / <span>Artefactos</span> / <span>Correo de Liberación</span></div>
+        <h2 class="pane-title">&#x1F4E7; Artefactos / Correo de Liberación</h2>
+        <p class="pane-subtitle">Submódulo independiente para correos formales de liberación.</p>
     </div>
     <div class="pane-body">
     <form action="/generate" method="post" onsubmit="onReleasesFormSubmit(event)">
@@ -1007,23 +1644,23 @@
                 <div id="pathModulesGroup" class="artifact-path">
                     <label class="form-label">Módulos a distribuir</label>
                     <div class="d-flex flex-wrap gap-2 mb-2">
-                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
-                            <input type="checkbox" name="distributionModules" value="Cartera" style="margin-right:6px;">Cartera
+                        <label class="module-badge">
+                            <input type="checkbox" name="distributionModules" value="Cartera">Cartera
                         </label>
-                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
-                            <input type="checkbox" name="distributionModules" value="Servicios" style="margin-right:6px;">Servicios
+                        <label class="module-badge">
+                            <input type="checkbox" name="distributionModules" value="Servicios">Servicios
                         </label>
-                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
-                            <input type="checkbox" name="distributionModules" value="Control" style="margin-right:6px;">Control
+                        <label class="module-badge">
+                            <input type="checkbox" name="distributionModules" value="Control">Control
                         </label>
-                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
-                            <input type="checkbox" name="distributionModules" value="Hightech" style="margin-right:6px;">Hightech
+                        <label class="module-badge">
+                            <input type="checkbox" name="distributionModules" value="Hightech">Hightech
                         </label>
-                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
-                            <input type="checkbox" name="distributionModules" value="Equipos" style="margin-right:6px;">Equipos
+                        <label class="module-badge">
+                            <input type="checkbox" name="distributionModules" value="Equipos">Equipos
                         </label>
-                        <label class="badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;cursor:pointer;">
-                            <input type="checkbox" name="distributionModules" value="Ventas" style="margin-right:6px;">Ventas
+                        <label class="module-badge">
+                            <input type="checkbox" name="distributionModules" value="Ventas">Ventas
                         </label>
                     </div>
                     <div id="modulesSelectionError" class="text-danger" style="display:none;font-size:.8rem;margin-bottom:8px;">
@@ -1125,6 +1762,7 @@
                       placeholder="Ej: Ejecutar primero los scripts antes del reinicio de DLLs."></textarea>
         </div>
 
+
         <div class="form-actions d-flex gap-2 justify-content-end">
             <button type="button" class="btn-clear" onclick="clearAll()">&#x2715; Limpiar</button>
             <button type="submit" class="btn-generate">Generar Correo &rarr;</button>
@@ -1152,13 +1790,126 @@
     </div><!-- /pane-body -->
     </div><!-- /pane-releases -->
 
+    <!-- ═══════════════════════════════ PANE: MENSAJES DE LIBERACIÓN ═══════════════════ -->
+    <div class="pane" id="pane-messages">
+    <div class="pane-header">
+        <div class="pane-breadcrumb"><a href="#" onclick="showPane('dashboard',null);return false;">Inicio</a> / <span>Artefactos</span> / <span>Telegram</span></div>
+        <h2 class="pane-title">&#x2708;&#xFE0F; Artefactos / Telegram</h2>
+        <p class="pane-subtitle">Submódulo independiente para generar mensajes técnicos en texto plano.</p>
+    </div>
+    <div class="pane-body">
+    <form id="releaseMessageForm" onsubmit="event.preventDefault(); generateReleaseMessage();">
+
+        <div class="section-block">
+            <div class="section-label">🧭 Tipo de Comunicación</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Destino</label>
+                    <select class="form-select" id="messageChannel">
+                        <option value="telegram" selected>Telegram</option>
+                        <option value="rdl">RDL Interno</option>
+                        <option value="other">Notificación futura</option>
+                    </select>
+                </div>
+                <div class="col-md-8 d-flex align-items-end">
+                    <button type="button" class="btn-generate" style="background:#0f766e;font-size:.82rem;padding:8px 16px;" onclick="importReleaseDataToMessage()">&#x1F4E5; Importar datos desde Correo de Liberación</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">📌 Acción (módulos afectados)</div>
+            <div class="d-flex flex-wrap gap-2">
+                <label class="module-badge"><input type="checkbox" name="telegramModules" value="Cartera">Cartera</label>
+                <label class="module-badge"><input type="checkbox" name="telegramModules" value="Servicios">Servicios</label>
+                <label class="module-badge"><input type="checkbox" name="telegramModules" value="Control">Control</label>
+                <label class="module-badge"><input type="checkbox" name="telegramModules" value="Hightech">Hightech</label>
+                <label class="module-badge"><input type="checkbox" name="telegramModules" value="Equipos">Equipos</label>
+                <label class="module-badge"><input type="checkbox" name="telegramModules" value="Ventas">Ventas</label>
+                <label class="module-badge"><input type="checkbox" name="telegramModules" value="Citrix">Citrix</label>
+                <label class="module-badge"><input type="checkbox" name="telegramModules" value="DLL">DLL</label>
+                <label class="module-badge"><input type="checkbox" name="telegramModules" value="WinterX">WinterX</label>
+                <label class="module-badge"><input type="checkbox" name="telegramModules" value="DLL C#">DLL C#</label>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">🧾 Scripts a ejecutar</div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label mb-0">Lista de archivos SQL</label>
+                <button type="button" class="btn-add-uat" onclick="addTelegramScriptRow()">&#x2b; Agregar script</button>
+            </div>
+            <div id="telegramScriptsContainer"></div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">📝 Notas e instrucciones</div>
+            <textarea class="form-control" rows="3" id="telegramNotes" placeholder="Notas operativas importantes"></textarea>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">📅 Publicación y Versiones</div>
+            <div class="row g-3">
+                <div class="col-md-3"><label class="form-label">Fecha de publicación</label><input type="date" class="form-control" id="telegramPublishDate"></div>
+                <div class="col-md-3"><label class="form-label">Versión módulo</label><input type="text" class="form-control" id="telegramVersionModule" placeholder="Ej: 26.6.13"></div>
+                <div class="col-md-3"><label class="form-label">Versión DLL C#</label><input type="text" class="form-control" id="telegramVersionDllCsharp" placeholder="Ej: 26.6.11.2"></div>
+                <div class="col-md-3"><label class="form-label">Versión WinterX</label><input type="text" class="form-control" id="telegramVersionWinterX" placeholder="Opcional"></div>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">📚 Cambios de release</div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label mb-0">RFC / Problema + descripción</label>
+                <button type="button" class="btn-add-uat" onclick="addTelegramChangeRow()">&#x2b; Agregar cambio</button>
+            </div>
+            <div id="telegramChangesContainer"></div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">🛡 Rollback y Branches</div>
+            <div class="row g-3">
+                <div class="col-md-4"><label class="form-label">Versión rollback</label><input type="text" class="form-control" id="telegramRollbackVersion" placeholder="Ej: 26.6.12"></div>
+                <div class="col-md-4"><label class="form-label">Branch módulos</label><input type="text" class="form-control" id="telegramBranchModules" placeholder="Feature_Modulos"></div>
+                <div class="col-md-4"><label class="form-label">Branch WinterX</label><input type="text" class="form-control" id="telegramBranchWinterX" placeholder="Feature_WinterX"></div>
+                <div class="col-md-4"><label class="form-label">Branch DLL C#</label><input type="text" class="form-control" id="telegramBranchDllName" placeholder="origin/release"></div>
+                <div class="col-md-8"><label class="form-label">URL repositorio DLL C#</label><input type="text" class="form-control" id="telegramBranchDllRepoUrl" placeholder="https://github.com/.../winterX.git"></div>
+                <div class="col-md-12"><label class="form-label">Link de Jira / Release</label><input type="text" class="form-control" id="telegramReleaseUrl" placeholder="https://megacablesfyc.atlassian.net/projects/..." ></div>
+            </div>
+        </div>
+
+        <div class="form-actions d-flex gap-2 justify-content-end">
+            <button type="button" class="btn-clear" onclick="clearReleaseMessageForm()">&#x2715; Limpiar</button>
+            <button type="button" id="btnGenerateReleaseMessage" class="btn-generate" onclick="generateReleaseMessage()">Generar Mensaje &rarr;</button>
+        </div>
+    </form>
+
+    <div id="telegramSection" class="mt-4" style="display:none;">
+        <div class="section-label" style="margin-top:0;">📲 Mensaje generado (solo lectura)</div>
+        <div class="email-wrapper">
+            <div class="email-toolbar">
+                <div class="d-flex gap-2 align-items-center">
+                    <span class="dot" style="background:#ef4444;"></span>
+                    <span class="dot" style="background:#f59e0b;"></span>
+                    <span class="dot" style="background:#10b981;"></span>
+                    <span style="margin-left:8px; opacity:.8;">Texto plano listo para enviar</span>
+                </div>
+                <button class="btn-copy" type="button" onclick="copyTelegramMessage()">&#x1F4CB; Copiar</button>
+            </div>
+            <pre id="telegramMessageText" style="margin:0; background:#0f172a; color:#e2e8f0; padding:24px; white-space:pre-wrap; font-family:'Cascadia Code', Consolas, monospace; font-size:13.5px; line-height:1.55; border-radius:0 0 10px 10px;"></pre>
+        </div>
+    </div>
+
+    </div><!-- /pane-body -->
+    </div><!-- /pane-messages -->
+
     <!-- ═══════════════════════════════════ TAB: REPORTES RDL ══════════════ -->
     <!-- ══════════════════════════════════════ PANE: REPORTES RDL ═══════════════════ -->
     <div class="pane" id="pane-rdl">
     <div class="pane-header">
-        <div class="pane-breadcrumb"><a href="#" onclick="showPane('dashboard',null);return false;">Inicio</a> / <span>Reportes RDL</span></div>
-        <h2 class="pane-title">&#x1F4CA; Reportes RDL</h2>
-        <p class="pane-subtitle">Genera correos de liberaci&#xF3;n para reportes SSRS (MEGANG-612 y NTRS02).</p>
+        <div class="pane-breadcrumb"><a href="#" onclick="showPane('dashboard',null);return false;">Inicio</a> / <span>Reportes RDL</span> / <span>Correo RDL</span></div>
+        <h2 class="pane-title">&#x1F4E7; Reportes RDL / Correo</h2>
+        <p class="pane-subtitle">Subm&#xF3;dulo independiente para correos formales de liberaci&#xF3;n de reportes SSRS.</p>
     </div>
     <div class="pane-body">
     <form action="/generate-rdl" method="post" id="rdlForm">
@@ -1231,7 +1982,7 @@
 
         <div class="form-actions d-flex gap-2 justify-content-end">
             <button type="button" class="btn-clear" onclick="clearRdlForm()">&#x2715; Limpiar</button>
-            <button type="button" class="btn-generate" onclick="submitRdlForm()">Generar Correo RDL &rarr;</button>
+            <button type="button" id="btnGenerateRdlEmail" class="btn-generate" onclick="submitRdlForm()">Generar Correo RDL &rarr;</button>
         </div>
 
     </form>
@@ -1258,6 +2009,116 @@
 
     </div><!-- /pane-body -->
     </div><!-- /pane-rdl -->
+
+    <!-- ══════════════════════════════════════ PANE: TELEGRAM RDL ═══════════════════ -->
+    <div class="pane" id="pane-rdl-telegram">
+    <div class="pane-header">
+        <div class="pane-breadcrumb"><a href="#" onclick="showPane('dashboard',null);return false;">Inicio</a> / <span>Reportes RDL</span> / <span>Telegram</span></div>
+        <h2 class="pane-title">&#x1F4F2; Reportes RDL / Telegram</h2>
+        <p class="pane-subtitle">Subm&#xF3;dulo independiente para generar mensajes de Telegram para deployment de RDLs.</p>
+    </div>
+    <div class="pane-body">
+    <form id="rdlTelegramForm" onsubmit="event.preventDefault(); generateRdlTelegramMessage();">
+
+        <div class="section-block">
+            <div class="section-label">&#x1F680; Acci&#xF3;n</div>
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="form-label">Descripci&#xF3;n de la acci&#xF3;n</label>
+                    <input type="text" class="form-control" id="rdlTgAction"
+                           value="Deployment de RDLs y Stored Procedures"
+                           placeholder="Ej: Deployment de RDLs y Stored Procedures">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="button" class="btn-generate" style="background:#0f766e;font-size:.82rem;padding:8px 16px;" onclick="importRdlDataToTelegram()">&#x1F4E5; Importar desde Correo RDL</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">&#x1F4CA; RDLs a desplegar</div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label mb-0">Nombre de cada RDL</label>
+                <button type="button" class="btn-add-uat" onclick="addRdlTgRdlRow()">&#x2b; Agregar RDL</button>
+            </div>
+            <div id="rdlTgRdlsContainer"></div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">&#x1F5C4;&#xFE0F; Stored Procedures</div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label mb-0">Nombre de cada SP</label>
+                <button type="button" class="btn-add-uat" onclick="addRdlTgSpRow()">&#x2b; Agregar SP</button>
+            </div>
+            <div id="rdlTgSpsContainer"></div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">&#x1F4C5; Fecha de publicaci&#xF3;n</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Fecha</label>
+                    <input type="date" class="form-control" id="rdlTgDate">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Hora</label>
+                    <select class="form-select" id="rdlTgTime">
+                        <option value="">Hora</option>
+                        <option value="7:00 am">7:00 am</option>
+                        <option value="8:00 am">8:00 am</option>
+                        <option value="9:00 am">9:00 am</option>
+                        <option value="10:00 am">10:00 am</option>
+                        <option value="11:00 am">11:00 am</option>
+                        <option value="12:00 pm">12:00 pm</option>
+                        <option value="1:00 pm">1:00 pm</option>
+                        <option value="2:00 pm">2:00 pm</option>
+                        <option value="3:00 pm">3:00 pm</option>
+                        <option value="4:00 pm">4:00 pm</option>
+                        <option value="5:00 pm">5:00 pm</option>
+                        <option value="6:00 pm">6:00 pm</option>
+                        <option value="7:00 pm">7:00 pm</option>
+                        <option value="8:00 pm">8:00 pm</option>
+                        <option value="9:00 pm">9:00 pm</option>
+                        <option value="10:00 pm">10:00 pm</option>
+                        <option value="11:00 pm">11:00 pm</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">&#x1F4DA; Proyectos relacionados</div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label mb-0">Proyecto / Problema + descripci&#xF3;n</label>
+                <button type="button" class="btn-add-uat" onclick="addRdlTgProjectRow()">&#x2b; Agregar proyecto</button>
+            </div>
+            <div id="rdlTgProjectsContainer"></div>
+        </div>
+
+        <div class="form-actions d-flex gap-2 justify-content-end">
+            <button type="button" class="btn-clear" onclick="clearRdlTelegramForm()">&#x2715; Limpiar</button>
+            <button type="button" id="btnGenerateRdlTelegram" class="btn-generate" style="background:#0f766e;" onclick="generateRdlTelegramMessage()">Generar Telegram RDL &rarr;</button>
+        </div>
+    </form>
+
+    <div id="rdlTelegramSection" class="mt-4" style="display:none;">
+        <div class="section-label" style="margin-top:0;">&#x1F4F2; Mensaje generado (solo lectura)</div>
+        <div class="email-wrapper">
+            <div class="email-toolbar">
+                <div class="d-flex gap-2 align-items-center">
+                    <span class="dot" style="background:#ef4444;"></span>
+                    <span class="dot" style="background:#f59e0b;"></span>
+                    <span class="dot" style="background:#10b981;"></span>
+                    <span style="margin-left:8px; opacity:.8;">Texto plano listo para Telegram</span>
+                </div>
+                <button class="btn-copy" type="button" onclick="copyRdlTelegramMessage()">&#x1F4CB; Copiar</button>
+            </div>
+            <pre id="rdlTelegramMessageText" style="margin:0; background:#0f172a; color:#e2e8f0; padding:24px; white-space:pre-wrap; font-family:'Cascadia Code', Consolas, monospace; font-size:13.5px; line-height:1.55; border-radius:0 0 10px 10px;"></pre>
+        </div>
+    </div>
+
+    </div><!-- /pane-body -->
+    </div><!-- /pane-rdl-telegram -->
 
     <!-- ══════════════════════════════════════ PANE: VoBo UAT ═══════════════════ -->
     <div class="pane" id="pane-uat">

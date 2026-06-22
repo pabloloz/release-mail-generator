@@ -37,10 +37,22 @@ public class ReleaseController {
         return "index";
     }
 
+    @PostMapping(value = "/generate-release-message", consumes = "application/json", produces = "text/plain")
+    @ResponseBody
+    public String generateReleaseMessage(@RequestBody ReleaseRequest releaseRequest) {
+        return emailGeneratorService.generateTelegramMessage(releaseRequest);
+    }
+
     @PostMapping(value = "/generate-rdl", consumes = "application/json", produces = "text/html")
     @ResponseBody
     public String generateRdlEmail(@RequestBody RdlReleaseRequest rdlReleaseRequest) {
         return emailGeneratorService.generateRdlEmail(rdlReleaseRequest);
+    }
+
+    @PostMapping(value = "/generate-rdl-message", consumes = "application/json", produces = "text/plain")
+    @ResponseBody
+    public String generateRdlMessage(@RequestBody RdlReleaseRequest rdlReleaseRequest) {
+        return emailGeneratorService.generateRdlTelegramMessage(rdlReleaseRequest);
     }
 }
 

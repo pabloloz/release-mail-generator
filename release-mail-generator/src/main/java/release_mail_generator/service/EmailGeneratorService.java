@@ -12,8 +12,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,6 +46,10 @@ public class EmailGeneratorService {
         "Cartera", "Servicios", "Control", "Hightech", "Equipos", "Ventas"
     );
 
+    private static final Set<String> ALLOWED_TELEGRAM_MODULES = Set.of(
+        "Cartera", "Servicios", "Control", "Hightech", "Equipos", "Ventas", "Citrix", "DLL", "WinterX", "DLL C#"
+    );
+
     private List<String> normalizedDistributionModules(ReleaseRequest r) {
         if (r.getDistributionModules() == null) return List.of();
         return r.getDistributionModules().stream()
@@ -56,6 +62,139 @@ public class EmailGeneratorService {
 
     private String clean(String value) {
         return (value == null || value.trim().isEmpty()) ? "" : value.trim();
+    }
+
+    private List<String> cleanList(List<String> values) {
+        if (values == null) return List.of();
+        return values.stream()
+            .map(this::clean)
+            .filter(v -> !v.isEmpty())
+            .collect(Collectors.toList());
+    }
+
+    private List<String> linesFromText(String value) {
+        if (value == null || value.isBlank()) return List.of();
+        return Arrays.stream(value.split("\\r?\\n"))
+            .map(this::clean)
+            .filter(v -> !v.isEmpty())
+            .collect(Collectors.toList());
+    }
+
+    private String formatDateEs(String yyyyMmDd) {
+        String v = clean(yyyyMmDd);
+        if (v.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            String[] p = v.split("-");
+            return p[2] + "/" + p[1] + "/" + p[0];
+        }
+        return v;
+    }
+
+    public String generateTelegramMessage(ReleaseRequest r) {
+        StringBuilder msg = new StringBuilder();
+
+        List<String> actionModules = cleanList(r.getTelegramModules()).stream()
+            .filter(ALLOWED_TELEGRAM_MODULES::contains)
+            .collect(Collectors.toList());
+
+        if (actionModules.isEmpty()) {
+            LinkedHashSet<String> fallback = new LinkedHashSet<>();
+            fallback.addAll(normalizedDistributionModules(r));
+            if (r.isHasCitrix()) fallback.add("Citrix");
+            if (r.isHasDll()) fallback.add("DLL");
+            if (r.isHasWinterX()) fallback.add("WinterX");
+            actionModules = new ArrayList<>(fallback);
+        }
+
+        if (!actionModules.isEmpty()) {
+            msg.append("Acción: actualizar módulos ")
+               .append(String.join(", ", actionModules))
+               .append("\n\n");
+        }
+
+        List<String> scripts = cleanList(r.getTelegramScripts());
+        if (scripts.isEmpty()) scripts = linesFromText(r.getScripts());
+        if (!scripts.isEmpty()) {
+            msg.append("Ejecutar scripts:\n");
+            scripts.forEach(s -> msg.append(s).append("\n"));
+            msg.append("\n");
+        }
+
+        String notes = clean(r.getTelegramNotes());
+        if (notes.isEmpty()) notes = clean(r.getNotes());
+        if (!notes.isEmpty()) {
+            msg.append("Nota: ").append(notes).append("\n");
+            msg.append("\n");
+        }
+
+        String publishDate = formatDateEs(r.getPublishDate());
+        if (!publishDate.isEmpty()) {
+            msg.append("Publicar: ").append(publishDate).append("\n");
+        }
+
+        String versionModule = clean(r.getTelegramVersionModule());
+        if (versionModule.isEmpty()) versionModule = clean(r.getVersion());
+        String versionDll = clean(r.getTelegramVersionDllCsharp());
+        String versionWinterX = clean(r.getTelegramVersionWinterX());
+        if (!versionModule.isEmpty()) msg.append("Versión Módulo: ").append(versionModule).append("\n");
+        if (!versionDll.isEmpty()) msg.append("Versión DLL C#: ").append(versionDll).append("\n");
+        if (!versionWinterX.isEmpty()) msg.append("Versión WinterX: ").append(versionWinterX).append("\n");
+        if (!publishDate.isEmpty() || !versionModule.isEmpty() || !versionDll.isEmpty() || !versionWinterX.isEmpty()) {
+            msg.append("\n");
+        }
+
+        List<String> changeIds = cleanList(r.getTelegramChangeIds());
+        List<String> changeDescriptions = cleanList(r.getTelegramChangeDescriptions());
+        List<String> collectedChanges = new ArrayList<>();
+        int max = Math.max(changeIds.size(), changeDescriptions.size());
+        if (max > 0) {
+            IntStream.range(0, max).forEach(i -> {
+                String id = i < changeIds.size() ? changeIds.get(i) : "";
+                String desc = i < changeDescriptions.size() ? changeDescriptions.get(i) : "";
+                if (!id.isEmpty() && !desc.isEmpty()) collectedChanges.add(id + " " + desc);
+                else if (!id.isEmpty()) collectedChanges.add(id);
+                else if (!desc.isEmpty()) collectedChanges.add(desc);
+            });
+        }
+        List<String> changes = collectedChanges.isEmpty() ? linesFromText(r.getProjects()) : collectedChanges;
+
+        if (!changes.isEmpty()) {
+            msg.append("Cambios Reléase\n");
+            changes.forEach(c -> msg.append(c).append("\n"));
+            msg.append("\n");
+        }
+
+        String rollback = clean(r.getTelegramRollbackVersion());
+        if (rollback.isEmpty()) rollback = clean(r.getRollbackVersion());
+        if (!rollback.isEmpty()) {
+            msg.append("Versión Rollback: ").append(rollback).append("\n");
+        }
+
+        String branchModules = clean(r.getTelegramBranchModules());
+        if (branchModules.isEmpty()) branchModules = clean(r.getBranchModules());
+        String branchWinter = clean(r.getTelegramBranchWinterX());
+        if (branchWinter.isEmpty()) branchWinter = clean(r.getBranchWinter());
+        String dllRepo = clean(r.getTelegramBranchDllRepoUrl());
+        String dllBranch = clean(r.getTelegramBranchDllName());
+
+        if (!branchModules.isEmpty()) msg.append("Branch compilación Modulos: ").append(branchModules).append("\n");
+        if (!branchWinter.isEmpty()) msg.append("Branch compilación winterx: ").append(branchWinter).append("\n");
+        if (!dllRepo.isEmpty() || !dllBranch.isEmpty()) {
+            msg.append("Branch compilación DLL c#: ");
+            if (!dllRepo.isEmpty()) msg.append(dllRepo);
+            if (!dllBranch.isEmpty()) {
+                if (!dllRepo.isEmpty()) msg.append("  ");
+                msg.append("branch ").append(dllBranch);
+            }
+            msg.append("\n");
+        }
+
+        String releaseUrl = clean(r.getTelegramReleaseUrl());
+        if (releaseUrl.isEmpty()) releaseUrl = clean(r.getReleaseUrl());
+        if (!releaseUrl.isEmpty()) {
+            msg.append("Release Publicación: ").append(releaseUrl).append("\n");
+        }
+
+        return msg.toString().trim();
     }
 
     /** Escapa caracteres especiales HTML en texto de usuario. */
@@ -488,5 +627,57 @@ public class EmailGeneratorService {
 
         html.append("</div>");
         return html.toString();
+    }
+
+    public String generateRdlTelegramMessage(RdlReleaseRequest r) {
+        StringBuilder msg = new StringBuilder();
+
+        String action = clean(r.getRdlAction());
+        if (action.isEmpty()) action = "Deployment de RDLs y Stored Procedures";
+        msg.append("Acción: ").append(action).append("\n\n");
+
+        List<String> rdlNames = new ArrayList<>();
+        List<String> spNames = new ArrayList<>();
+        List<String> projects = new ArrayList<>();
+
+        List<RdlItem> items = r.getRdls();
+        if (items != null) {
+            for (RdlItem item : items) {
+                if (item == null) continue;
+
+                String reportName = clean(item.getRdlReportName());
+                if (!reportName.isEmpty()) rdlNames.add(reportName);
+
+                List<String> itemSpNames = linesFromText(item.getRdlSpName());
+                if (!itemSpNames.isEmpty()) spNames.addAll(itemSpNames);
+
+                String project = clean(item.getRdlProject());
+                if (!project.isEmpty()) projects.add(project);
+            }
+        }
+
+        if (!rdlNames.isEmpty()) {
+            msg.append("RDLs a desplegar:\n\n");
+            rdlNames.forEach(name -> msg.append(name).append("\n"));
+            msg.append("\n");
+        }
+
+        if (!spNames.isEmpty()) {
+            msg.append("Stored Procedures:\n\n");
+            spNames.forEach(sp -> msg.append(sp).append("\n"));
+            msg.append("\n");
+        }
+
+        String releaseDate = clean(r.getRdlReleaseDate());
+        if (!releaseDate.isEmpty()) {
+            msg.append("Fecha de publicación: ").append(releaseDate).append("\n\n");
+        }
+
+        if (!projects.isEmpty()) {
+            msg.append("Proyectos relacionados:\n\n");
+            projects.forEach(project -> msg.append(project).append("\n"));
+        }
+
+        return msg.toString().trim();
     }
 }
