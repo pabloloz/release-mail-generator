@@ -215,7 +215,6 @@
             setById('telegramPublishDate', data.publishDate);
             setById('telegramVersionModule', data.telegramVersionModule);
             setById('telegramVersionDllCsharp', data.telegramVersionDllCsharp);
-            setById('telegramVersionWinterX', data.telegramVersionWinterX);
             setById('telegramRollbackVersion', data.telegramRollbackVersion);
             setById('telegramBranchModules', data.telegramBranchModules);
             setById('telegramBranchWinterX', data.telegramBranchWinterX);
@@ -832,7 +831,6 @@
                 publishDate: document.getElementById('telegramPublishDate')?.value || '',
                 telegramVersionModule: document.getElementById('telegramVersionModule')?.value || '',
                 telegramVersionDllCsharp: document.getElementById('telegramVersionDllCsharp')?.value || '',
-                telegramVersionWinterX: document.getElementById('telegramVersionWinterX')?.value || '',
                 telegramChangeIds: changeIds,
                 telegramChangeDescriptions: changeDescriptions,
                 telegramRollbackVersion: document.getElementById('telegramRollbackVersion')?.value || '',
@@ -1248,12 +1246,12 @@
         }
         .btn-clear:hover { background: var(--bg); border-color: #94a3b8; color: var(--text); }
         .btn-copy {
-            background: var(--success); color: white; border: none;
+            background: var(--primary); color: white; border: none;
             padding: 6px 14px; border-radius: var(--radius-xs);
             font-size: .8rem; font-weight: 600; cursor: pointer;
             font-family: inherit; transition: background .15s;
         }
-        .btn-copy:hover { background: var(--success-hover); }
+        .btn-copy:hover { background: var(--primary-dark); }
         .btn-pdf {
             background: var(--purple); color: white; border: none;
             padding: 6px 14px; border-radius: var(--radius-xs);
@@ -1492,19 +1490,19 @@
         }
         /* ── VoBo UAT ────────────────────────────────────────────────── */
         .btn-md {
-            background: #0f766e; color: white; border: none;
+            background: var(--primary-dark); color: white; border: none;
             padding: 6px 14px; border-radius: var(--radius-xs);
             font-size: .8rem; font-weight: 600; cursor: pointer;
             font-family: inherit; transition: background .15s;
         }
-        .btn-md:hover { background: #0d5e58; }
+        .btn-md:hover { background: var(--primary-darker); }
         .btn-html-export {
-            background: var(--success); color: white; border: none;
+            background: var(--primary); color: white; border: none;
             padding: 6px 14px; border-radius: var(--radius-xs);
             font-size: .8rem; font-weight: 600; cursor: pointer;
             font-family: inherit; transition: background .15s;
         }
-        .btn-html-export:hover { background: var(--success-hover); }
+        .btn-html-export:hover { background: var(--primary-dark); }
         .btn-add-uat {
             background: var(--primary-light); color: var(--primary);
             border: 1.5px solid #bfdbfe;
@@ -1729,10 +1727,10 @@
             <div class="quick-actions-title">Acciones r&#xE1;pidas</div>
             <div class="d-flex flex-wrap gap-2">
                 <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;" onclick="openArtifactsSubmenu('correo')">&#x1F4E7; Artefactos / Correo de liberaci&#xF3;n</button>
-                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#0f766e;" onclick="openArtifactsSubmenu('telegram')">&#x2708;&#xFE0F; Artefactos / Telegram</button>
-                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#6366f1;" onclick="showPane('rdl',null)">&#x1F4E7; RDL / Correo</button>
-                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#7c3aed;" onclick="showPane('rdl-telegram',null)">&#x1F4F2; RDL / Telegram</button>
-                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#059669;" onclick="showPane('uat',null)">&#x2705; Nuevo VoBo UAT</button>
+                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:var(--primary-dark);" onclick="openArtifactsSubmenu('telegram')">&#x2708;&#xFE0F; Artefactos / Telegram</button>
+                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#4f46e5;" onclick="showPane('rdl',null)">&#x1F4E7; RDL / Correo</button>
+                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#6366f1;" onclick="showPane('rdl-telegram',null)">&#x1F4F2; RDL / Telegram</button>
+                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:var(--primary-dark);" onclick="showPane('uat',null)">&#x2705; Nuevo VoBo UAT</button>
             </div>
         </div>
     </div><!-- /pane-dashboard -->
@@ -1980,7 +1978,7 @@
                     </select>
                 </div>
                 <div class="col-md-8 d-flex align-items-end">
-                    <button type="button" class="btn-generate" style="background:#0f766e;font-size:.82rem;padding:8px 16px;" onclick="importReleaseDataToMessage()">&#x1F4E5; Importar datos desde Correo de Liberación</button>
+                    <button type="button" class="btn-generate" style="background:var(--primary-dark);font-size:.82rem;padding:8px 16px;" onclick="importReleaseDataToMessage()">&#x1F4E5; Importar datos desde Correo de Liberación</button>
                 </div>
             </div>
         </div>
@@ -2018,10 +2016,9 @@
         <div class="section-block">
             <div class="section-label">📅 Publicación y Versiones</div>
             <div class="row g-3">
-                <div class="col-md-3"><label class="form-label">Fecha de publicación</label><input type="date" class="form-control" id="telegramPublishDate"></div>
-                <div class="col-md-3"><label class="form-label">Versión módulo</label><input type="text" class="form-control" id="telegramVersionModule" placeholder="Ej: 26.6.13"></div>
-                <div class="col-md-3"><label class="form-label">Versión DLL C#</label><input type="text" class="form-control" id="telegramVersionDllCsharp" placeholder="Ej: 26.6.11.2"></div>
-                <div class="col-md-3"><label class="form-label">Versión WinterX</label><input type="text" class="form-control" id="telegramVersionWinterX" placeholder="Opcional"></div>
+                <div class="col-md-4"><label class="form-label">Fecha de publicación</label><input type="date" class="form-control" id="telegramPublishDate"></div>
+                <div class="col-md-4"><label class="form-label">Versión módulo</label><input type="text" class="form-control" id="telegramVersionModule" placeholder="Ej: 26.6.13"></div>
+                <div class="col-md-4"><label class="form-label">Versión DLL C#</label><input type="text" class="form-control" id="telegramVersionDllCsharp" placeholder="Ej: 26.6.11.2"></div>
             </div>
         </div>
 
@@ -2200,7 +2197,7 @@
                            placeholder="Ej: Deployment de RDLs y Stored Procedures">
                 </div>
                 <div class="col-md-4 d-flex align-items-end">
-                    <button type="button" class="btn-generate" style="background:#0f766e;font-size:.82rem;padding:8px 16px;" onclick="importRdlDataToTelegram()">&#x1F4E5; Importar desde Correo RDL</button>
+                    <button type="button" class="btn-generate" style="background:var(--primary-dark);font-size:.82rem;padding:8px 16px;" onclick="importRdlDataToTelegram()">&#x1F4E5; Importar desde Correo RDL</button>
                 </div>
             </div>
         </div>
@@ -2267,7 +2264,7 @@
 
         <div class="form-actions d-flex gap-2 justify-content-end">
             <button type="button" class="btn-clear" onclick="clearRdlTelegramForm()">&#x2715; Limpiar</button>
-            <button type="button" id="btnGenerateRdlTelegram" class="btn-generate" style="background:#0f766e;" onclick="generateRdlTelegramMessage()">Generar Telegram RDL &rarr;</button>
+            <button type="button" id="btnGenerateRdlTelegram" class="btn-generate" style="background:var(--primary-dark);" onclick="generateRdlTelegramMessage()">Generar Telegram RDL &rarr;</button>
         </div>
     </form>
 

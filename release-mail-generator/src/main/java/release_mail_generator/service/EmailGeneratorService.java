@@ -151,11 +151,9 @@ public class EmailGeneratorService {
         String versionModule = clean(r.getTelegramVersionModule());
         if (versionModule.isEmpty()) versionModule = clean(r.getVersion());
         String versionDll = clean(r.getTelegramVersionDllCsharp());
-        String versionWinterX = clean(r.getTelegramVersionWinterX());
         if (!versionModule.isEmpty()) msg.append("Versión Módulo: ").append(versionModule).append("\n");
         if (!versionDll.isEmpty()) msg.append("Versión DLL C#: ").append(versionDll).append("\n");
-        if (!versionWinterX.isEmpty()) msg.append("Versión WinterX: ").append(versionWinterX).append("\n");
-        if (!publishDate.isEmpty() || !versionModule.isEmpty() || !versionDll.isEmpty() || !versionWinterX.isEmpty()) {
+        if (!publishDate.isEmpty() || !versionModule.isEmpty() || !versionDll.isEmpty()) {
             msg.append("\n");
         }
 
