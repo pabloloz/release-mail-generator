@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Release Notifier QA — Documentación</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-light: #eff6ff;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --bg: #ffffff;
+            --bg-alt: #f8fafc;
+            --bg-code: #f1f5f9;
+            --radius: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.04);
+            --sidebar-w: 260px;
+            --header-h: 64px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text); background: var(--bg);
+            line-height: 1.7; font-size: 15px;
+        }
+        /* ── Layout ──────────────────────────────── */
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: var(--sidebar-w); position: fixed; top: 0; left: 0; bottom: 0;
+            background: var(--bg-alt); border-right: 1px solid var(--border);
+            overflow-y: auto; padding: 24px 0; z-index: 100;
+        }
+        .sidebar-brand {
+            padding: 0 20px 20px; border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+        .sidebar-brand h2 { font-size: 1rem; font-weight: 700; color: var(--primary); }
+        .sidebar-brand p { font-size: .72rem; color: var(--text-muted); margin-top: 2px; }
+        .sidebar nav { padding: 0 12px; }
+        .sidebar nav a {
+            display: block; padding: 7px 12px; border-radius: 6px;
+            color: var(--text-muted); text-decoration: none; font-size: .82rem;
+            font-weight: 500; transition: all .15s;
+        }
+        .sidebar nav a:hover { background: var(--primary-light); color: var(--primary); }
+        .sidebar nav a.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+        .sidebar nav .section-title {
+            font-size: .68rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .05em; color: var(--text-muted); padding: 16px 12px 6px;
+        }
+        .main { margin-left: var(--sidebar-w); flex: 1; padding: 48px 64px; max-width: 900px; }
+        /* ── Typography ──────────────────────────── */
+        h1 { font-size: 2rem; font-weight: 800; margin-bottom: 12px; letter-spacing: -.02em; }
+        h2 { font-size: 1.5rem; font-weight: 700; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        h3 { font-size: 1.15rem; font-weight: 600; margin: 32px 0 12px; }
+        h4 { font-size: .95rem; font-weight: 600; margin: 24px 0 8px; }
+        p { margin-bottom: 14px; }
+        .lead { font-size: 1.1rem; color: var(--text-muted); line-height: 1.8; }
+        /* ── Hero ────────────────────────────────── */
+        .hero {
+            background: linear-gradient(135deg, var(--primary-light) 0%, #dbeafe 100%);
+            border-radius: 12px; padding: 40px; margin-bottom: 40px; text-align: center;
+        }
+        .hero h1 { font-size: 2.2rem; color: var(--primary-dark); }
+        .hero .badge-row { margin-top: 16px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .badge {
+            display: inline-block; padding: 4px 10px; border-radius: 999px;
+            font-size: .7rem; font-weight: 600; background: white; color: var(--primary);
+            border: 1px solid #bfdbfe;
+        }
+        /* ── Tables ──────────────────────────────── */
+        table { width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: .85rem; }
+        th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--bg-alt); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); }
+        tr:hover td { background: var(--bg-alt); }
+        /* ── Code ────────────────────────────────── */
+        code {
+            background: var(--bg-code); padding: 2px 6px; border-radius: 4px;
+            font-size: .82rem; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+        pre {
+            background: #1e293b; color: #e2e8f0; padding: 20px 24px;
+            border-radius: var(--radius); overflow-x: auto; margin: 16px 0 24px;
+            font-size: .82rem; line-height: 1.6;
+        }
+        pre code { background: none; padding: 0; color: inherit; }
+        /* ── Callouts ────────────────────────────── */
+        .callout {
+            border-left: 4px solid var(--primary); background: var(--primary-light);
+            padding: 16px 20px; border-radius: 0 var(--radius) var(--radius) 0;
+            margin: 20px 0;
+        }
+        .callout p { margin: 0; font-size: .88rem; }
+        .callout strong { color: var(--primary-dark); }
+        /* ── Cards ───────────────────────────────── */
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin: 20px 0; }
+        .card {
+            background: white; border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 20px; transition: box-shadow .2s;
+        }
+        .card:hover { box-shadow: var(--shadow-lg); }
+        .card h4 { margin: 0 0 6px; font-size: .9rem; }
+        .card p { margin: 0; font-size: .8rem; color: var(--text-muted); }
+        /* ── Mermaid ─────────────────────────────── */
+        .mermaid { margin: 24px 0; text-align: center; }
+        /* ── Details ─────────────────────────────── */
+        details { border: 1px solid var(--border); border-radius: var(--radius); margin: 12px 0; }
+        details summary { padding: 12px 16px; cursor: pointer; font-weight: 600; font-size: .88rem; }
+        details summary:hover { background: var(--bg-alt); }
+        details > div { padding: 0 16px 16px; font-size: .85rem; }
+        /* ── Meta ────────────────────────────────── */
+        .meta-table { margin: 24px 0; }
+        .meta-table td:first-child { font-weight: 600; width: 160px; color: var(--text-muted); }
+        /* ── Footer ──────────────────────────────── */
+        .doc-footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); text-align: center; color: var(--text-muted); font-size: .78rem; }
+        /* ── Responsive ──────────────────────────── */
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 24px; }
+        }
+        @media print {
+            .sidebar { display: none; }
+            .main { margin-left: 0; max-width: 100%; padding: 20px; }
+            pre { white-space: pre-wrap; }
+        }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <h2>📋 Release Notifier QA</h2>
+            <p>Documentación v1.0.0</p>
+        </div>
+        <nav>
+            <div class="section-title">Introducción</div>
+            <a href="#descripcion">Descripción General</a>
+            <a href="#arquitectura">Arquitectura</a>
+
+            <div class="section-title">Módulos</div>
+            <a href="#mod-liberacion">Correo de Liberación</a>
+            <a href="#mod-telegram">Telegram</a>
+            <a href="#mod-rdl">Reportes RDL</a>
+            <a href="#mod-rfc">RFC Técnico</a>
+            <a href="#mod-uat">VoBo UAT</a>
+
+            <div class="section-title">Técnico</div>
+            <a href="#flujo">Flujo Completo</a>
+            <a href="#modelo">Modelo de Datos</a>
+            <a href="#api">API y Backend</a>
+            <a href="#estructura">Estructura del Proyecto</a>
+            <a href="#exportaciones">Exportaciones</a>
+
+            <div class="section-title">Operaciones</div>
+            <a href="#instalacion">Instalación</a>
+            <a href="#historial">Historial</a>
+            <a href="#roadmap">Roadmap</a>
+            <a href="#calidad">Calidad</a>
+            <a href="#apendices">Apéndices</a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Hero -->
+        <div class="hero">
+            <h1>Release Notifier QA</h1>
+            <p class="lead">Plataforma integral de gestión de liberaciones y validación QA</p>
+            <div class="badge-row">
+                <span class="badge">Spring Boot 4.0.6</span>
+                <span class="badge">Java 17</span>
+                <span class="badge">Thymeleaf</span>
+                <span class="badge">OpenPDF</span>
+                <span class="badge">H2 Database</span>
+            </div>
+        </div>
+
+        <table class="meta-table">
+            <tr><td>Autor</td><td>Pablo Eduardo López Ontiveros</td></tr>
+            <tr><td>Organización</td><td>Megacable — Equipo QA</td></tr>
+            <tr><td>Versión</td><td>1.0.0</td></tr>
+            <tr><td>Fecha</td><td>Junio 2026</td></tr>
+            <tr><td>Repositorio</td><td><a href="https://github.com/pabloloz/release-mail-generator">github.com/pabloloz/release-mail-generator</a></td></tr>
+        </table>
+
+        <!-- Descripción General -->
+        <h2 id="descripcion">Descripción General</h2>
+
+        <h3>¿Qué problema resuelve?</h3>
+        <p>El equipo de QA y liberaciones genera diariamente correos técnicos, reportes RDL, mensajes de Telegram y documentos de validación UAT. Antes de esta plataforma, todo se redactaba <strong>manualmente</strong>, provocando errores de formato, inconsistencias y pérdida de tiempo.</p>
+
+        <p><strong>Release Notifier QA</strong> automatiza la generación de todos estos artefactos desde una interfaz unificada.</p>
+
+        <h3>Beneficios</h3>
+        <div class="card-grid">
+            <div class="card"><h4>⚡ Velocidad</h4><p>De 15-20 min a menos de 2 min por artefacto</p></div>
+            <div class="card"><h4>🎯 Consistencia</h4><p>Formato corporativo unificado</p></div>
+            <div class="card"><h4>📦 Multi-formato</h4><p>PDF, Markdown y HTML simultáneo</p></div>
+            <div class="card"><h4>🔄 Reutilización</h4><p>Importar datos entre módulos</p></div>
+            <div class="card"><h4>💾 Persistencia</h4><p>Borradores + base de datos</p></div>
+            <div class="card"><h4>🔒 Seguridad</h4><p>XSS guards + input sanitization</p></div>
+        </div>
+
+        <h3>Público objetivo</h3>
+        <table>
+            <thead><tr><th>Rol</th><th>Uso principal</th></tr></thead>
+            <tbody>
+                <tr><td>Analista QA</td><td>VoBo UAT, RFC Técnico</td></tr>
+                <tr><td>Líder de liberaciones</td><td>Correos y mensajes Telegram</td></tr>
+                <tr><td>Equipo de distribución</td><td>Reportes RDL</td></tr>
+                <tr><td>Gestión de cambios</td><td>Documentación técnica exportable</td></tr>
+            </tbody>
+        </table>
+
+        <!-- Arquitectura -->
+        <h2 id="arquitectura">Arquitectura</h2>
+
+        <h3>Stack tecnológico</h3>
+        <table>
+            <thead><tr><th>Capa</th><th>Tecnología</th><th>Versión</th></tr></thead>
+            <tbody>
+                <tr><td>Runtime</td><td>Java</td><td>17</td></tr>
+                <tr><td>Framework</td><td>Spring Boot</td><td>4.0.6</td></tr>
+                <tr><td>Templates</td><td>Thymeleaf</td><td>integrado</td></tr>
+                <tr><td>Frontend</td><td>Bootstrap 5 + CSS custom</td><td>5.3.3</td></tr>
+                <tr><td>Base de datos</td><td>H2 (embedded, file-based)</td><td>integrado</td></tr>
+                <tr><td>ORM</td><td>Hibernate / JPA</td><td>integrado</td></tr>
+                <tr><td>PDF</td><td>OpenPDF</td><td>1.3.43</td></tr>
+                <tr><td>Build</td><td>Maven Wrapper</td><td>—</td></tr>
+                <tr><td>Container</td><td>Docker (multi-stage)</td><td>—</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Diagrama de componentes</h3>
+        <div class="mermaid">
+            graph TB
+                subgraph Cliente["🖥️ Navegador"]
+                    UI[SPA - Bootstrap 5 + Thymeleaf]
+                    JS[JavaScript - fetch + localStorage]
+                end
+                subgraph Servidor["⚙️ Spring Boot"]
+                    RC[ReleaseController]
+                    UC[UatController]
+                    RFC[RfcTechnicalController]
+                    ES[EmailGeneratorService]
+                    US[UatEmailService]
+                    RS[RfcTechnicalService]
+                end
+                subgraph Storage["💾 Persistencia"]
+                    H2[(H2 Database)]
+                    LS[localStorage]
+                end
+                UI --> RC
+                UI --> UC
+                UI --> RFC
+                JS --> LS
+                RC --> ES
+                UC --> US
+                RFC --> RS
+                RS --> H2
+        </div>
+
+        <!-- Módulos -->
+        <h2 id="mod-liberacion">Módulo: Correo de Liberación</h2>
+        <div class="callout"><p><strong>Propósito:</strong> Generar correos HTML formateados para notificar al equipo sobre una nueva liberación de software.</p></div>
+
+        <h3>Campos del formulario</h3>
+        <table>
+            <thead><tr><th>Sección</th><th>Campo</th><th>Tipo</th></tr></thead>
+            <tbody>
+                <tr><td>Versiones</td><td>Versión a publicar</td><td>Segmentado (AA.SS.PP)</td></tr>
+                <tr><td>Versiones</td><td>Versión rollback</td><td>Segmentado</td></tr>
+                <tr><td>Publicación</td><td>Fecha</td><td>Date picker</td></tr>
+                <tr><td>Publicación</td><td>URL de release</td><td>URL</td></tr>
+                <tr><td>Artefactos</td><td>Módulos, Citrix, DLL, WinterX, Scripts</td><td>Checkboxes</td></tr>
+                <tr><td>Branches</td><td>Módulos, WinterX</td><td>Texto</td></tr>
+                <tr><td>Complementos</td><td>SPs, Proyectos, Notas</td><td>Textarea</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Exportaciones</h3>
+        <p>PDF • Markdown • HTML • Portapapeles (para Outlook)</p>
+
+        <h2 id="mod-telegram">Módulo: Mensaje Telegram</h2>
+        <div class="callout"><p><strong>Propósito:</strong> Generar mensajes texto para el grupo de Telegram del equipo de infraestructura.</p></div>
+        <p>Importa datos desde el correo de liberación. Incluye: acción, scripts, versiones, cambios, branches y rollback.</p>
+
+        <h2 id="mod-rdl">Módulo: Reportes RDL</h2>
+        <div class="callout"><p><strong>Propósito:</strong> Documentar reportes, stored procedures y proyectos distribuidos con cada liberación.</p></div>
+        <p>Cada ítem RDL contiene: nombre, carpeta, URLs (Megang/NTRS02), paths, SP asociado y proyecto.</p>
+
+        <h2 id="mod-rfc">Módulo: RFC Técnico</h2>
+        <div class="callout"><p><strong>Propósito:</strong> Documentar formalmente la validación técnica de un RFC con persistencia en base de datos.</p></div>
+        <h3>Secciones</h3>
+        <ol>
+            <li>Información general</li>
+            <li>Contexto del cambio</li>
+            <li>Objetivos</li>
+            <li>Componentes técnicos</li>
+            <li>Reglas de negocio (dinámicas)</li>
+            <li>Casos de prueba (dinámicos)</li>
+            <li>Bugs relacionados (dinámicos)</li>
+            <li>Conclusiones</li>
+            <li>Notas finales</li>
+        </ol>
+
+        <h2 id="mod-uat">Módulo: VoBo UAT</h2>
+        <div class="callout"><p><strong>Propósito:</strong> Generar correos de solicitud de validación UAT con formato corporativo e imágenes de evidencia.</p></div>
+        <p>Soporta bloques dinámicos (texto + imagen) para documentar pasos de validación.</p>
+
+        <!-- Flujo -->
+        <h2 id="flujo">Flujo Completo del Sistema</h2>
+        <div class="mermaid">
+            flowchart TD
+                START([Nuevo RFC]) --> UAT[VoBo UAT]
+                UAT --> VAL{¿Aprobado?}
+                VAL -->|No| UAT
+                VAL -->|Sí| RFCT[RFC Técnico]
+                RFCT --> ART[Artefactos]
+                ART --> CORREO[Correo]
+                ART --> TG[Telegram]
+                ART --> RDL[RDL]
+                CORREO --> FIN([Liberación])
+                TG --> FIN
+                RDL --> FIN
+        </div>
+
+        <!-- Modelo de Datos -->
+        <h2 id="modelo">Modelo de Datos</h2>
+        <div class="mermaid">
+            erDiagram
+                RFC_TECHNICAL_RECORD ||--o{ BUSINESS_RULE : has
+                RFC_TECHNICAL_RECORD ||--o{ TEST_CASE : has
+                RFC_TECHNICAL_RECORD ||--o{ RELATED_BUG : has
+                RFC_TECHNICAL_RECORD {
+                    string id PK
+                    string rfcNumber
+                    string changeName
+                    string testerName
+                    string finalResult
+                    datetime createdAt
+                }
+                BUSINESS_RULE { string description; string status }
+                TEST_CASE { string caseId; string result }
+                RELATED_BUG { string identifier; string bugStatus }
+        </div>
+
+        <h3>Entidad principal: <code>RfcTechnicalRecord</code></h3>
+        <p>Única entidad con persistencia JPA. Los demás modelos (<code>ReleaseRequest</code>, <code>UatRequest</code>, <code>RdlReleaseRequest</code>) son transitorios.</p>
+
+        <!-- API -->
+        <h2 id="api">API y Backend</h2>
+
+        <h3>ReleaseController</h3>
+        <table>
+            <thead><tr><th>Método</th><th>Endpoint</th><th>Descripción</th></tr></thead>
+            <tbody>
+                <tr><td><code>GET</code></td><td><code>/</code></td><td>Dashboard</td></tr>
+                <tr><td><code>POST</code></td><td><code>/generate</code></td><td>Generar correo (form)</td></tr>
+                <tr><td><code>POST</code></td><td><code>/generate-release-message</code></td><td>Telegram</td></tr>
+                <tr><td><code>POST</code></td><td><code>/generate-rdl</code></td><td>Correo RDL</td></tr>
+                <tr><td><code>POST</code></td><td><code>/release/export/{pdf,markdown,html}</code></td><td>Exportar liberación</td></tr>
+                <tr><td><code>POST</code></td><td><code>/rdl/export/{pdf,markdown,html}</code></td><td>Exportar RDL</td></tr>
+            </tbody>
+        </table>
+
+        <h3>UatController</h3>
+        <table>
+            <thead><tr><th>Método</th><th>Endpoint</th><th>Descripción</th></tr></thead>
+            <tbody>
+                <tr><td><code>POST</code></td><td><code>/generate-uat</code></td><td>Generar correo UAT</td></tr>
+                <tr><td><code>POST</code></td><td><code>/uat/export/{pdf,markdown,html}</code></td><td>Exportar UAT</td></tr>
+            </tbody>
+        </table>
+
+        <h3>RfcTechnicalController</h3>
+        <table>
+            <thead><tr><th>Método</th><th>Endpoint</th><th>Descripción</th></tr></thead>
+            <tbody>
+                <tr><td><code>GET</code></td><td><code>/rfc</code></td><td>Listado</td></tr>
+                <tr><td><code>GET</code></td><td><code>/rfc/new</code></td><td>Formulario nuevo</td></tr>
+                <tr><td><code>GET</code></td><td><code>/rfc/{id}</code></td><td>Vista detalle</td></tr>
+                <tr><td><code>POST</code></td><td><code>/rfc/save</code></td><td>Guardar (JSON)</td></tr>
+                <tr><td><code>GET</code></td><td><code>/rfc/{id}/pdf</code></td><td>Descargar PDF</td></tr>
+                <tr><td><code>GET</code></td><td><code>/rfc/{id}/markdown</code></td><td>Descargar MD</td></tr>
+                <tr><td><code>POST</code></td><td><code>/rfc/{id}/delete</code></td><td>Eliminar</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Ejemplo de request</h3>
+        <pre><code>// POST /generate-release-message
+{
+  "version": "26.6.18",
+  "rollbackVersion": "26.6.17",
+  "publishDate": "2026-06-22",
+  "hasModules": true,
+  "distributionModules": ["Cartera", "Servicios"],
+  "scripts": "SP_Actualizar.sql",
+  "branchModules": "release/26.6.18"
+}</code></pre>
+
+        <!-- Estructura -->
+        <h2 id="estructura">Estructura del Proyecto</h2>
+        <pre><code>src/main/java/release_mail_generator/
+├── controller/       → HTTP endpoints
+├── service/          → Lógica de negocio + generación
+├── model/            → Entidades y DTOs
+├── repository/       → JPA Repository
+└── converter/        → JSON ↔ List converters
+
+src/main/resources/
+├── templates/        → Thymeleaf HTML
+├── static/           → CSS, imágenes
+└── application*.properties</code></pre>
+
+        <!-- Exportaciones -->
+        <h2 id="exportaciones">Exportaciones</h2>
+        <table>
+            <thead><tr><th>Módulo</th><th>HTML</th><th>PDF</th><th>MD</th><th>Clipboard</th></tr></thead>
+            <tbody>
+                <tr><td>Correo liberación</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+                <tr><td>Telegram</td><td>—</td><td>—</td><td>—</td><td>✅</td></tr>
+                <tr><td>Correo RDL</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+                <tr><td>VoBo UAT</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+                <tr><td>RFC Técnico</td><td>—</td><td>✅</td><td>✅</td><td>—</td></tr>
+            </tbody>
+        </table>
+
+        <!-- Instalación -->
+        <h2 id="instalacion">Configuración e Instalación</h2>
+
+        <h3>Requisitos</h3>
+        <table>
+            <thead><tr><th>Requisito</th><th>Versión</th></tr></thead>
+            <tbody>
+                <tr><td>Java JDK</td><td>17+</td></tr>
+                <tr><td>Maven</td><td>3.8+ (incluido via wrapper)</td></tr>
+                <tr><td>Docker</td><td>20+ (opcional)</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Ejecución local</h3>
+        <pre><code>git clone https://github.com/pabloloz/release-mail-generator.git
+cd release-mail-generator/release-mail-generator
+.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev</code></pre>
+
+        <h3>Docker</h3>
+        <pre><code>docker build -t release-notifier-qa .
+docker run -p 8080:8080 -v rfcdata:/app/data release-notifier-qa</code></pre>
+
+        <h3>Perfiles</h3>
+        <table>
+            <thead><tr><th>Perfil</th><th>Cache</th><th>H2 Console</th><th>SQL logs</th></tr></thead>
+            <tbody>
+                <tr><td><code>dev</code></td><td>❌</td><td>✅ <code>/h2-console</code></td><td>✅</td></tr>
+                <tr><td><code>prod</code></td><td>✅</td><td>❌</td><td>❌</td></tr>
+            </tbody>
+        </table>
+
+        <!-- Historial -->
+        <h2 id="historial">Historial y Evolución</h2>
+        <table>
+            <thead><tr><th>Fase</th><th>Funcionalidad</th><th>Hito</th></tr></thead>
+            <tbody>
+                <tr><td>v0.1</td><td>Generador de Correos de Liberación</td><td>Formulario + HTML</td></tr>
+                <tr><td>v0.2</td><td>Mensajes Telegram</td><td>Import + texto plano</td></tr>
+                <tr><td>v0.3</td><td>Reportes RDL</td><td>Correo + Telegram RDL</td></tr>
+                <tr><td>v0.4</td><td>RFC Técnico</td><td>CRUD + H2 + PDF</td></tr>
+                <tr><td>v0.5</td><td>VoBo UAT</td><td>Bloques + imágenes</td></tr>
+                <tr><td>v0.6</td><td>Dashboard + Design System</td><td>Sidebar + acciones rápidas</td></tr>
+                <tr><td>v1.0</td><td>Exportaciones completas + Auditoría</td><td>Producción ready</td></tr>
+            </tbody>
+        </table>
+
+        <!-- Roadmap -->
+        <h2 id="roadmap">Roadmap</h2>
+        <h3>Corto plazo (Q3 2026)</h3>
+        <ul>
+            <li>Integración con Microsoft Teams</li>
+            <li>Historial de versiones generadas</li>
+            <li>Templates personalizables</li>
+        </ul>
+        <h3>Mediano plazo (Q4 2026)</h3>
+        <ul>
+            <li>Integración con Jira</li>
+            <li>Autenticación LDAP / SSO</li>
+            <li>Roles y permisos</li>
+            <li>Dashboard con métricas</li>
+        </ul>
+        <h3>Largo plazo (2027)</h3>
+        <ul>
+            <li>Envío directo vía Outlook</li>
+            <li>Repositorio de evidencias</li>
+            <li>Pipeline CI/CD integrado</li>
+            <li>API REST pública</li>
+            <li>Migración a PostgreSQL</li>
+        </ul>
+
+        <!-- Calidad -->
+        <h2 id="calidad">Calidad del Código</h2>
+        <table>
+            <thead><tr><th>Aspecto</th><th>Nivel</th><th>Nota</th></tr></thead>
+            <tbody>
+                <tr><td>Separación de capas</td><td>⭐⭐⭐⭐</td><td>MVC bien definido</td></tr>
+                <tr><td>Single Responsibility</td><td>⭐⭐⭐⭐</td><td>Servicios claros</td></tr>
+                <tr><td>Seguridad</td><td>⭐⭐⭐⭐</td><td>XSS guards, sanitización</td></tr>
+                <tr><td>DRY</td><td>⭐⭐⭐</td><td>Algo de duplicación en PDFs</td></tr>
+                <tr><td>Tests</td><td>⭐⭐</td><td>Pendiente cobertura unitaria</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Patrones utilizados</h3>
+        <ul>
+            <li><strong>MVC</strong> — Spring MVC + Thymeleaf</li>
+            <li><strong>Repository</strong> — JPA Repository</li>
+            <li><strong>Service Layer</strong> — Lógica separada</li>
+            <li><strong>DTO</strong> — Modelos *Request</li>
+            <li><strong>Converter</strong> — JPA AttributeConverters</li>
+        </ul>
+
+        <!-- Apéndices -->
+        <h2 id="apendices">Apéndices</h2>
+
+        <h3>Glosario</h3>
+        <table>
+            <thead><tr><th>Término</th><th>Definición</th></tr></thead>
+            <tbody>
+                <tr><td>RFC</td><td>Request for Change — Solicitud formal de cambio</td></tr>
+                <tr><td>RDL</td><td>Reporte de Distribución de Liberación</td></tr>
+                <tr><td>VoBo</td><td>Visto Bueno — Aprobación formal</td></tr>
+                <tr><td>UAT</td><td>User Acceptance Testing</td></tr>
+                <tr><td>SP</td><td>Stored Procedure</td></tr>
+                <tr><td>Rollback</td><td>Reversión a versión anterior</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Preguntas frecuentes</h3>
+        <details>
+            <summary>¿Dónde se guardan los datos de RFC Técnico?</summary>
+            <div><p>En H2 embebido en <code>./data/rfcdb.mv.db</code>. Persisten entre reinicios.</p></div>
+        </details>
+        <details>
+            <summary>¿Se pierden los borradores al cerrar el navegador?</summary>
+            <div><p>No. Se almacenan en <code>localStorage</code> y se restauran automáticamente.</p></div>
+        </details>
+        <details>
+            <summary>¿Cómo exporto a Outlook?</summary>
+            <div><p>Click "Copiar" → Outlook → Nuevo correo → Ctrl+V.</p></div>
+        </details>
+        <details>
+            <summary>¿Funciona sin internet?</summary>
+            <div><p>Sí, excepto la fuente Inter (Google Fonts). Toda la lógica es local.</p></div>
+        </details>
+
+        <!-- Footer -->
+        <div class="doc-footer">
+            <p>Documentación generada el 22 de junio de 2026 — Release Notifier QA v1.0.0</p>
+            <p>Pablo Eduardo López Ontiveros — Megacable, Equipo QA</p>
+        </div>
+    </main>
+</div>
+
+<!-- Mermaid.js for diagrams -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</body>
+</html>
