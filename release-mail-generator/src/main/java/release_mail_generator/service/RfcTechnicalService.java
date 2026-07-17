@@ -56,6 +56,10 @@ public class RfcTechnicalService {
         return repository.findAllByOrderByCreatedAtDesc();
     }
 
+    public List<RfcTechnicalRecord> search(String query) {
+        return repository.search(query);
+    }
+
     public Optional<RfcTechnicalRecord> findById(String id) {
         return repository.findById(id);
     }
@@ -66,6 +70,17 @@ public class RfcTechnicalService {
         if (record.getRelatedBugs()   == null) record.setRelatedBugs(new ArrayList<>());
         if (record.getStatus() == null || record.getStatus().isBlank()) {
             record.setStatus("Borrador");
+        }
+        // Validate unique RFC number
+        if (notBlank(record.getRfcNumber())) {
+            List<RfcTechnicalRecord> existing = repository.findAllByRfcNumberIgnoreCase(record.getRfcNumber().trim());
+            for (RfcTechnicalRecord ex : existing) {
+                boolean isNew = record.getId() == null || record.getId().isBlank();
+                boolean isDifferent = !ex.getId().equals(record.getId());
+                if (isNew || isDifferent) {
+                    throw new IllegalArgumentException("Ya existe un RFC con el número '" + record.getRfcNumber().trim() + "'");
+                }
+            }
         }
         if (record.getId() == null || record.getId().isBlank()) {
             record.setId(UUID.randomUUID().toString());
@@ -450,91 +465,125 @@ public class RfcTechnicalService {
                 try {
                     PdfContentByte cb = w.getDirectContent();
                     Font footerFont = new Font(Font.HELVETICA, 8, Font.NORMAL, C_MUTED);
-                    cb.setLineWidth(0.5f);
-                    cb.setColorStroke(C_BORDER);
-                    cb.moveTo(d.left(), d.bottom() - 4);
-                    cb.lineTo(d.right(), d.bottom() - 4);
-                    cb.stroke();
+                    cb.setLineWidth(0.5f); cb.setColorStroke(C_BORDER);
+                    cb.moveTo(d.left(), d.bottom() - 4); cb.lineTo(d.right(), d.bottom() - 4); cb.stroke();
                     Phrase pageNum = new Phrase("Página " + w.getPageNumber(), footerFont);
                     ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT, pageNum, d.right(), d.bottom() - 16, 0);
                     Phrase label = new Phrase(rfcLabel, footerFont);
                     ColumnText.showTextAligned(cb, Element.ALIGN_LEFT, label, d.left(), d.bottom() - 16, 0);
                     cb.setColorStroke(C_PRIMARY);
-                    cb.moveTo(d.left(), d.top() + 8);
-                    cb.lineTo(d.right(), d.top() + 8);
-                    cb.stroke();
+                    cb.moveTo(d.left(), d.top() + 8); cb.lineTo(d.right(), d.top() + 8); cb.stroke();
                 } catch (Exception ignored) {}
             }
         });
-
         doc.open();
 
         Font titleFont   = new Font(Font.HELVETICA, 22, Font.BOLD, C_TEXT);
         Font purposeFont = new Font(Font.HELVETICA, 9,  Font.ITALIC, C_MUTED);
         Font sectionFont = new Font(Font.HELVETICA, 12, Font.BOLD, C_PRIMARY);
+        Font subSecFont  = new Font(Font.HELVETICA, 10, Font.BOLD, new Color(55, 65, 81));
         Font labelFont   = new Font(Font.HELVETICA, 9,  Font.BOLD, new Color(55, 65, 81));
         Font valueFont   = new Font(Font.HELVETICA, 10, Font.NORMAL, C_TEXT);
         Font tHeaderFont = new Font(Font.HELVETICA, 9,  Font.BOLD, Color.WHITE);
         Font tBodyFont   = new Font(Font.HELVETICA, 9,  Font.NORMAL, C_TEXT);
         Font mutedFont   = new Font(Font.HELVETICA, 9,  Font.ITALIC, C_MUTED);
 
-        // ── Title ─────────────────────────────────────────────────────
-        Paragraph titleP = new Paragraph("Casos de Prueba Ejecutados", titleFont);
-        titleP.setAlignment(Element.ALIGN_CENTER);
-        titleP.setSpacingAfter(4);
-        doc.add(titleP);
-
-        Paragraph purposeP = new Paragraph(
-                "Documento de casos de prueba extraído del RFC Técnico Final.", purposeFont);
-        purposeP.setAlignment(Element.ALIGN_CENTER);
-        purposeP.setSpacingAfter(2);
-        doc.add(purposeP);
+        // Title
+        Paragraph titleP = new Paragraph("Casos de Prueba", titleFont);
+        titleP.setAlignment(Element.ALIGN_CENTER); titleP.setSpacingAfter(4); doc.add(titleP);
+        Paragraph purposeP = new Paragraph("Documento de casos de prueba del RFC Técnico Final.", purposeFont);
+        purposeP.setAlignment(Element.ALIGN_CENTER); purposeP.setSpacingAfter(2); doc.add(purposeP);
         addHRule(doc, C_PRIMARY, 1.5f);
 
-        // ── Info General ──────────────────────────────────────────────
+        // RFC Info
         addSectionHeading(doc, "Información del RFC", sectionFont);
         PdfPTable info = new PdfPTable(new float[]{1f, 2.4f, 1f, 2.4f});
-        info.setWidthPercentage(100);
-        info.setSpacingBefore(4);
-        info.setSpacingAfter(12);
+        info.setWidthPercentage(100); info.setSpacingBefore(4); info.setSpacingAfter(12);
         addInfoPair(info, "RFC:", s(r.getRfcNumber()), labelFont, valueFont);
         addInfoPair(info, "Nombre del cambio:", s(r.getChangeName()), labelFont, valueFont);
         addInfoPair(info, "Fecha de validación:", s(r.getValidationDate()), labelFont, valueFont);
         addInfoPair(info, "Tester responsable:", s(r.getTesterName()), labelFont, valueFont);
-        addInfoPair(info, "Estado:", s(r.getStatus()), labelFont, valueFont);
-        addInfoPair(info, "", "", labelFont, valueFont);
         doc.add(info);
 
-        // ── Test Cases Table ──────────────────────────────────────────
-        addSectionHeading(doc, "Casos de Prueba", sectionFont);
+        // Test Cases
         List<TestCase> tcs = orEmpty(r.getTestCases());
         if (tcs.isEmpty()) {
             doc.add(emptyNote(mutedFont));
         } else {
-            PdfPTable tt = new PdfPTable(new float[]{0.7f, 2f, 2f, 2f, 1f});
-            tt.setWidthPercentage(100);
-            tt.setSpacingBefore(4);
-            tt.setSpacingAfter(12);
-            addTableHeader(tt, new String[]{"ID", "Descripción", "Resultado Esperado", "Resultado Obtenido", "Estado"}, tHeaderFont);
-            for (int i = 0; i < tcs.size(); i++) {
-                TestCase tc = tcs.get(i);
-                Color rowBg = i % 2 == 0 ? Color.WHITE : C_ROW_ALT;
-                tt.addCell(tableCell(s(tc.getCaseId()), tBodyFont, rowBg, Element.ALIGN_CENTER));
-                tt.addCell(tableCell(s(tc.getDescription()), tBodyFont, rowBg, Element.ALIGN_LEFT));
-                tt.addCell(tableCell(s(tc.getExpectedResult()), tBodyFont, rowBg, Element.ALIGN_LEFT));
-                tt.addCell(tableCell(s(tc.getObtainedResult()), tBodyFont, rowBg, Element.ALIGN_LEFT));
-                boolean passed = "Exitoso".equalsIgnoreCase(tc.getResult());
-                Color resultColor = passed ? C_SUCCESS : C_DANGER;
-                tt.addCell(tableCell(s(tc.getResult()),
-                        new Font(Font.HELVETICA, 9, Font.BOLD, resultColor), rowBg, Element.ALIGN_CENTER));
-            }
-            doc.add(tt);
-        }
+            for (int idx = 0; idx < tcs.size(); idx++) {
+                TestCase tc = tcs.get(idx);
+                String tcTitle = s(tc.getCaseId()).isEmpty() ? "Caso " + (idx+1) : s(tc.getCaseId());
+                if (notBlank(tc.getCaseName())) tcTitle += " — " + tc.getCaseName();
+                addSectionHeading(doc, tcTitle, sectionFont);
 
-        // ── Observations ──────────────────────────────────────────────
-        if (notBlank(r.getObservations())) {
-            addSectionHeading(doc, "Observaciones", sectionFont);
-            addBodyText(doc, s(r.getObservations()), valueFont, mutedFont);
+                // Info table
+                PdfPTable tcInfo = new PdfPTable(new float[]{1.2f, 3f});
+                tcInfo.setWidthPercentage(100); tcInfo.setSpacingAfter(8);
+                addCompRow(tcInfo, "Prioridad:", s(tc.getPriority()), labelFont, tBodyFont);
+                addCompRow(tcInfo, "Tipo:", s(tc.getTestType()), labelFont, tBodyFont);
+                addCompRow(tcInfo, "Estado:", s(tc.getStatus() != null ? tc.getStatus() : tc.getResult()), labelFont, tBodyFont);
+                if (notBlank(tc.getTesterName())) addCompRow(tcInfo, "Tester:", s(tc.getTesterName()), labelFont, tBodyFont);
+                if (notBlank(tc.getExecutionDate())) addCompRow(tcInfo, "Fecha:", s(tc.getExecutionDate()), labelFont, tBodyFont);
+                if (notBlank(tc.getObjective())) addCompRow(tcInfo, "Objetivo:", s(tc.getObjective()), labelFont, tBodyFont);
+                if (notBlank(tc.getPreconditions())) addCompRow(tcInfo, "Precondiciones:", s(tc.getPreconditions()), labelFont, tBodyFont);
+                if (notBlank(tc.getTestData())) addCompRow(tcInfo, "Datos de prueba:", s(tc.getTestData()), labelFont, tBodyFont);
+                doc.add(tcInfo);
+
+                // Steps
+                List<TestStep> steps = tc.getSteps() != null ? tc.getSteps() : Collections.emptyList();
+                if (!steps.isEmpty()) {
+                    Paragraph stepsP = new Paragraph("Pasos de Ejecución:", subSecFont);
+                    stepsP.setSpacingBefore(4); stepsP.setSpacingAfter(4); doc.add(stepsP);
+                    PdfPTable st = new PdfPTable(new float[]{0.5f, 2.5f, 2.5f});
+                    st.setWidthPercentage(100); st.setSpacingAfter(8);
+                    addTableHeader(st, new String[]{"#", "Acción", "Resultado Esperado"}, tHeaderFont);
+                    for (int si = 0; si < steps.size(); si++) {
+                        TestStep step = steps.get(si);
+                        Color bg = si % 2 == 0 ? Color.WHITE : C_ROW_ALT;
+                        st.addCell(tableCell(String.valueOf(step.getStepNumber()), tBodyFont, bg, Element.ALIGN_CENTER));
+                        st.addCell(tableCell(s(step.getAction()), tBodyFont, bg, Element.ALIGN_LEFT));
+                        st.addCell(tableCell(s(step.getExpectedResult()), tBodyFont, bg, Element.ALIGN_LEFT));
+                    }
+                    doc.add(st);
+                }
+
+                // Result
+                if (notBlank(tc.getObtainedResult()) || notBlank(tc.getObservations())) {
+                    Paragraph resP = new Paragraph("Resultado:", subSecFont);
+                    resP.setSpacingBefore(4); resP.setSpacingAfter(4); doc.add(resP);
+                    if (notBlank(tc.getObtainedResult())) addLabelAndText(doc, "Resultado obtenido:", s(tc.getObtainedResult()), labelFont, valueFont, mutedFont);
+                    if (notBlank(tc.getObservations())) addLabelAndText(doc, "Observaciones:", s(tc.getObservations()), labelFont, valueFont, mutedFont);
+                }
+
+                // Evidences
+                List<TestEvidence> evs = tc.getEvidences() != null ? tc.getEvidences() : Collections.emptyList();
+                if (!evs.isEmpty()) {
+                    Paragraph evP = new Paragraph("Evidencias:", subSecFont);
+                    evP.setSpacingBefore(4); evP.setSpacingAfter(4); doc.add(evP);
+                    for (int ei = 0; ei < evs.size(); ei++) {
+                        TestEvidence ev = evs.get(ei);
+                        if (notBlank(ev.getDescription())) {
+                            Paragraph desc = new Paragraph("  " + ev.getDescription(), mutedFont);
+                            desc.setSpacingAfter(2); doc.add(desc);
+                        }
+                        if (notBlank(ev.getImageBase64())) {
+                            try {
+                                String b64 = ev.getImageBase64();
+                                if (b64.contains(",")) b64 = b64.substring(b64.indexOf(',') + 1);
+                                byte[] imgBytes = Base64.getDecoder().decode(b64.trim());
+                                com.lowagie.text.Image img = com.lowagie.text.Image.getInstance(imgBytes);
+                                img.scaleToFit(420, 300); img.setSpacingAfter(8); doc.add(img);
+                            } catch (Exception ex) {
+                                doc.add(new Paragraph("[Evidencia " + (ei+1) + " no disponible]", mutedFont));
+                            }
+                        }
+                    }
+                }
+
+                if (notBlank(tc.getFinalObservations())) {
+                    addLabelAndText(doc, "Observaciones finales:", s(tc.getFinalObservations()), labelFont, valueFont, mutedFont);
+                }
+            }
         }
 
         doc.close();
@@ -547,46 +596,78 @@ public class RfcTechnicalService {
         String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
         StringBuilder md = new StringBuilder();
 
-        md.append("# Casos de Prueba Ejecutados\n\n");
-        md.append("> Documento de casos de prueba extraído del RFC Técnico Final.\n\n");
+        md.append("# Casos de Prueba\n\n");
+        md.append("> Documento de casos de prueba del RFC Técnico Final.\n\n");
         md.append("**Generado el:** ").append(now).append("  \n");
         md.append("**RFC:** ").append(s(r.getRfcNumber())).append("  \n");
         md.append("**Nombre del cambio:** ").append(s(r.getChangeName())).append("  \n");
         md.append("**Fecha de validación:** ").append(s(r.getValidationDate())).append("  \n");
-        md.append("**Tester responsable:** ").append(s(r.getTesterName())).append("  \n");
-        md.append("**Estado:** ").append(s(r.getStatus())).append("\n\n");
+        md.append("**Tester responsable:** ").append(s(r.getTesterName())).append("\n\n");
         md.append("---\n\n");
 
-        md.append("## Casos de Prueba\n\n");
         List<TestCase> tcs = orEmpty(r.getTestCases());
         if (tcs.isEmpty()) {
             md.append("*Sin casos de prueba registrados.*\n\n");
         } else {
-            md.append("| ID | Descripción | Resultado Esperado | Resultado Obtenido | Estado |\n");
-            md.append("|----|-------------|--------------------|--------------------|--------|\n");
-            for (TestCase tc : tcs) {
-                boolean passed = "Exitoso".equalsIgnoreCase(tc.getResult());
-                md.append("| ").append(mdCell(s(tc.getCaseId())))
-                  .append(" | ").append(mdCell(s(tc.getDescription())))
-                  .append(" | ").append(mdCell(s(tc.getExpectedResult())))
-                  .append(" | ").append(mdCell(s(tc.getObtainedResult())))
-                  .append(" | ").append(passed ? "✅" : "❌")
-                  .append(" ").append(mdCell(s(tc.getResult())))
-                  .append(" |\n");
+            for (int idx = 0; idx < tcs.size(); idx++) {
+                TestCase tc = tcs.get(idx);
+                String tcId = notBlank(tc.getCaseId()) ? tc.getCaseId() : "Caso " + (idx + 1);
+                String tcName = notBlank(tc.getCaseName()) ? tc.getCaseName() : s(tc.getDescription());
+                md.append("## ").append(tcId);
+                if (notBlank(tcName)) md.append(" — ").append(tcName);
+                md.append("\n\n");
+
+                // Info table
+                md.append("| Campo | Valor |\n|-------|-------|\n");
+                if (notBlank(tc.getPriority())) mdRow(md, "Prioridad", s(tc.getPriority()));
+                if (notBlank(tc.getTestType())) mdRow(md, "Tipo", s(tc.getTestType()));
+                String status = notBlank(tc.getStatus()) ? tc.getStatus() : s(tc.getResult());
+                mdRow(md, "Estado", status);
+                if (notBlank(tc.getTesterName())) mdRow(md, "Tester", s(tc.getTesterName()));
+                if (notBlank(tc.getExecutionDate())) mdRow(md, "Fecha", s(tc.getExecutionDate()));
+                md.append("\n");
+
+                if (notBlank(tc.getObjective())) md.append("**Objetivo:** ").append(tc.getObjective().trim()).append("\n\n");
+                if (notBlank(tc.getPreconditions())) md.append("**Precondiciones:** ").append(tc.getPreconditions().trim()).append("\n\n");
+                if (notBlank(tc.getTestData())) md.append("**Datos de prueba:** ").append(tc.getTestData().trim()).append("\n\n");
+
+                // Steps
+                List<TestStep> steps = tc.getSteps() != null ? tc.getSteps() : Collections.emptyList();
+                if (!steps.isEmpty()) {
+                    md.append("### Pasos de Ejecución\n\n");
+                    md.append("| # | Acción | Resultado Esperado |\n|---|--------|--------------------|\n");
+                    for (TestStep step : steps) {
+                        md.append("| ").append(step.getStepNumber())
+                          .append(" | ").append(mdCell(s(step.getAction())))
+                          .append(" | ").append(mdCell(s(step.getExpectedResult())))
+                          .append(" |\n");
+                    }
+                    md.append("\n");
+                }
+
+                // Result
+                if (notBlank(tc.getObtainedResult())) md.append("**Resultado obtenido:** ").append(tc.getObtainedResult().trim()).append("\n\n");
+                if (notBlank(tc.getObservations())) md.append("**Observaciones:** ").append(tc.getObservations().trim()).append("\n\n");
+
+                // Evidences
+                List<TestEvidence> evs = tc.getEvidences() != null ? tc.getEvidences() : Collections.emptyList();
+                if (!evs.isEmpty()) {
+                    md.append("### Evidencias\n\n");
+                    for (int ei = 0; ei < evs.size(); ei++) {
+                        TestEvidence ev = evs.get(ei);
+                        md.append("- _[Evidencia ").append(ei + 1).append("]_");
+                        if (notBlank(ev.getDescription())) md.append(" ").append(ev.getDescription().trim());
+                        md.append("\n");
+                    }
+                    md.append("\n");
+                }
+
+                if (notBlank(tc.getFinalObservations())) md.append("**Observaciones finales:** ").append(tc.getFinalObservations().trim()).append("\n\n");
+                md.append("---\n\n");
             }
-            md.append("\n");
-        }
-        md.append("---\n\n");
-
-        if (notBlank(r.getObservations())) {
-            md.append("## Observaciones\n\n");
-            md.append(r.getObservations().trim()).append("\n\n");
-            md.append("---\n\n");
         }
 
-        md.append("*Documento generado el ").append(now)
-          .append(" mediante el sistema **Release Notifier QA**.*\n");
-
+        md.append("*Documento generado el ").append(now).append(" mediante **Release Notifier QA**.*\n");
         return md.toString().getBytes(StandardCharsets.UTF_8);
     }
 

@@ -1850,30 +1850,63 @@
 
         /* ── Dashboard ───────────────────────────────────────────────── */
         .dashboard-hero {
-            background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 60%, #3b82f6 100%);
-            padding: 52px 48px 48px; flex-shrink: 0;
+            background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 55%, #3b82f6 100%);
+            padding: 48px 48px 40px; flex-shrink: 0; position: relative; overflow: hidden;
         }
-        .dashboard-hero h1 { font-size: 1.6rem; font-weight: 700; color: white; margin: 0 0 8px; letter-spacing: -.03em; }
-        .dashboard-hero p { color: rgba(255,255,255,.82); margin: 0; font-size: .88rem; max-width: 600px; line-height: 1.65; }
+        .dashboard-hero::before {
+            content: ''; position: absolute; top: -40%; right: -10%; width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(255,255,255,.08) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        .dashboard-hero::after {
+            content: ''; position: absolute; bottom: -30%; left: -5%; width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(255,255,255,.05) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        .dashboard-hero-content { position: relative; z-index: 1; max-width: 680px; }
+        .dashboard-hero h1 { font-size: 1.5rem; font-weight: 700; color: white; margin: 0 0 6px; letter-spacing: -.03em; }
+        .dashboard-hero p { color: rgba(255,255,255,.8); margin: 0; font-size: .86rem; line-height: 1.6; }
         .dash-badge {
             display: inline-flex; align-items: center; gap: 6px;
-            background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.24);
-            border-radius: 20px; padding: 4px 12px; font-size: .7rem; font-weight: 600;
-            color: rgba(255,255,255,.88); margin-bottom: 14px; letter-spacing: .04em;
+            background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+            border-radius: 20px; padding: 5px 14px; font-size: .7rem; font-weight: 600;
+            color: rgba(255,255,255,.9); margin-bottom: 14px; letter-spacing: .03em;
+            backdrop-filter: blur(4px);
         }
+        .dash-version { position: absolute; top: 16px; right: 24px; font-size: .66rem; color: rgba(255,255,255,.4); z-index: 1; }
+
+        .dashboard-body { background: var(--bg); padding: 36px 48px 48px; flex: 1; }
+        .dashboard-body-inner { max-width: 880px; margin: 0 auto; }
+        .dash-section-title { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 16px; }
+
         .module-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-            gap: 20px; padding: 40px 48px; background: var(--bg);
-            max-width: 960px;
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 16px; margin-bottom: 32px;
         }
-        .module-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 22px; cursor: pointer; transition: box-shadow .2s, transform .15s, border-color .2s; }
-        .module-card:hover { box-shadow: 0 8px 28px rgba(37,99,235,.13); transform: translateY(-2px); border-color: #bfdbfe; }
-        .module-card-icon { font-size: 1.7rem; margin-bottom: 10px; }
-        .module-card-title { font-size: .85rem; font-weight: 700; color: var(--text); margin-bottom: 5px; }
-        .module-card-desc { font-size: .74rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; }
-        .module-card-action { font-size: .74rem; font-weight: 600; color: var(--primary); }
-        .quick-actions { padding: 0px 48px 44px; background: var(--bg); max-width: 960px; }
-        .quick-actions-title { font-size: .7rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+        .module-card {
+            background: white; border: 1px solid var(--border); border-radius: 12px;
+            padding: 24px 22px; cursor: pointer; position: relative; overflow: hidden;
+            transition: box-shadow .2s, transform .15s, border-color .2s;
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .module-card:hover { box-shadow: 0 8px 32px rgba(37,99,235,.12); transform: translateY(-3px); border-color: #93c5fd; }
+        .module-card::after { content: '→'; position: absolute; top: 20px; right: 20px; font-size: 1.1rem; color: var(--border); font-weight: 700; transition: color .15s, transform .15s; }
+        .module-card:hover::after { color: var(--primary); transform: translateX(3px); }
+        .module-card-icon { font-size: 1.6rem; margin-bottom: 6px; }
+        .module-card-title { font-size: .88rem; font-weight: 700; color: var(--text); }
+        .module-card-desc { font-size: .76rem; color: var(--text-muted); line-height: 1.5; margin-top: 2px; flex: 1; }
+        .module-card-action { display: none; }
+
+        .quick-actions { margin-top: 0; }
+        .quick-actions-title { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+        .quick-actions .d-flex { gap: 8px; }
+        .quick-action-btn {
+            background: white; border: 1px solid var(--border); border-radius: 8px;
+            padding: 10px 16px; font-size: .8rem; font-weight: 600; color: var(--text);
+            cursor: pointer; font-family: inherit; transition: all .15s;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .quick-action-btn:hover { border-color: var(--primary); color: var(--primary); box-shadow: 0 2px 8px rgba(37,99,235,.1); }
 
         /* ── Responsive ──────────────────────────────────────────────── */
         @media (max-width: 900px) {
@@ -1886,9 +1919,9 @@
             .sidebar-footer img { height: 20px; }
             .pane-header { padding: 16px 20px 14px; }
             .pane-body { padding: 20px 20px 32px; }
-            .module-grid { grid-template-columns: 1fr 1fr; padding: 20px; gap: 14px; }
+            .module-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
             .dashboard-hero { padding: 32px 20px 28px; }
-            .quick-actions { padding: 0 20px 28px; }
+            .dashboard-body { padding: 24px 20px 32px; }
         }
         @media (max-width: 520px) {
             .module-grid { grid-template-columns: 1fr; }
@@ -1956,45 +1989,57 @@
 
     <!-- ════════════════════ PANE: DASHBOARD ════════════ -->
     <div class="pane" id="pane-dashboard">
+        <!-- Hero -->
         <div class="dashboard-hero">
-            <div class="dash-badge">&#x1F3E2; Megacable &mdash; Equipo QA &amp; Liberaciones</div>
-            <h1>Release Notifier QA</h1>
-            <p>Plataforma corporativa de gesti&#xF3;n de liberaciones y notificaciones para equipos de QA, Desarrollo y Liberaciones.</p>
-        </div>
-        <div class="module-grid">
-            <div class="module-card" onclick="openArtifactsSubmenu('correo')">
-                <div class="module-card-icon">&#x1F4E6;</div>
-                <div class="module-card-title">Artefactos de Liberaci&#xF3;n</div>
-                <div class="module-card-desc">Incluye subm&#xF3;dulos independientes para Correo de Liberaci&#xF3;n y Telegram.</div>
-                <div class="module-card-action">Abrir m&#xF3;dulo &#x2192;</div>
-            </div>
-            <div class="module-card" onclick="showPane('rdl',null)">
-                <div class="module-card-icon">&#x1F4CA;</div>
-                <div class="module-card-title">Reportes RDL</div>
-                <div class="module-card-desc">Incluye subm&#xF3;dulos independientes para Correo RDL y Telegram RDL.</div>
-                <div class="module-card-action">Abrir m&#xF3;dulo &#x2192;</div>
-            </div>
-            <div class="module-card" onclick="showPane('rfc',null)">
-                <div class="module-card-icon">&#x1F4CB;</div>
-                <div class="module-card-title">RFC T&#xE9;cnico</div>
-                <div class="module-card-desc">Crea documentaci&#xF3;n t&#xE9;cnica estructurada para RFCs con desglose de cambios y artefactos.</div>
-                <div class="module-card-action">Abrir m&#xF3;dulo &#x2192;</div>
-            </div>
-            <div class="module-card" onclick="showPane('uat',null)">
-                <div class="module-card-icon">&#x2705;</div>
-                <div class="module-card-title">VoBo UAT</div>
-                <div class="module-card-desc">Genera correos de VoBo UAT con instrucciones de validaci&#xF3;n, evidencias y pasos autom&#xE1;ticos.</div>
-                <div class="module-card-action">Abrir m&#xF3;dulo &#x2192;</div>
+            <span class="dash-version">v1.0</span>
+            <div class="dashboard-hero-content">
+                <div class="dash-badge">&#x1F3E2; Megacable &mdash; Equipo QA &amp; Liberaciones</div>
+                <h1>Release Notifier QA</h1>
+                <p>Plataforma de gesti&#xF3;n de liberaciones, documentaci&#xF3;n t&#xE9;cnica y validaciones para equipos de QA, Desarrollo y Operaciones.</p>
             </div>
         </div>
-        <div class="quick-actions">
-            <div class="quick-actions-title">Acciones r&#xE1;pidas</div>
-            <div class="d-flex flex-wrap gap-2">
-                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;" onclick="openArtifactsSubmenu('correo')">&#x1F4E7; Artefactos / Correo de liberaci&#xF3;n</button>
-                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:var(--primary-dark);" onclick="openArtifactsSubmenu('telegram')">&#x2708;&#xFE0F; Artefactos / Telegram</button>
-                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#4f46e5;" onclick="showPane('rdl',null)">&#x1F4E7; RDL / Correo</button>
-                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:#6366f1;" onclick="showPane('rdl-telegram',null)">&#x1F4F2; RDL / Telegram</button>
-                <button class="btn-generate" style="font-size:.84rem;padding:8px 16px;background:var(--primary-dark);" onclick="showPane('uat',null)">&#x2705; Nuevo VoBo UAT</button>
+
+        <!-- Body -->
+        <div class="dashboard-body">
+            <div class="dashboard-body-inner">
+
+                <!-- Module Cards -->
+                <div class="dash-section-title">M&#xF3;dulos</div>
+                <div class="module-grid">
+                    <div class="module-card" onclick="openArtifactsSubmenu('correo')">
+                        <div class="module-card-icon">&#x1F4E7;</div>
+                        <div class="module-card-title">Correos de Liberaci&#xF3;n</div>
+                        <div class="module-card-desc">Genera correos formales de liberaci&#xF3;n y notificaciones Telegram para el equipo.</div>
+                    </div>
+                    <div class="module-card" onclick="showPane('rdl',null)">
+                        <div class="module-card-icon">&#x1F4CA;</div>
+                        <div class="module-card-title">Reportes RDL</div>
+                        <div class="module-card-desc">Crea reportes de distribuci&#xF3;n de liberaciones con formato corporativo.</div>
+                    </div>
+                    <div class="module-card" onclick="showPane('rfc',null)">
+                        <div class="module-card-icon">&#x1F4CB;</div>
+                        <div class="module-card-title">RFC T&#xE9;cnico</div>
+                        <div class="module-card-desc">Documenta validaciones t&#xE9;cnicas, casos de prueba y evidencias de RFCs.</div>
+                    </div>
+                    <div class="module-card" onclick="showPane('uat',null)">
+                        <div class="module-card-icon">&#x2705;</div>
+                        <div class="module-card-title">VoBo UAT</div>
+                        <div class="module-card-desc">Solicita validaciones UAT con requerimientos, evidencias y pasos de ejecuci&#xF3;n.</div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <div class="quick-actions-title">Acciones r&#xE1;pidas</div>
+                    <div class="d-flex flex-wrap">
+                        <button class="quick-action-btn" onclick="openArtifactsSubmenu('correo')">&#x1F4E7; Correo de Liberaci&#xF3;n</button>
+                        <button class="quick-action-btn" onclick="openArtifactsSubmenu('telegram')">&#x2708;&#xFE0F; Telegram</button>
+                        <button class="quick-action-btn" onclick="showPane('rdl',null)">&#x1F4CA; Reporte RDL</button>
+                        <button class="quick-action-btn" onclick="showPane('rfc',null)">&#x1F4CB; Nuevo RFC</button>
+                        <button class="quick-action-btn" onclick="showPane('uat',null)">&#x2705; VoBo UAT</button>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div><!-- /pane-dashboard -->
@@ -2635,8 +2680,8 @@
             <div class="section-label">&#x26A0;&#xFE0F; NOTA
                 <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.7rem;">(opcional)</span>
             </div>
-            <textarea id="uatNota" class="form-control" rows="5"
-                      placeholder="Para esta promoci&#xF3;n solo se consideran servicios residenciales...&#10;&#10;Favor de Validar con el m&#xF3;dulo Servicios_UAT.&#10;1. Entrar a la carpeta M&#xF3;dulos SFYC UAT&#10;2. Ejecutar el m&#xF3;dulo Servicios_UAT&#10;3. En el campo Servidor seleccionar MEGANG-384"></textarea>
+            <textarea id="uatNota" class="form-control" rows="3"
+                      placeholder="Ej: Para esta promoci&#xF3;n solo se consideran servicios residenciales..."></textarea>
         </div>
 
         <!-- CIERRE -->

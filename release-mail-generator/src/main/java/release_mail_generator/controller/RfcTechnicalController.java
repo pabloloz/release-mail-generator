@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import release_mail_generator.model.RfcTechnicalRecord;
 import release_mail_generator.service.RfcTechnicalService;
 
+import java.util.List;
 import java.util.Map;
 
 @Controller
@@ -60,11 +61,17 @@ public class RfcTechnicalController {
                  produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<Map<String, String>> save(@RequestBody RfcTechnicalRecord record) {
-        RfcTechnicalRecord saved = rfcService.save(record);
-        return ResponseEntity.ok(Map.of(
-                "id",       saved.getId(),
-                "redirect", "/rfc/" + saved.getId()
-        ));
+        try {
+            RfcTechnicalRecord saved = rfcService.save(record);
+            return ResponseEntity.ok(Map.of(
+                    "id",       saved.getId(),
+                    "redirect", "/rfc/" + saved.getId()
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "Error al guardar: " + e.getMessage()));
+        }
     }
 
     @GetMapping("/{id}/pdf")
@@ -139,6 +146,29 @@ public class RfcTechnicalController {
     public String delete(@PathVariable String id) {
         rfcService.delete(id);
         return "redirect:/rfc";
+    }
+
+    /** JSON search endpoint for the RFC search bar. */
+    @GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public List<Map<String, String>> search(@RequestParam(defaultValue = "") String q) {
+        if (q.isBlank()) return List.of();
+        return rfcService.search(q).stream().map(r -> Map.of(
+                "id",         r.getId() != null ? r.getId() : "",
+                "rfcNumber",  r.getRfcNumber() != null ? r.getRfcNumber() : "",
+                "changeName", r.getChangeName() != null ? r.getChangeName() : "",
+                "status",     r.getStatus() != null ? r.getStatus() : "",
+                "testerName", r.getTesterName() != null ? r.getTesterName() : ""
+        )).toList();
+    }
+
+    /** JSON endpoint to get a single RFC record for inline loading. */
+    @GetMapping(value = "/{id}/json", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<RfcTechnicalRecord> getJson(@PathVariable String id) {
+        return rfcService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     private String sanitize(String s) {
