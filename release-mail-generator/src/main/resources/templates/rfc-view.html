@@ -109,6 +109,8 @@
     <div class="d-flex gap-2 flex-wrap mb-4">
         <a th:href="@{/rfc/{id}/pdf(id=${record.id})}" class="btn-pdf">📥 Exportar PDF</a>
         <a th:href="@{/rfc/{id}/markdown(id=${record.id})}" class="btn-md">📄 Exportar Markdown</a>
+        <a th:href="@{/rfc/{id}/testcases-pdf(id=${record.id})}" class="btn-pdf" style="background:#8b5cf6;">🧪 Casos de Prueba PDF</a>
+        <a th:href="@{/rfc/{id}/testcases-markdown(id=${record.id})}" class="btn-md" style="background:#0d9488;">🧪 Casos de Prueba MD</a>
         <a th:href="@{/rfc/{id}/edit(id=${record.id})}" class="btn-ghost">✏️ Editar</a>
         <form th:action="@{/rfc/{id}/delete(id=${record.id})}" method="post"
               onsubmit="return confirm('¿Eliminar este RFC? Esta acción no se puede deshacer.')">
@@ -246,6 +248,11 @@
                     </tr>
                 </tbody>
             </table>
+            <!-- Export test cases only -->
+            <div class="d-flex gap-2 mt-3">
+                <a th:href="@{/rfc/{id}/testcases-pdf(id=${record.id})}" class="btn-pdf" style="font-size:.78rem; padding:5px 12px;">📥 Exportar Casos de Prueba PDF</a>
+                <a th:href="@{/rfc/{id}/testcases-markdown(id=${record.id})}" class="btn-md" style="font-size:.78rem; padding:5px 12px;">📄 Exportar Casos de Prueba MD</a>
+            </div>
         </div>
     </div>
 
@@ -321,6 +328,8 @@
     <div class="d-flex gap-2 flex-wrap pt-2 border-top" style="margin-top:8px; padding-top:20px;">
         <a th:href="@{/rfc/{id}/pdf(id=${record.id})}" class="btn-pdf">📥 Exportar PDF</a>
         <a th:href="@{/rfc/{id}/markdown(id=${record.id})}" class="btn-md">📄 Exportar Markdown</a>
+        <a th:href="@{/rfc/{id}/testcases-pdf(id=${record.id})}" class="btn-pdf" style="background:#8b5cf6;">🧪 Casos de Prueba PDF</a>
+        <a th:href="@{/rfc/{id}/testcases-markdown(id=${record.id})}" class="btn-md" style="background:#0d9488;">🧪 Casos de Prueba MD</a>
         <a th:href="@{/rfc/{id}/edit(id=${record.id})}" class="btn-primary-sm">✏️ Editar RFC</a>
         <a href="/rfc" class="btn-ghost">← Volver a la lista</a>
     </div>

@@ -436,6 +436,160 @@ public class RfcTechnicalService {
         return md.toString().getBytes(StandardCharsets.UTF_8);
     }
 
+    // ── Test Cases Only – PDF ──────────────────────────────────────────────
+
+    public byte[] generateTestCasesPdf(RfcTechnicalRecord r) throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        Document doc = new Document(PageSize.A4, 50, 50, 72, 62);
+        PdfWriter writer = PdfWriter.getInstance(doc, bos);
+
+        final String rfcLabel = "Casos de Prueba  —  " + s(r.getRfcNumber());
+        writer.setPageEvent(new PdfPageEventHelper() {
+            @Override
+            public void onEndPage(PdfWriter w, Document d) {
+                try {
+                    PdfContentByte cb = w.getDirectContent();
+                    Font footerFont = new Font(Font.HELVETICA, 8, Font.NORMAL, C_MUTED);
+                    cb.setLineWidth(0.5f);
+                    cb.setColorStroke(C_BORDER);
+                    cb.moveTo(d.left(), d.bottom() - 4);
+                    cb.lineTo(d.right(), d.bottom() - 4);
+                    cb.stroke();
+                    Phrase pageNum = new Phrase("Página " + w.getPageNumber(), footerFont);
+                    ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT, pageNum, d.right(), d.bottom() - 16, 0);
+                    Phrase label = new Phrase(rfcLabel, footerFont);
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT, label, d.left(), d.bottom() - 16, 0);
+                    cb.setColorStroke(C_PRIMARY);
+                    cb.moveTo(d.left(), d.top() + 8);
+                    cb.lineTo(d.right(), d.top() + 8);
+                    cb.stroke();
+                } catch (Exception ignored) {}
+            }
+        });
+
+        doc.open();
+
+        Font titleFont   = new Font(Font.HELVETICA, 22, Font.BOLD, C_TEXT);
+        Font purposeFont = new Font(Font.HELVETICA, 9,  Font.ITALIC, C_MUTED);
+        Font sectionFont = new Font(Font.HELVETICA, 12, Font.BOLD, C_PRIMARY);
+        Font labelFont   = new Font(Font.HELVETICA, 9,  Font.BOLD, new Color(55, 65, 81));
+        Font valueFont   = new Font(Font.HELVETICA, 10, Font.NORMAL, C_TEXT);
+        Font tHeaderFont = new Font(Font.HELVETICA, 9,  Font.BOLD, Color.WHITE);
+        Font tBodyFont   = new Font(Font.HELVETICA, 9,  Font.NORMAL, C_TEXT);
+        Font mutedFont   = new Font(Font.HELVETICA, 9,  Font.ITALIC, C_MUTED);
+
+        // ── Title ─────────────────────────────────────────────────────
+        Paragraph titleP = new Paragraph("Casos de Prueba Ejecutados", titleFont);
+        titleP.setAlignment(Element.ALIGN_CENTER);
+        titleP.setSpacingAfter(4);
+        doc.add(titleP);
+
+        Paragraph purposeP = new Paragraph(
+                "Documento de casos de prueba extraído del RFC Técnico Final.", purposeFont);
+        purposeP.setAlignment(Element.ALIGN_CENTER);
+        purposeP.setSpacingAfter(2);
+        doc.add(purposeP);
+        addHRule(doc, C_PRIMARY, 1.5f);
+
+        // ── Info General ──────────────────────────────────────────────
+        addSectionHeading(doc, "Información del RFC", sectionFont);
+        PdfPTable info = new PdfPTable(new float[]{1f, 2.4f, 1f, 2.4f});
+        info.setWidthPercentage(100);
+        info.setSpacingBefore(4);
+        info.setSpacingAfter(12);
+        addInfoPair(info, "RFC:", s(r.getRfcNumber()), labelFont, valueFont);
+        addInfoPair(info, "Nombre del cambio:", s(r.getChangeName()), labelFont, valueFont);
+        addInfoPair(info, "Fecha de validación:", s(r.getValidationDate()), labelFont, valueFont);
+        addInfoPair(info, "Tester responsable:", s(r.getTesterName()), labelFont, valueFont);
+        addInfoPair(info, "Estado:", s(r.getStatus()), labelFont, valueFont);
+        addInfoPair(info, "", "", labelFont, valueFont);
+        doc.add(info);
+
+        // ── Test Cases Table ──────────────────────────────────────────
+        addSectionHeading(doc, "Casos de Prueba", sectionFont);
+        List<TestCase> tcs = orEmpty(r.getTestCases());
+        if (tcs.isEmpty()) {
+            doc.add(emptyNote(mutedFont));
+        } else {
+            PdfPTable tt = new PdfPTable(new float[]{0.7f, 2f, 2f, 2f, 1f});
+            tt.setWidthPercentage(100);
+            tt.setSpacingBefore(4);
+            tt.setSpacingAfter(12);
+            addTableHeader(tt, new String[]{"ID", "Descripción", "Resultado Esperado", "Resultado Obtenido", "Estado"}, tHeaderFont);
+            for (int i = 0; i < tcs.size(); i++) {
+                TestCase tc = tcs.get(i);
+                Color rowBg = i % 2 == 0 ? Color.WHITE : C_ROW_ALT;
+                tt.addCell(tableCell(s(tc.getCaseId()), tBodyFont, rowBg, Element.ALIGN_CENTER));
+                tt.addCell(tableCell(s(tc.getDescription()), tBodyFont, rowBg, Element.ALIGN_LEFT));
+                tt.addCell(tableCell(s(tc.getExpectedResult()), tBodyFont, rowBg, Element.ALIGN_LEFT));
+                tt.addCell(tableCell(s(tc.getObtainedResult()), tBodyFont, rowBg, Element.ALIGN_LEFT));
+                boolean passed = "Exitoso".equalsIgnoreCase(tc.getResult());
+                Color resultColor = passed ? C_SUCCESS : C_DANGER;
+                tt.addCell(tableCell(s(tc.getResult()),
+                        new Font(Font.HELVETICA, 9, Font.BOLD, resultColor), rowBg, Element.ALIGN_CENTER));
+            }
+            doc.add(tt);
+        }
+
+        // ── Observations ──────────────────────────────────────────────
+        if (notBlank(r.getObservations())) {
+            addSectionHeading(doc, "Observaciones", sectionFont);
+            addBodyText(doc, s(r.getObservations()), valueFont, mutedFont);
+        }
+
+        doc.close();
+        return bos.toByteArray();
+    }
+
+    // ── Test Cases Only – Markdown ─────────────────────────────────────────
+
+    public byte[] generateTestCasesMarkdown(RfcTechnicalRecord r) {
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        StringBuilder md = new StringBuilder();
+
+        md.append("# Casos de Prueba Ejecutados\n\n");
+        md.append("> Documento de casos de prueba extraído del RFC Técnico Final.\n\n");
+        md.append("**Generado el:** ").append(now).append("  \n");
+        md.append("**RFC:** ").append(s(r.getRfcNumber())).append("  \n");
+        md.append("**Nombre del cambio:** ").append(s(r.getChangeName())).append("  \n");
+        md.append("**Fecha de validación:** ").append(s(r.getValidationDate())).append("  \n");
+        md.append("**Tester responsable:** ").append(s(r.getTesterName())).append("  \n");
+        md.append("**Estado:** ").append(s(r.getStatus())).append("\n\n");
+        md.append("---\n\n");
+
+        md.append("## Casos de Prueba\n\n");
+        List<TestCase> tcs = orEmpty(r.getTestCases());
+        if (tcs.isEmpty()) {
+            md.append("*Sin casos de prueba registrados.*\n\n");
+        } else {
+            md.append("| ID | Descripción | Resultado Esperado | Resultado Obtenido | Estado |\n");
+            md.append("|----|-------------|--------------------|--------------------|--------|\n");
+            for (TestCase tc : tcs) {
+                boolean passed = "Exitoso".equalsIgnoreCase(tc.getResult());
+                md.append("| ").append(mdCell(s(tc.getCaseId())))
+                  .append(" | ").append(mdCell(s(tc.getDescription())))
+                  .append(" | ").append(mdCell(s(tc.getExpectedResult())))
+                  .append(" | ").append(mdCell(s(tc.getObtainedResult())))
+                  .append(" | ").append(passed ? "✅" : "❌")
+                  .append(" ").append(mdCell(s(tc.getResult())))
+                  .append(" |\n");
+            }
+            md.append("\n");
+        }
+        md.append("---\n\n");
+
+        if (notBlank(r.getObservations())) {
+            md.append("## Observaciones\n\n");
+            md.append(r.getObservations().trim()).append("\n\n");
+            md.append("---\n\n");
+        }
+
+        md.append("*Documento generado el ").append(now)
+          .append(" mediante el sistema **Release Notifier QA**.*\n");
+
+        return md.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
     // ── PDF Helper methods ─────────────────────────────────────────────────
 
     private String s(String v) {
