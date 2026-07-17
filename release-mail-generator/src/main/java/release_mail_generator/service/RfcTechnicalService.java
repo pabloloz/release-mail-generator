@@ -107,69 +107,62 @@ public class RfcTechnicalService {
 
     public byte[] generatePdf(RfcTechnicalRecord r) throws Exception {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        Document doc = new Document(PageSize.A4, 50, 50, 72, 62);
+        Document doc = new Document(PageSize.A4, 50, 50, 80, 65);
         PdfWriter writer = PdfWriter.getInstance(doc, bos);
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
 
-        final String rfcLabel = "RFC Técnico Final  —  " + s(r.getRfcNumber());
+        final String rfcLabel = s(r.getRfcNumber()) + " — " + s(r.getChangeName());
         writer.setPageEvent(new PdfPageEventHelper() {
             @Override
             public void onEndPage(PdfWriter w, Document d) {
+                if (w.getPageNumber() == 1) return; // Skip footer on cover page
                 try {
                     PdfContentByte cb = w.getDirectContent();
-                    Font footerFont = new Font(Font.HELVETICA, 8, Font.NORMAL, C_MUTED);
-                    // Footer rule
-                    cb.setLineWidth(0.5f);
-                    cb.setColorStroke(C_BORDER);                    cb.moveTo(d.left(), d.bottom() - 4);
-                    cb.lineTo(d.right(), d.bottom() - 4);
-                    cb.stroke();
-                    // Page number right
-                    Phrase pageNum = new Phrase("Página " + w.getPageNumber(), footerFont);
-                    ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT, pageNum,
-                            d.right(), d.bottom() - 16, 0);
-                    // Label left
-                    Phrase label = new Phrase(rfcLabel, footerFont);
-                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT, label,
-                            d.left(), d.bottom() - 16, 0);
-                    // Header rule
-                    cb.setColorStroke(C_PRIMARY);
-                    cb.moveTo(d.left(), d.top() + 8);
-                    cb.lineTo(d.right(), d.top() + 8);
-                    cb.stroke();
+                    Font footerFont = new Font(Font.HELVETICA, 7.5f, Font.NORMAL, C_MUTED);
+                    // Footer line
+                    cb.setLineWidth(0.4f); cb.setColorStroke(C_BORDER);
+                    cb.moveTo(d.left(), d.bottom() - 8); cb.lineTo(d.right(), d.bottom() - 8); cb.stroke();
+                    // Footer left: system name
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,
+                            new Phrase("Release Notifier QA", footerFont), d.left(), d.bottom() - 20, 0);
+                    // Footer center: RFC
+                    ColumnText.showTextAligned(cb, Element.ALIGN_CENTER,
+                            new Phrase(rfcLabel, footerFont), (d.left() + d.right()) / 2, d.bottom() - 20, 0);
+                    // Footer right: page
+                    ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT,
+                            new Phrase("Página " + (w.getPageNumber() - 1), footerFont), d.right(), d.bottom() - 20, 0);
+                    // Header line
+                    cb.setLineWidth(0.6f); cb.setColorStroke(C_PRIMARY);
+                    cb.moveTo(d.left(), d.top() + 10); cb.lineTo(d.right(), d.top() + 10); cb.stroke();
+                    // Header right: date
+                    ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT,
+                            new Phrase(now, new Font(Font.HELVETICA, 7, Font.NORMAL, C_MUTED)), d.right(), d.top() + 14, 0);
                 } catch (Exception ignored) {}
             }
         });
 
         doc.open();
 
-        Font titleFont   = new Font(Font.HELVETICA, 22, Font.BOLD, C_TEXT);
-        Font purposeFont = new Font(Font.HELVETICA, 9,  Font.ITALIC, C_MUTED);
-        Font sectionFont = new Font(Font.HELVETICA, 12, Font.BOLD, C_PRIMARY);
-        Font labelFont   = new Font(Font.HELVETICA, 9,  Font.BOLD, new Color(55, 65, 81));
-        Font valueFont   = new Font(Font.HELVETICA, 10, Font.NORMAL, C_TEXT);
-        Font tHeaderFont = new Font(Font.HELVETICA, 9,  Font.BOLD, Color.WHITE);
-        Font tBodyFont   = new Font(Font.HELVETICA, 9,  Font.NORMAL, C_TEXT);
-        Font mutedFont   = new Font(Font.HELVETICA, 9,  Font.ITALIC, C_MUTED);
+        Font titleFont   = new Font(Font.HELVETICA, 20, Font.BOLD, C_TEXT);
+        Font sectionFont = new Font(Font.HELVETICA, 13, Font.BOLD, C_PRIMARY);
+        Font labelFont   = new Font(Font.HELVETICA, 8.5f, Font.BOLD, new Color(55, 65, 81));
+        Font valueFont   = new Font(Font.HELVETICA, 9.5f, Font.NORMAL, C_TEXT);
+        Font tHeaderFont = new Font(Font.HELVETICA, 8.5f, Font.BOLD, Color.WHITE);
+        Font tBodyFont   = new Font(Font.HELVETICA, 9, Font.NORMAL, C_TEXT);
+        Font mutedFont   = new Font(Font.HELVETICA, 8.5f, Font.ITALIC, C_MUTED);
 
-        // ── Title block ───────────────────────────────────────────────────
-        Paragraph titleP = new Paragraph("RFC Técnico Final", titleFont);
-        titleP.setAlignment(Element.ALIGN_CENTER);
-        titleP.setSpacingAfter(4);
-        doc.add(titleP);
+        // ═══════════════════════ COVER PAGE ═══════════════════════════════
+        addCoverPage(doc, "RFC Técnico Final", s(r.getRfcNumber()), s(r.getChangeName()),
+                s(r.getTesterName()), s(r.getValidationDate()), now);
+        doc.newPage();
 
-        Paragraph purposeP = new Paragraph(
-                "Propósito del documento: Dejar evidencia clara, trazable y defendible de que un cambio fue " +
-                "validado y cumple o no cumple con lo solicitado.", purposeFont);
-        purposeP.setAlignment(Element.ALIGN_CENTER);
-        purposeP.setSpacingAfter(2);
-        doc.add(purposeP);
-        addHRule(doc, C_PRIMARY, 1.5f);
+        // ═══════════════════════ CONTENT ══════════════════════════════════
 
-        // ── 1. Información General ────────────────────────────────────────
+        // ── 1. Información General ────────────────────────────────────
         addSectionHeading(doc, "1. Información General", sectionFont);
-        PdfPTable info = new PdfPTable(new float[]{1f, 2.4f, 1f, 2.4f});
-        info.setWidthPercentage(100);
-        info.setSpacingBefore(4);
-        info.setSpacingAfter(12);
+        PdfPTable info = new PdfPTable(new float[]{1.2f, 2.8f, 1.2f, 2.8f});
+        info.setWidthPercentage(100); info.setSpacingBefore(6); info.setSpacingAfter(16);
+        info.setKeepTogether(true);
         addInfoPair(info, "RFC:", s(r.getRfcNumber()), labelFont, valueFont);
         addInfoPair(info, "Nombre del cambio:", s(r.getChangeName()), labelFont, valueFont);
         addInfoPair(info, "Fecha de validación:", s(r.getValidationDate()), labelFont, valueFont);
@@ -177,26 +170,24 @@ public class RfcTechnicalService {
         addInfoPair(info, "Solicitante / Área:", s(r.getRequester()), labelFont, valueFont);
         addInfoPair(info, "Ambiente:", s(r.getEnvironment()), labelFont, valueFont);
         addInfoPair(info, "Estado:", s(r.getStatus()), labelFont, valueFont);
-        addInfoPair(info, "", "", labelFont, valueFont);
+        addInfoPair(info, "Resultado:", s(r.getFinalResult()), labelFont, valueFont);
         doc.add(info);
 
-        // ── 2. Contexto del Cambio ────────────────────────────────────────
+        // ── 2. Contexto del Cambio ────────────────────────────────────
         addSectionHeading(doc, "2. Contexto del Cambio", sectionFont);
         addBodyText(doc, s(r.getChangeContext()), valueFont, mutedFont);
 
-        // ── 3. Objetivo de la Validación ──────────────────────────────────
+        // ── 3. Objetivo de la Validación ──────────────────────────────
         addSectionHeading(doc, "3. Objetivo de la Validación", sectionFont);
         addLabelAndText(doc, "Objetivo principal:", s(r.getMainObjective()), labelFont, valueFont, mutedFont);
-        if (notBlank(r.getSpecificObjectives())) {
+        if (notBlank(r.getSpecificObjectives()))
             addLabelAndText(doc, "Objetivos específicos:", s(r.getSpecificObjectives()), labelFont, valueFont, mutedFont);
-        }
 
-        // ── 4. Componentes Técnicos Impactados ────────────────────────────
+        // ── 4. Componentes Técnicos ───────────────────────────────────
         addSectionHeading(doc, "4. Componentes Técnicos Impactados", sectionFont);
         PdfPTable comp = new PdfPTable(new float[]{1.4f, 3f});
-        comp.setWidthPercentage(100);
-        comp.setSpacingBefore(4);
-        comp.setSpacingAfter(12);
+        comp.setWidthPercentage(100); comp.setSpacingBefore(6); comp.setSpacingAfter(16);
+        comp.setKeepTogether(true);
         addCompRow(comp, "Módulos:", s(r.getModules()), labelFont, tBodyFont);
         addCompRow(comp, "Stored Procedures:", s(r.getStoredProcedures()), labelFont, tBodyFont);
         addCompRow(comp, "Jobs:", s(r.getJobs()), labelFont, tBodyFont);
@@ -205,97 +196,87 @@ public class RfcTechnicalService {
         addCompRow(comp, "Otros:", s(r.getOtherComponents()), labelFont, tBodyFont);
         doc.add(comp);
 
-        // ── 5. Reglas de Negocio Validadas ───────────────────────────────
+        // ── 5. Reglas de Negocio ──────────────────────────────────────
         addSectionHeading(doc, "5. Reglas de Negocio Validadas", sectionFont);
         List<BusinessRule> rules = orEmpty(r.getBusinessRules());
-        if (rules.isEmpty()) {
-            doc.add(emptyNote(mutedFont));
-        } else {
-            PdfPTable rt = new PdfPTable(new float[]{4f, 1.2f});
-            rt.setWidthPercentage(100);
-            rt.setSpacingBefore(4);
-            rt.setSpacingAfter(12);
-            addTableHeader(rt, new String[]{"Descripción de la Regla", "Estado"}, tHeaderFont);
+        if (rules.isEmpty()) { doc.add(emptyNote(mutedFont)); }
+        else {
+            PdfPTable rt = new PdfPTable(new float[]{0.5f, 4f, 1.2f});
+            rt.setWidthPercentage(100); rt.setSpacingBefore(6); rt.setSpacingAfter(16);
+            rt.setHeaderRows(1);
+            addTableHeader(rt, new String[]{"#", "Descripción de la Regla", "Estado"}, tHeaderFont);
             for (int i = 0; i < rules.size(); i++) {
                 BusinessRule rule = rules.get(i);
-                Color rowBg = i % 2 == 0 ? Color.WHITE : C_ROW_ALT;
-                rt.addCell(tableCell(s(rule.getDescription()), tBodyFont, rowBg, Element.ALIGN_LEFT));
-                Color sc = ruleStatusColor(rule.getValidationStatus());
+                Color bg = i % 2 == 0 ? Color.WHITE : C_ROW_ALT;
+                rt.addCell(tableCell(String.valueOf(i + 1), tBodyFont, bg, Element.ALIGN_CENTER));
+                rt.addCell(tableCell(s(rule.getDescription()), tBodyFont, bg, Element.ALIGN_LEFT));
                 rt.addCell(tableCell(s(rule.getValidationStatus()),
-                        new Font(Font.HELVETICA, 9, Font.BOLD, sc), rowBg, Element.ALIGN_CENTER));
+                        new Font(Font.HELVETICA, 9, Font.BOLD, ruleStatusColor(rule.getValidationStatus())), bg, Element.ALIGN_CENTER));
             }
             doc.add(rt);
         }
 
-        // ── 6. Casos de Prueba Ejecutados ────────────────────────────────
+        // ── 6. Casos de Prueba ────────────────────────────────────────
         addSectionHeading(doc, "6. Casos de Prueba Ejecutados", sectionFont);
         List<TestCase> tcs = orEmpty(r.getTestCases());
-        if (tcs.isEmpty()) {
-            doc.add(emptyNote(mutedFont));
-        } else {
-            PdfPTable tt = new PdfPTable(new float[]{0.7f, 2f, 2f, 2f, 1f});
-            tt.setWidthPercentage(100);
-            tt.setSpacingBefore(4);
-            tt.setSpacingAfter(12);
-            addTableHeader(tt, new String[]{"ID", "Descripción", "Resultado Esperado", "Resultado Obtenido", "Estado"}, tHeaderFont);
+        if (tcs.isEmpty()) { doc.add(emptyNote(mutedFont)); }
+        else {
+            // Summary table
+            PdfPTable tt = new PdfPTable(new float[]{0.8f, 2.5f, 1.2f, 1.2f});
+            tt.setWidthPercentage(100); tt.setSpacingBefore(6); tt.setSpacingAfter(16);
+            tt.setHeaderRows(1);
+            addTableHeader(tt, new String[]{"ID", "Nombre / Descripción", "Tipo", "Estado"}, tHeaderFont);
             for (int i = 0; i < tcs.size(); i++) {
                 TestCase tc = tcs.get(i);
-                Color rowBg = i % 2 == 0 ? Color.WHITE : C_ROW_ALT;
-                tt.addCell(tableCell(s(tc.getCaseId()), tBodyFont, rowBg, Element.ALIGN_CENTER));
-                tt.addCell(tableCell(s(tc.getDescription()), tBodyFont, rowBg, Element.ALIGN_LEFT));
-                tt.addCell(tableCell(s(tc.getExpectedResult()), tBodyFont, rowBg, Element.ALIGN_LEFT));
-                tt.addCell(tableCell(s(tc.getObtainedResult()), tBodyFont, rowBg, Element.ALIGN_LEFT));
-                boolean passed = "Exitoso".equalsIgnoreCase(tc.getResult());
-                Color resultColor = passed ? C_SUCCESS : C_DANGER;
-                tt.addCell(tableCell(s(tc.getResult()),
-                        new Font(Font.HELVETICA, 9, Font.BOLD, resultColor), rowBg, Element.ALIGN_CENTER));
+                Color bg = i % 2 == 0 ? Color.WHITE : C_ROW_ALT;
+                tt.addCell(tableCell(s(tc.getCaseId()), tBodyFont, bg, Element.ALIGN_CENTER));
+                String name = notBlank(tc.getCaseName()) ? tc.getCaseName() : s(tc.getDescription());
+                tt.addCell(tableCell(name, tBodyFont, bg, Element.ALIGN_LEFT));
+                tt.addCell(tableCell(s(tc.getTestType()), tBodyFont, bg, Element.ALIGN_CENTER));
+                String st = notBlank(tc.getStatus()) ? tc.getStatus() : s(tc.getResult());
+                Color sc = "Aprobado".equals(st) || "Exitoso".equalsIgnoreCase(st) ? C_SUCCESS : "Fallido".equals(st) ? C_DANGER : C_WARNING;
+                tt.addCell(tableCell(st, new Font(Font.HELVETICA, 9, Font.BOLD, sc), bg, Element.ALIGN_CENTER));
             }
             doc.add(tt);
         }
 
-        // ── 7. Bugs Relacionados ──────────────────────────────────────────
+        // ── 7. Bugs ──────────────────────────────────────────────────
         addSectionHeading(doc, "7. Bugs Relacionados", sectionFont);
         List<RelatedBug> bugs = orEmpty(r.getRelatedBugs());
-        if (bugs.isEmpty()) {
-            doc.add(emptyNote(mutedFont));
-        } else {
+        if (bugs.isEmpty()) { doc.add(emptyNote(mutedFont)); }
+        else {
             PdfPTable bt = new PdfPTable(new float[]{1.2f, 3.5f, 1.2f});
-            bt.setWidthPercentage(100);
-            bt.setSpacingBefore(4);
-            bt.setSpacingAfter(12);
+            bt.setWidthPercentage(100); bt.setSpacingBefore(6); bt.setSpacingAfter(16);
+            bt.setHeaderRows(1);
             addTableHeader(bt, new String[]{"Identificador", "Descripción", "Estatus"}, tHeaderFont);
             for (int i = 0; i < bugs.size(); i++) {
                 RelatedBug bug = bugs.get(i);
-                Color rowBg = i % 2 == 0 ? Color.WHITE : C_ROW_ALT;
-                bt.addCell(tableCell(s(bug.getIdentifier()), tBodyFont, rowBg, Element.ALIGN_LEFT));
-                bt.addCell(tableCell(s(bug.getDescription()), tBodyFont, rowBg, Element.ALIGN_LEFT));
-                bt.addCell(tableCell(s(bug.getBugStatus()), tBodyFont, rowBg, Element.ALIGN_LEFT));
+                Color bg = i % 2 == 0 ? Color.WHITE : C_ROW_ALT;
+                bt.addCell(tableCell(s(bug.getIdentifier()), tBodyFont, bg, Element.ALIGN_LEFT));
+                bt.addCell(tableCell(s(bug.getDescription()), tBodyFont, bg, Element.ALIGN_LEFT));
+                bt.addCell(tableCell(s(bug.getBugStatus()), tBodyFont, bg, Element.ALIGN_CENTER));
             }
             doc.add(bt);
         }
 
-        // ── 8. Conclusiones ───────────────────────────────────────────────
+        // ── 8. Conclusiones ───────────────────────────────────────────
         addSectionHeading(doc, "8. Conclusiones", sectionFont);
         if (notBlank(r.getFinalResult())) {
             boolean cumple = "Cumple".equalsIgnoreCase(r.getFinalResult());
             Color rc = cumple ? C_SUCCESS : C_DANGER;
-            Paragraph rp = new Paragraph("Resultado final del RFC: " + r.getFinalResult(),
-                    new Font(Font.HELVETICA, 13, Font.BOLD, rc));
-            rp.setSpacingBefore(4);
-            rp.setSpacingAfter(8);
-            doc.add(rp);
+            Paragraph rp = new Paragraph("Resultado final: " + r.getFinalResult(),
+                    new Font(Font.HELVETICA, 14, Font.BOLD, rc));
+            rp.setSpacingBefore(4); rp.setSpacingAfter(10); doc.add(rp);
         }
-        addLabelAndText(doc, "Observaciones relevantes:", s(r.getObservations()), labelFont, valueFont, mutedFont);
-        if (notBlank(r.getRisks())) {
-            addLabelAndText(doc, "Riesgos identificados:", s(r.getRisks()), labelFont, valueFont, mutedFont);
-        }
-        if (notBlank(r.getRecommendations())) {
-            addLabelAndText(doc, "Recomendaciones:", s(r.getRecommendations()), labelFont, valueFont, mutedFont);
-        }
+        if (notBlank(r.getObservations())) addLabelAndText(doc, "Observaciones:", s(r.getObservations()), labelFont, valueFont, mutedFont);
+        if (notBlank(r.getRisks())) addLabelAndText(doc, "Riesgos:", s(r.getRisks()), labelFont, valueFont, mutedFont);
+        if (notBlank(r.getRecommendations())) addLabelAndText(doc, "Recomendaciones:", s(r.getRecommendations()), labelFont, valueFont, mutedFont);
 
-        // ── 9. Notas Finales ──────────────────────────────────────────────
-        addSectionHeading(doc, "9. Notas Finales", sectionFont);
-        addBodyText(doc, s(r.getFinalNotes()), valueFont, mutedFont);
+        // ── 9. Notas Finales ──────────────────────────────────────────
+        if (notBlank(r.getFinalNotes())) {
+            addSectionHeading(doc, "9. Notas Finales", sectionFont);
+            addBodyText(doc, s(r.getFinalNotes()), valueFont, mutedFont);
+        }
 
         doc.close();
         return bos.toByteArray();
@@ -478,32 +459,19 @@ public class RfcTechnicalService {
         });
         doc.open();
 
-        Font titleFont   = new Font(Font.HELVETICA, 22, Font.BOLD, C_TEXT);
-        Font purposeFont = new Font(Font.HELVETICA, 9,  Font.ITALIC, C_MUTED);
-        Font sectionFont = new Font(Font.HELVETICA, 12, Font.BOLD, C_PRIMARY);
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        Font sectionFont = new Font(Font.HELVETICA, 13, Font.BOLD, C_PRIMARY);
         Font subSecFont  = new Font(Font.HELVETICA, 10, Font.BOLD, new Color(55, 65, 81));
-        Font labelFont   = new Font(Font.HELVETICA, 9,  Font.BOLD, new Color(55, 65, 81));
-        Font valueFont   = new Font(Font.HELVETICA, 10, Font.NORMAL, C_TEXT);
-        Font tHeaderFont = new Font(Font.HELVETICA, 9,  Font.BOLD, Color.WHITE);
-        Font tBodyFont   = new Font(Font.HELVETICA, 9,  Font.NORMAL, C_TEXT);
-        Font mutedFont   = new Font(Font.HELVETICA, 9,  Font.ITALIC, C_MUTED);
+        Font labelFont   = new Font(Font.HELVETICA, 8.5f, Font.BOLD, new Color(55, 65, 81));
+        Font valueFont   = new Font(Font.HELVETICA, 9.5f, Font.NORMAL, C_TEXT);
+        Font tHeaderFont = new Font(Font.HELVETICA, 8.5f, Font.BOLD, Color.WHITE);
+        Font tBodyFont   = new Font(Font.HELVETICA, 9, Font.NORMAL, C_TEXT);
+        Font mutedFont   = new Font(Font.HELVETICA, 8.5f, Font.ITALIC, C_MUTED);
 
-        // Title
-        Paragraph titleP = new Paragraph("Casos de Prueba", titleFont);
-        titleP.setAlignment(Element.ALIGN_CENTER); titleP.setSpacingAfter(4); doc.add(titleP);
-        Paragraph purposeP = new Paragraph("Documento de casos de prueba del RFC Técnico Final.", purposeFont);
-        purposeP.setAlignment(Element.ALIGN_CENTER); purposeP.setSpacingAfter(2); doc.add(purposeP);
-        addHRule(doc, C_PRIMARY, 1.5f);
-
-        // RFC Info
-        addSectionHeading(doc, "Información del RFC", sectionFont);
-        PdfPTable info = new PdfPTable(new float[]{1f, 2.4f, 1f, 2.4f});
-        info.setWidthPercentage(100); info.setSpacingBefore(4); info.setSpacingAfter(12);
-        addInfoPair(info, "RFC:", s(r.getRfcNumber()), labelFont, valueFont);
-        addInfoPair(info, "Nombre del cambio:", s(r.getChangeName()), labelFont, valueFont);
-        addInfoPair(info, "Fecha de validación:", s(r.getValidationDate()), labelFont, valueFont);
-        addInfoPair(info, "Tester responsable:", s(r.getTesterName()), labelFont, valueFont);
-        doc.add(info);
+        // Cover page
+        addCoverPage(doc, "Casos de Prueba", s(r.getRfcNumber()), s(r.getChangeName()),
+                s(r.getTesterName()), s(r.getValidationDate()), now);
+        doc.newPage();
 
         // Test Cases
         List<TestCase> tcs = orEmpty(r.getTestCases());
@@ -673,6 +641,71 @@ public class RfcTechnicalService {
 
     // ── PDF Helper methods ─────────────────────────────────────────────────
 
+    private void addCoverPage(Document doc, String docType, String rfcNumber, String changeName,
+                              String testerName, String validationDate, String generatedAt) throws DocumentException {
+        // Top spacing
+        doc.add(new Paragraph(" ")); doc.add(new Paragraph(" ")); doc.add(new Paragraph(" "));
+
+        // System name
+        Font sysFont = new Font(Font.HELVETICA, 10, Font.BOLD, C_PRIMARY);
+        Paragraph sys = new Paragraph("RELEASE NOTIFIER QA", sysFont);
+        sys.setAlignment(Element.ALIGN_CENTER); sys.setSpacingAfter(6); doc.add(sys);
+
+        // Separator
+        LineSeparator ls = new LineSeparator(2f, 30f, C_PRIMARY, Element.ALIGN_CENTER, 0);
+        Paragraph sep = new Paragraph(new Chunk(ls));
+        sep.setSpacingAfter(40); doc.add(sep);
+
+        // Document type
+        Font typeFont = new Font(Font.HELVETICA, 28, Font.BOLD, C_TEXT);
+        Paragraph typeP = new Paragraph(docType, typeFont);
+        typeP.setAlignment(Element.ALIGN_CENTER); typeP.setSpacingAfter(16); doc.add(typeP);
+
+        // RFC Number
+        if (notBlank(rfcNumber)) {
+            Font rfcFont = new Font(Font.HELVETICA, 16, Font.NORMAL, C_PRIMARY);
+            Paragraph rfcP = new Paragraph(rfcNumber, rfcFont);
+            rfcP.setAlignment(Element.ALIGN_CENTER); rfcP.setSpacingAfter(8); doc.add(rfcP);
+        }
+
+        // Change name
+        if (notBlank(changeName)) {
+            Font nameFont = new Font(Font.HELVETICA, 12, Font.NORMAL, C_MUTED);
+            Paragraph nameP = new Paragraph(changeName, nameFont);
+            nameP.setAlignment(Element.ALIGN_CENTER); nameP.setSpacingAfter(60); doc.add(nameP);
+        } else {
+            doc.add(new Paragraph(" ")); doc.add(new Paragraph(" "));
+        }
+
+        // Bottom info
+        Font infoLabel = new Font(Font.HELVETICA, 9, Font.BOLD, C_MUTED);
+        Font infoValue = new Font(Font.HELVETICA, 10, Font.NORMAL, C_TEXT);
+
+        PdfPTable coverInfo = new PdfPTable(new float[]{1.5f, 3f});
+        coverInfo.setWidthPercentage(50); coverInfo.setHorizontalAlignment(Element.ALIGN_CENTER);
+        coverInfo.setSpacingBefore(20);
+
+        addCoverRow(coverInfo, "Tester responsable:", testerName, infoLabel, infoValue);
+        addCoverRow(coverInfo, "Fecha de validación:", validationDate, infoLabel, infoValue);
+        addCoverRow(coverInfo, "Generado:", generatedAt, infoLabel, infoValue);
+        doc.add(coverInfo);
+
+        // Footer note
+        doc.add(new Paragraph(" ")); doc.add(new Paragraph(" "));
+        Font footNote = new Font(Font.HELVETICA, 8, Font.ITALIC, C_MUTED);
+        Paragraph fn = new Paragraph("Documento generado automáticamente por Release Notifier QA — Megacable", footNote);
+        fn.setAlignment(Element.ALIGN_CENTER); doc.add(fn);
+    }
+
+    private void addCoverRow(PdfPTable table, String label, String value, Font lf, Font vf) {
+        PdfPCell lc = new PdfPCell(new Phrase(label, lf));
+        lc.setBorder(Rectangle.NO_BORDER); lc.setPaddingBottom(8); lc.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        table.addCell(lc);
+        PdfPCell vc = new PdfPCell(new Phrase(notBlank(value) ? value : "—", vf));
+        vc.setBorder(Rectangle.NO_BORDER); vc.setPaddingBottom(8); vc.setPaddingLeft(8);
+        table.addCell(vc);
+    }
+
     private String s(String v) {
         return v != null && !v.isBlank() ? v.trim() : "";
     }
@@ -695,13 +728,13 @@ public class RfcTechnicalService {
 
     private void addSectionHeading(Document doc, String text, Font font) throws DocumentException {
         Paragraph p = new Paragraph(text, font);
-        p.setSpacingBefore(16);
+        p.setSpacingBefore(20);
         p.setSpacingAfter(0);
         doc.add(p);
-        LineSeparator ls = new LineSeparator(1.5f, 100f, C_PRIMARY, Element.ALIGN_LEFT, -4f);
+        LineSeparator ls = new LineSeparator(1.2f, 100f, C_PRIMARY, Element.ALIGN_LEFT, -4f);
         Paragraph line = new Paragraph(new Chunk(ls));
-        line.setSpacingBefore(2);
-        line.setSpacingAfter(8);
+        line.setSpacingBefore(3);
+        line.setSpacingAfter(10);
         doc.add(line);
     }
 
