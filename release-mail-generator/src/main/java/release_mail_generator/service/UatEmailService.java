@@ -84,12 +84,14 @@ public class UatEmailService {
         html.append("</p>");
 
         // Requerimientos (caja con borde azul)
-        if (notBlank(r.getRequerimientos())) {
-            html.append("<p style=\"margin:0 0 4px 0;\"><b>Requerimientos:</b></p>")
-                .append("<div style=\"border:1px solid #c7d2fe;border-radius:6px;padding:12px 16px;"
-                      + "background:#f0f4ff;margin-bottom:" + (notBlank(r.getRequerimientosImagen()) ? "10px" : "16px") + ";font-size:10.5pt;\">")
-                .append(esc(r.getRequerimientos()).replace("\n", "<br>"))
-                .append("</div>");
+        if (notBlank(r.getRequerimientos()) || notBlank(r.getRequerimientosImagen())) {
+            html.append("<p style=\"margin:0 0 4px 0;\"><b>Requerimientos:</b></p>");
+            if (notBlank(r.getRequerimientos())) {
+                html.append("<div style=\"border:1px solid #c7d2fe;border-radius:6px;padding:12px 16px;"
+                          + "background:#f0f4ff;margin-bottom:" + (notBlank(r.getRequerimientosImagen()) ? "10px" : "16px") + ";font-size:10.5pt;\">")
+                    .append(esc(r.getRequerimientos()).replace("\n", "<br>"))
+                    .append("</div>");
+            }
             if (notBlank(r.getRequerimientosImagen())) {
                 String safeSrc = safeImgSrc(r.getRequerimientosImagen());
                 if (!safeSrc.isEmpty()) {
@@ -196,12 +198,14 @@ public class UatEmailService {
             addPara(doc, r.getAdjunto(), bodyF, 12);
 
         // Requerimientos
-        if (notBlank(r.getRequerimientos())) {
+        if (notBlank(r.getRequerimientos()) || notBlank(r.getRequerimientosImagen())) {
             addPara(doc, "Requerimientos:", boldF, 12);
-            Paragraph reqP = new Paragraph(r.getRequerimientos().trim(), bodyF);
-            reqP.setSpacingAfter(notBlank(r.getRequerimientosImagen()) ? 4 : 12);
-            reqP.setIndentationLeft(12);
-            doc.add(reqP);
+            if (notBlank(r.getRequerimientos())) {
+                Paragraph reqP = new Paragraph(r.getRequerimientos().trim(), bodyF);
+                reqP.setSpacingAfter(notBlank(r.getRequerimientosImagen()) ? 4 : 12);
+                reqP.setIndentationLeft(12);
+                doc.add(reqP);
+            }
             if (notBlank(r.getRequerimientosImagen())) {
                 try {
                     String b64 = r.getRequerimientosImagen();
@@ -300,9 +304,11 @@ public class UatEmailService {
             md.append("  \n").append(r.getAdjunto().trim());
         md.append("\n\n");
 
-        if (notBlank(r.getRequerimientos())) {
+        if (notBlank(r.getRequerimientos()) || notBlank(r.getRequerimientosImagen())) {
             md.append("**Requerimientos:**\n\n");
-            md.append("> ").append(r.getRequerimientos().trim().replace("\n", "\n> ")).append("\n\n");
+            if (notBlank(r.getRequerimientos())) {
+                md.append("> ").append(r.getRequerimientos().trim().replace("\n", "\n> ")).append("\n\n");
+            }
             if (notBlank(r.getRequerimientosImagen())) md.append("_[Imagen de requerimientos adjunta]_\n\n");
         }
 

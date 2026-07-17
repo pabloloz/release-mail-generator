@@ -954,64 +954,84 @@
         }
 
         // ── VoBo UAT ───────────────────────────────────────────────────────
-        function addUatBlock() {
-            const container = document.getElementById('uatBlocks');
-            const div = document.createElement('div');
-            div.className = 'uat-block';
-            div.innerHTML = `
-                <div class="d-flex gap-3 align-items-start">
-                    <textarea class="form-control block-texto" rows="3"
-                              placeholder="Escribe un ejemplo, paso o descripci&#xF3;n de evidencia..."></textarea>
-                    <div class="d-flex flex-column gap-2" style="flex-shrink:0;">
-                        <label class="btn-add-uat" style="cursor:pointer;white-space:nowrap;" title="Adjuntar imagen de evidencia">
-                            &#x1F4CE; Imagen
-                            <input type="file" class="block-file-input" accept="image/*" style="display:none;" onchange="handleUatBlockImage(this)">
-                        </label>
-                        <input type="hidden" class="block-image-data" value="">
-                        <button type="button" class="btn-remove-rdl" onclick="removeUatBlock(this)">&#x2715; Quitar</button>
-                    </div>
-                </div>
-                <div class="block-img-preview mt-2" style="display:none;">
-                    <img class="block-img" style="max-width:100%;max-height:320px;border:1px solid var(--border);border-radius:6px;display:block;">
-                    <button type="button" onclick="clearUatBlockImage(this)" class="btn-remove-rdl mt-1" style="font-size:.75rem;">&#x2715; Quitar imagen</button>
-                </div>`;
-            container.appendChild(div);
-            document.getElementById('uatBlocksHint').style.display = 'none';
+
+        // ── Image utilities ──────────────────────────────────────────────
+        const UAT_MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB raw file
+        const UAT_MAX_WIDTH = 1200;
+        const UAT_JPEG_QUALITY = 0.75;
+        const UAT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif'];
+
+        function validateImageFile(file) {
+            if (!file) return 'No se seleccionó archivo.';
+            if (!UAT_ALLOWED_TYPES.includes(file.type)) return 'Formato no soportado. Use PNG, JPG o GIF.';
+            if (file.size > UAT_MAX_IMAGE_SIZE) return 'La imagen excede 5 MB. Elija una más pequeña.';
+            return null;
         }
-        function handleUatBlockImage(input) {
+
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const err = validateImageFile(file);
+                if (err) { reject(new Error(err)); return; }
+                if (file.type === 'image/gif') {
+                    // GIFs: no compress, read as-is
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.onerror = () => reject(new Error('Error al leer imagen'));
+                    reader.readAsDataURL(file);
+                    return;
+                }
+                const img = new window.Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    let w = img.naturalWidth, h = img.naturalHeight;
+                    if (w > UAT_MAX_WIDTH) { h = Math.round(h * UAT_MAX_WIDTH / w); w = UAT_MAX_WIDTH; }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+                    const quality = mime === 'image/jpeg' ? UAT_JPEG_QUALITY : undefined;
+                    resolve(canvas.toDataURL(mime, quality));
+                };
+                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Imagen corrupta o no válida')); };
+                img.src = url;
+            });
+        }
+
+        function compressDataUri(dataUri) {
+            return new Promise((resolve, reject) => {
+                if (!dataUri || !dataUri.startsWith('data:image/')) { reject(new Error('No es imagen')); return; }
+                if (dataUri.startsWith('data:image/gif')) { resolve(dataUri); return; }
+                const img = new window.Image();
+                img.onload = () => {
+                    let w = img.naturalWidth, h = img.naturalHeight;
+                    if (w > UAT_MAX_WIDTH) { h = Math.round(h * UAT_MAX_WIDTH / w); w = UAT_MAX_WIDTH; }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    const mime = dataUri.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+                    resolve(canvas.toDataURL(mime, mime === 'image/jpeg' ? UAT_JPEG_QUALITY : undefined));
+                };
+                img.onerror = () => reject(new Error('Imagen no válida'));
+                img.src = dataUri;
+            });
+        }
+
+        // ── Requerimientos image ─────────────────────────────────────────
+        async function handleReqImage(input) {
             if (!input.files || !input.files[0]) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const block = input.closest('.uat-block');
-                block.querySelector('.block-image-data').value = e.target.result;
-                block.querySelector('.block-img').src = e.target.result;
-                block.querySelector('.block-img-preview').style.display = '';
-            };
-            reader.readAsDataURL(input.files[0]);
+            try {
+                const dataUri = await compressImage(input.files[0]);
+                setReqImage(dataUri, input.files[0].name);
+            } catch (e) { showToast(e.message, 'error'); }
         }
-        function clearUatBlockImage(btn) {
-            const block = btn.closest('.uat-block');
-            block.querySelector('.block-image-data').value = '';
-            block.querySelector('.block-img').src = '';
-            block.querySelector('.block-img-preview').style.display = 'none';
-            block.querySelector('.block-file-input').value = '';
-        }
-        function removeUatBlock(btn) {
-            btn.closest('.uat-block').remove();
-            if (!document.querySelector('#uatBlocks .uat-block'))
-                document.getElementById('uatBlocksHint').style.display = '';
-        }
-        function handleReqImage(input) {
-            if (!input.files || !input.files[0]) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('reqImageData').value = e.target.result;
-                document.getElementById('reqImageImg').src    = e.target.result;
-                document.getElementById('reqImageName').textContent = input.files[0].name;
-                document.getElementById('reqImagePreview').style.display = '';
-                document.getElementById('reqImageClear').style.display  = '';
-            };
-            reader.readAsDataURL(input.files[0]);
+        function setReqImage(dataUri, name) {
+            document.getElementById('reqImageData').value = dataUri;
+            document.getElementById('reqImageImg').src    = dataUri;
+            document.getElementById('reqImageName').textContent = name || 'Imagen pegada';
+            document.getElementById('reqImagePreview').style.display = '';
+            document.getElementById('reqImageClear').style.display  = '';
         }
         function clearReqImage() {
             document.getElementById('reqImageData').value  = '';
@@ -1021,6 +1041,169 @@
             document.getElementById('reqImagePreview').style.display = 'none';
             document.getElementById('reqImageClear').style.display  = 'none';
         }
+        function handleReqDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                compressImage(file).then(uri => setReqImage(uri, file.name)).catch(err => showToast(err.message, 'error'));
+            }
+        }
+        // Paste support for req image drop zone
+        document.addEventListener('DOMContentLoaded', () => {
+            const dropZone = document.getElementById('reqImageDropZone');
+            if (dropZone) {
+                dropZone.addEventListener('paste', async (e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (const item of items) {
+                        if (item.type.startsWith('image/')) {
+                            e.preventDefault();
+                            const file = item.getAsFile();
+                            try { const uri = await compressImage(file); setReqImage(uri, 'Imagen pegada'); }
+                            catch (err) { showToast(err.message, 'error'); }
+                            return;
+                        }
+                    }
+                });
+                dropZone.setAttribute('tabindex', '0');
+            }
+        });
+
+        // ── Rich Editor (Ejemplos/Evidencias) ────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            const editor = document.getElementById('uatRichEditor');
+            if (!editor) return;
+
+            // Paste handler — intercept images from clipboard
+            editor.addEventListener('paste', async (e) => {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                for (const item of items) {
+                    if (item.type.startsWith('image/')) {
+                        e.preventDefault();
+                        const file = item.getAsFile();
+                        try {
+                            const uri = await compressImage(file);
+                            insertImageInEditor(uri);
+                        } catch (err) { showToast(err.message, 'error'); }
+                        return;
+                    }
+                }
+                // Allow normal text paste
+            });
+
+            // Drag & drop handler
+            editor.addEventListener('dragover', (e) => { e.preventDefault(); editor.classList.add('dragover'); });
+            editor.addEventListener('dragleave', () => editor.classList.remove('dragover'));
+            editor.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                editor.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                for (const file of files) {
+                    if (file.type.startsWith('image/')) {
+                        try {
+                            const uri = await compressImage(file);
+                            insertImageInEditor(uri);
+                        } catch (err) { showToast(err.message, 'error'); }
+                    }
+                }
+            });
+
+            // Ensure Enter creates paragraphs
+            editor.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    document.execCommand('insertParagraph', false);
+                }
+            });
+        });
+
+        function insertImageInEditor(dataUri) {
+            const editor = document.getElementById('uatRichEditor');
+            editor.focus();
+            const img = document.createElement('img');
+            img.src = dataUri;
+            img.style.cssText = 'max-width:100%;height:auto;display:block;margin:8px 0;border-radius:6px;border:1px solid var(--border);';
+            img.setAttribute('data-uat-image', 'true');
+            // Insert at cursor position
+            const sel = window.getSelection();
+            if (sel.rangeCount) {
+                const range = sel.getRangeAt(0);
+                range.deleteContents();
+                range.insertNode(img);
+                // Move cursor after image
+                range.setStartAfter(img);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            } else {
+                editor.appendChild(img);
+            }
+            // Add a new paragraph after image for continued typing
+            const p = document.createElement('p');
+            p.innerHTML = '<br>';
+            img.after(p);
+        }
+
+        async function insertEditorImageFromFile(input) {
+            if (!input.files || !input.files[0]) return;
+            try {
+                const uri = await compressImage(input.files[0]);
+                insertImageInEditor(uri);
+            } catch (e) { showToast(e.message, 'error'); }
+            input.value = '';
+        }
+
+        // ── Collect editor content into blocks ───────────────────────────
+        function collectEditorBlocks() {
+            const editor = document.getElementById('uatRichEditor');
+            if (!editor) return [];
+            const blocks = [];
+            let currentText = '';
+
+            function flushText() {
+                const t = currentText.trim();
+                if (t) blocks.push({ texto: t, imagenBase64: '' });
+                currentText = '';
+            }
+
+            function walkNodes(parent) {
+                for (const node of parent.childNodes) {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        currentText += node.textContent;
+                    } else if (node.nodeName === 'IMG') {
+                        const src = node.getAttribute('src') || '';
+                        if (src.startsWith('data:image/')) {
+                            // Text before image becomes a block, then image becomes a block
+                            const t = currentText.trim();
+                            if (t) {
+                                blocks.push({ texto: t, imagenBase64: src });
+                                currentText = '';
+                            } else {
+                                blocks.push({ texto: '', imagenBase64: src });
+                            }
+                        }
+                    } else if (node.nodeName === 'BR') {
+                        currentText += '\n';
+                    } else if (['P', 'DIV'].includes(node.nodeName)) {
+                        if (currentText.trim()) currentText += '\n';
+                        walkNodes(node);
+                        currentText += '\n';
+                    } else {
+                        walkNodes(node);
+                    }
+                }
+            }
+
+            walkNodes(editor);
+            flushText();
+            return blocks;
+        }
+
+        // ── Legacy functions kept for backward compat ────────────────────
+        function addUatBlock() { /* no-op: replaced by rich editor */ }
+
         function formatUatRfcNumber(value) {
             const raw = (value || '').trim();
             if (!raw) return '';
@@ -1028,10 +1211,7 @@
             return withoutPrefix ? `RFC ${withoutPrefix}` : 'RFC';
         }
         function collectUatData() {
-            const blocks = [...document.querySelectorAll('#uatBlocks .uat-block')].map(div => ({
-                texto:        div.querySelector('.block-texto')?.value      || '',
-                imagenBase64: div.querySelector('.block-image-data')?.value || ''
-            }));
+            const blocks = collectEditorBlocks();
             return {
                 rfcNumber:      formatUatRfcNumber(document.getElementById('uatRfcNumber').value),
                 rfcName:        document.getElementById('uatRfcName').value,
@@ -1079,18 +1259,30 @@
         async function copyUatEmail() {
             const el = document.getElementById('uatEmailPreview');
             try {
-                const htmlBlob = new Blob([el.innerHTML], {type:'text/html'});
+                const htmlContent = el.innerHTML;
+                const htmlBlob = new Blob([htmlContent], {type:'text/html'});
                 const textBlob = new Blob([el.innerText],  {type:'text/plain'});
                 await navigator.clipboard.write([new ClipboardItem({'text/html':htmlBlob,'text/plain':textBlob})]);
-            } catch { await navigator.clipboard.writeText(el.innerText); }
+            } catch (err) {
+                // Fallback: use execCommand for browsers that block clipboard API
+                try {
+                    const range = document.createRange();
+                    range.selectNodeContents(el);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                    document.execCommand('copy');
+                    sel.removeAllRanges();
+                } catch { await navigator.clipboard.writeText(el.innerText); }
+            }
             showToast('\u2714 Correo VoBo UAT copiado al portapapeles', 'success');
         }
         function clearUatForm() {
             ['uatRfcNumber','uatRfcName','uatAdjunto','uatRequerimientos','uatNota'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); clearReqImage();
             document.getElementById('uatSaludo').value = 'Buenas tardes.';
             document.getElementById('uatCierre').value = 'Quedo pendiente por cualquier duda o comentario.';
-            document.getElementById('uatBlocks').innerHTML = '';
-            document.getElementById('uatBlocksHint').style.display = '';
+            const editor = document.getElementById('uatRichEditor');
+            if (editor) editor.innerHTML = '';
             document.getElementById('uatEmailSection').style.display = 'none';
         }
     </script>
@@ -1526,6 +1718,78 @@
             border-radius: var(--radius-xs); padding: 14px 16px; margin-bottom: 8px;
         }
         .uat-block .block-img-preview { padding-top: 4px; }
+
+        /* ── Rich Editor for UAT ─────────────────────────────────── */
+        .uat-rich-editor {
+            min-height: 180px;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-xs);
+            padding: 14px 16px;
+            font-size: .875rem;
+            font-family: inherit;
+            color: var(--text);
+            background: white;
+            line-height: 1.65;
+            outline: none;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .uat-rich-editor:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-ring);
+        }
+        .uat-rich-editor.dragover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+            box-shadow: 0 0 0 3px var(--primary-ring);
+        }
+        .uat-rich-editor:empty::before {
+            content: attr(placeholder);
+            color: #94a3b8;
+            font-size: .82rem;
+            pointer-events: none;
+        }
+        .uat-rich-editor img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+        .uat-rich-editor p {
+            margin: 0 0 8px 0;
+        }
+        .uat-editor-hints {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 8px;
+            font-size: .72rem;
+            color: var(--text-muted);
+        }
+        .uat-drop-zone {
+            border: 1.5px dashed #93c5fd;
+            border-radius: var(--radius-xs);
+            padding: 10px;
+            text-align: center;
+            font-size: .78rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+            transition: background .15s, border-color .15s;
+            cursor: pointer;
+        }
+        .uat-drop-zone:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+        .uat-drop-zone.dragover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
 
         /* ── App Layout ──────────────────────────────────────────────── */
         .app-layout { display: flex; min-height: 100vh; }
@@ -2330,7 +2594,7 @@
             <div class="d-flex align-items-center gap-2 mt-2">
                 <label class="btn-add-uat" style="cursor:pointer;">
                     &#x1F4CE; Agregar imagen
-                    <input type="file" id="reqImageFile" accept="image/*" style="display:none;" onchange="handleReqImage(this)">
+                    <input type="file" id="reqImageFile" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="handleReqImage(this)">
                 </label>
                 <input type="hidden" id="reqImageData" value="">
                 <span id="reqImageName" class="text-muted" style="font-size:.8rem;"></span>
@@ -2339,20 +2603,31 @@
             <div id="reqImagePreview" style="display:none;margin-top:8px;">
                 <img id="reqImageImg" style="max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:6px;display:block;">
             </div>
+            <!-- Paste / Drop zone for Requerimientos image -->
+            <div id="reqImageDropZone" class="uat-drop-zone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleReqDrop(event)">
+                &#x1F4CB; Pega (Ctrl+V) o arrastra una imagen aqu&#xED;
+            </div>
         </div>
 
-        <!-- BLOQUES LIBRES (ejemplos / pasos / evidencias) -->
+        <!-- EDITOR RICO DE EVIDENCIAS (reemplaza bloques) -->
         <div class="section-block">
             <div class="section-label d-flex justify-content-between align-items-center">
                 <span>&#x1F4DD; Ejemplos / Pasos / Evidencias
                     <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.7rem;">(opcional)</span>
                 </span>
-                <button type="button" class="btn-add-uat" onclick="addUatBlock()">&#x2b; Agregar bloque</button>
+                <label class="btn-add-uat" style="cursor:pointer;white-space:nowrap;">
+                    &#x1F4CE; Insertar imagen
+                    <input type="file" id="uatEditorFileInput" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
+                </label>
             </div>
-            <div id="uatBlocks"></div>
-            <p id="uatBlocksHint" class="text-muted mb-0" style="font-size:.82rem;">
-                Agrega bloques libres de texto con evidencias (im&#xE1;genes). Cada bloque es un p&#xE1;rrafo en el correo.
-            </p>
+            <div id="uatRichEditor" contenteditable="true" class="uat-rich-editor"
+                 placeholder="Escribe ejemplos, pasos o evidencias. Puedes pegar im&#xE1;genes con Ctrl+V o arrastrarlas aqu&#xED;..."></div>
+            <div class="uat-editor-hints">
+                <span>&#x2328;&#xFE0F; Escribe texto</span>
+                <span>&#x1F4CB; Ctrl+V para pegar im&#xE1;genes</span>
+                <span>&#x1F5BC;&#xFE0F; Arrastra im&#xE1;genes</span>
+                <span>&#x1F4CE; Bot&#xF3;n para seleccionar archivos</span>
+            </div>
         </div>
 
         <!-- NOTA -->
