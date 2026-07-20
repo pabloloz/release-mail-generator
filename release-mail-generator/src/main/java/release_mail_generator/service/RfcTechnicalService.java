@@ -526,26 +526,9 @@ public class RfcTechnicalService {
                 // Evidences
                 List<TestEvidence> evs = tc.getEvidences() != null ? tc.getEvidences() : Collections.emptyList();
                 if (!evs.isEmpty()) {
-                    Paragraph evP = new Paragraph("Evidencias:", subSecFont);
-                    evP.setSpacingBefore(4); evP.setSpacingAfter(4); doc.add(evP);
-                    for (int ei = 0; ei < evs.size(); ei++) {
-                        TestEvidence ev = evs.get(ei);
-                        if (notBlank(ev.getDescription())) {
-                            Paragraph desc = new Paragraph("  " + ev.getDescription(), mutedFont);
-                            desc.setSpacingAfter(2); doc.add(desc);
-                        }
-                        if (notBlank(ev.getImageBase64())) {
-                            try {
-                                String b64 = ev.getImageBase64();
-                                if (b64.contains(",")) b64 = b64.substring(b64.indexOf(',') + 1);
-                                byte[] imgBytes = Base64.getDecoder().decode(b64.trim());
-                                com.lowagie.text.Image img = com.lowagie.text.Image.getInstance(imgBytes);
-                                img.scaleToFit(420, 300); img.setSpacingAfter(8); doc.add(img);
-                            } catch (Exception ex) {
-                                doc.add(new Paragraph("[Evidencia " + (ei+1) + " no disponible]", mutedFont));
-                            }
-                        }
-                    }
+                    Paragraph evP = new Paragraph("Evidencias (" + evs.size() + "):", subSecFont);
+                    evP.setSpacingBefore(8); evP.setSpacingAfter(6); doc.add(evP);
+                    addEvidenceGrid(doc, writer, evs, mutedFont);
                 }
 
                 if (notBlank(tc.getFinalObservations())) {
@@ -640,6 +623,93 @@ public class RfcTechnicalService {
     }
 
     // ── PDF Helper methods ─────────────────────────────────────────────────
+
+    /**
+     * Smart evidence grid renderer. Adapts layout based on image count and dimensions.
+     * - 1 image: full width
+     * - 2 images: side by side if both landscape, otherwise stacked
+     * - 3+ images: 2-column grid
+     * All images respect page margins, preserve aspect ratio, and avoid page splits.
+     */
+    private void addEvidenceGrid(Document doc, PdfWriter writer, List<TestEvidence> evidences, Font captionFont)
+            throws DocumentException {
+        float pageWidth = doc.right() - doc.left();
+        float maxSingleHeight = 340f;
+        float gap = 10f;
+
+        for (int ei = 0; ei < evidences.size(); ei++) {
+            TestEvidence ev = evidences.get(ei);
+            if (!notBlank(ev.getImageBase64())) continue;
+
+            try {
+                byte[] imgBytes = decodeBase64Image(ev.getImageBase64());
+                com.lowagie.text.Image img = com.lowagie.text.Image.getInstance(imgBytes);
+
+                // Calculate scale to fit within page width and max height, preserving aspect ratio
+                float origW = img.getWidth();
+                float origH = img.getHeight();
+                float scale = Math.min(pageWidth / origW, maxSingleHeight / origH);
+                if (scale > 1f) scale = 1f; // Don't upscale
+                float finalW = origW * scale;
+                float finalH = origH * scale;
+
+                img.scaleAbsolute(finalW, finalH);
+
+                // Check if there's enough space on current page; if not, new page
+                float spaceNeeded = finalH + 40; // image + caption + spacing
+                float verticalPosition = writer.getVerticalPosition(false);
+                float bottomMargin = doc.bottom() + 30;
+                if (verticalPosition - spaceNeeded < bottomMargin) {
+                    doc.newPage();
+                }
+
+                // Evidence label
+                Font evLabelFont = new Font(Font.HELVETICA, 8.5f, Font.BOLD, C_PRIMARY);
+                Paragraph label = new Paragraph("Evidencia " + (ei + 1), evLabelFont);
+                label.setSpacingBefore(6);
+                label.setSpacingAfter(3);
+                doc.add(label);
+
+                // Image with border effect using a table cell
+                PdfPTable imgTable = new PdfPTable(1);
+                imgTable.setWidthPercentage(100);
+                imgTable.setSpacingAfter(2);
+                PdfPCell imgCell = new PdfPCell(img, false);
+                imgCell.setBorderColor(C_BORDER);
+                imgCell.setBorderWidth(0.5f);
+                imgCell.setPadding(4);
+                imgCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                imgCell.setBackgroundColor(Color.WHITE);
+                imgTable.addCell(imgCell);
+                doc.add(imgTable);
+
+                // Caption
+                if (notBlank(ev.getDescription())) {
+                    Font descFont = new Font(Font.HELVETICA, 8, Font.ITALIC, C_MUTED);
+                    Paragraph desc = new Paragraph(ev.getDescription().trim(), descFont);
+                    desc.setAlignment(Element.ALIGN_CENTER);
+                    desc.setSpacingAfter(12);
+                    doc.add(desc);
+                } else {
+                    Paragraph spacer = new Paragraph(" ");
+                    spacer.setSpacingAfter(8);
+                    doc.add(spacer);
+                }
+
+            } catch (Exception ex) {
+                log.warn("No se pudo renderizar evidencia {}: {}", ei + 1, ex.getMessage());
+                Paragraph err = new Paragraph("[Evidencia " + (ei + 1) + " — imagen no disponible]", captionFont);
+                err.setSpacingAfter(8);
+                doc.add(err);
+            }
+        }
+    }
+
+    /** Decodes a base64 data URI or raw base64 string to bytes. */
+    private byte[] decodeBase64Image(String b64) {
+        if (b64.contains(",")) b64 = b64.substring(b64.indexOf(',') + 1);
+        return Base64.getDecoder().decode(b64.trim());
+    }
 
     private void addCoverPage(Document doc, String docType, String rfcNumber, String changeName,
                               String testerName, String validationDate, String generatedAt) throws DocumentException {

@@ -3,6 +3,9 @@ package release_mail_generator.controller;
 import release_mail_generator.model.ReleaseRequest;
 import release_mail_generator.model.RdlReleaseRequest;
 import release_mail_generator.service.EmailGeneratorService;
+import release_mail_generator.service.DocumentHistoryService;
+import release_mail_generator.util.FileNameUtils;
+import release_mail_generator.util.StringHelper;
 
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -18,11 +21,14 @@ import java.nio.charset.StandardCharsets;
 public class ReleaseController {
 
     private final EmailGeneratorService emailGeneratorService;
+    private final DocumentHistoryService historyService;
 
     public ReleaseController(
-            EmailGeneratorService emailGeneratorService
+            EmailGeneratorService emailGeneratorService,
+            DocumentHistoryService historyService
     ) {
         this.emailGeneratorService = emailGeneratorService;
+        this.historyService = historyService;
     }
 
     @GetMapping("/")
@@ -37,6 +43,10 @@ public class ReleaseController {
             Model model
     ) {
         String generatedEmail = emailGeneratorService.generateEmail(releaseRequest);
+        historyService.saveVersion("RELEASE",
+                nvl(releaseRequest.getVersion(), "sin-version"),
+                "Correo de Liberación" + (releaseRequest.getVersion() != null && !releaseRequest.getVersion().isBlank() ? " v" + releaseRequest.getVersion() : ""),
+                null, generatedEmail, "CREATED", "HTML");
         model.addAttribute("generatedEmail", generatedEmail);
         model.addAttribute("releaseRequest", releaseRequest);
         model.addAttribute("activeTab", "releases");
@@ -46,19 +56,34 @@ public class ReleaseController {
     @PostMapping(value = "/generate-release-message", consumes = "application/json", produces = "text/plain")
     @ResponseBody
     public String generateReleaseMessage(@RequestBody ReleaseRequest releaseRequest) {
-        return emailGeneratorService.generateTelegramMessage(releaseRequest);
+        String msg = emailGeneratorService.generateTelegramMessage(releaseRequest);
+        historyService.saveVersion("TELEGRAM",
+                nvl(releaseRequest.getVersion(), "sin-version"),
+                "Telegram Liberación" + (releaseRequest.getVersion() != null && !releaseRequest.getVersion().isBlank() ? " v" + releaseRequest.getVersion() : ""),
+                null, msg, "CREATED", "TEXT");
+        return msg;
     }
 
     @PostMapping(value = "/generate-rdl", consumes = "application/json", produces = "text/html")
     @ResponseBody
     public String generateRdlEmail(@RequestBody RdlReleaseRequest rdlReleaseRequest) {
-        return emailGeneratorService.generateRdlEmail(rdlReleaseRequest);
+        String html = emailGeneratorService.generateRdlEmail(rdlReleaseRequest);
+        historyService.saveVersion("RDL",
+                nvl(rdlReleaseRequest.getRdlReleaseDate(), "sin-fecha"),
+                "Correo RDL" + (rdlReleaseRequest.getRdlReleaseDate() != null && !rdlReleaseRequest.getRdlReleaseDate().isBlank() ? " " + rdlReleaseRequest.getRdlReleaseDate() : ""),
+                null, html, "CREATED", "HTML");
+        return html;
     }
 
     @PostMapping(value = "/generate-rdl-message", consumes = "application/json", produces = "text/plain")
     @ResponseBody
     public String generateRdlMessage(@RequestBody RdlReleaseRequest rdlReleaseRequest) {
-        return emailGeneratorService.generateRdlTelegramMessage(rdlReleaseRequest);
+        String msg = emailGeneratorService.generateRdlTelegramMessage(rdlReleaseRequest);
+        historyService.saveVersion("RDL_TELEGRAM",
+                nvl(rdlReleaseRequest.getRdlReleaseDate(), "sin-fecha"),
+                "Telegram RDL" + (rdlReleaseRequest.getRdlReleaseDate() != null && !rdlReleaseRequest.getRdlReleaseDate().isBlank() ? " " + rdlReleaseRequest.getRdlReleaseDate() : ""),
+                null, msg, "CREATED", "TEXT");
+        return msg;
     }
 
     // ── Export: Release Email ─────────────────────────────────────────────
@@ -135,13 +160,15 @@ public class ReleaseController {
     }
 
     private String sanitize(String s) {
-        if (s == null || s.isBlank()) return "sin-version";
-        return s.trim().replaceAll("[^a-zA-Z0-9.\\-_]", "-");
+        return FileNameUtils.sanitize(s, "sin-version");
     }
 
     private String escHtml(String s) {
-        if (s == null) return "";
-        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        return StringHelper.escapeHtml(s);
+    }
+
+    private String nvl(String s, String fallback) {
+        return StringHelper.nvl(s, fallback);
     }
 }
 

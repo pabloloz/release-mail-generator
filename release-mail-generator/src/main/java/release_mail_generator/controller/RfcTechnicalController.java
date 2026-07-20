@@ -8,6 +8,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import release_mail_generator.model.RfcTechnicalRecord;
 import release_mail_generator.service.RfcTechnicalService;
+import release_mail_generator.service.DocumentHistoryService;
+import release_mail_generator.util.FileNameUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -17,9 +19,11 @@ import java.util.Map;
 public class RfcTechnicalController {
 
     private final RfcTechnicalService rfcService;
+    private final DocumentHistoryService historyService;
 
-    public RfcTechnicalController(RfcTechnicalService rfcService) {
+    public RfcTechnicalController(RfcTechnicalService rfcService, DocumentHistoryService historyService) {
         this.rfcService = rfcService;
+        this.historyService = historyService;
     }
 
     @GetMapping
@@ -62,7 +66,12 @@ public class RfcTechnicalController {
     @ResponseBody
     public ResponseEntity<Map<String, String>> save(@RequestBody RfcTechnicalRecord record) {
         try {
+            boolean isNew = record.getId() == null || record.getId().isBlank();
             RfcTechnicalRecord saved = rfcService.save(record);
+            String content = "RFC " + saved.getRfcNumber() + " — " + saved.getChangeName();
+            historyService.saveVersion("RFC", saved.getRfcNumber(),
+                    content, saved.getTesterName(), content,
+                    isNew ? "CREATED" : "MODIFIED", "HTML");
             return ResponseEntity.ok(Map.of(
                     "id",       saved.getId(),
                     "redirect", "/rfc/" + saved.getId()
@@ -172,7 +181,6 @@ public class RfcTechnicalController {
     }
 
     private String sanitize(String s) {
-        if (s == null || s.isBlank()) return "RFC";
-        return s.replaceAll("[^a-zA-Z0-9_\\-]", "_");
+        return FileNameUtils.sanitize(s, "RFC");
     }
 }

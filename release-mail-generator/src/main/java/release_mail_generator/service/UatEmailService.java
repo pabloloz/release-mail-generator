@@ -207,18 +207,8 @@ public class UatEmailService {
                 doc.add(reqP);
             }
             if (notBlank(r.getRequerimientosImagen())) {
-                try {
-                    String b64 = r.getRequerimientosImagen();
-                    if (b64.contains(",")) b64 = b64.substring(b64.indexOf(',') + 1);
-                    byte[] imgBytes = Base64.getDecoder().decode(b64.trim());
-                    Image img = Image.getInstance(imgBytes);
-                    img.scaleToFit(400, 280);
-                    img.setIndentationLeft(12); img.setSpacingAfter(12);
-                    doc.add(img);
-                } catch (Exception ex) {
-                    log.warn("No se pudo incrustar imagen de requerimientos en PDF: {}", ex.getMessage());
-                    addPara(doc, "[Imagen de requerimientos no disponible]", mutF, 12);
-                }
+                float pageW = doc.right() - doc.left();
+                addSmartImage(doc, writer, r.getRequerimientosImagen(), pageW, 320, 12);
             }
         }
 
@@ -233,19 +223,8 @@ public class UatEmailService {
                 addPara(doc, block.getTexto().trim(), bodyF, 8);
             }
             if (notBlank(block.getImagenBase64())) {
-                try {
-                    String b64 = block.getImagenBase64();
-                    if (b64.contains(",")) b64 = b64.substring(b64.indexOf(',') + 1);
-                    byte[] imgBytes = Base64.getDecoder().decode(b64.trim());
-                    Image img = Image.getInstance(imgBytes);
-                    img.scaleToFit(450, 320);
-                    img.setSpacingBefore(6);
-                    img.setSpacingAfter(12);
-                    doc.add(img);
-                } catch (Exception ex) {
-                    log.warn("No se pudo incrustar imagen de evidencia {} en PDF: {}", evidenciaNum, ex.getMessage());
-                    addPara(doc, "[Imagen de evidencia " + evidenciaNum + " no disponible en PDF]", mutF, 8);
-                }
+                float pageW = doc.right() - doc.left();
+                addSmartImage(doc, writer, block.getImagenBase64(), pageW, 360, 0);
                 evidenciaNum++;
             }
         }
@@ -264,18 +243,8 @@ public class UatEmailService {
             Paragraph sp = new Paragraph((i + 1) + ". " + stepTexts[i], bodyF);
             sp.setIndentationLeft(20); sp.setSpacingAfter(notBlank(stepImages[i]) ? 4 : 3); doc.add(sp);
             if (notBlank(stepImages[i])) {
-                try {
-                    String b64 = stepImages[i];
-                    if (b64.contains(",")) b64 = b64.substring(b64.indexOf(',') + 1);
-                    byte[] imgBytes = Base64.getDecoder().decode(b64.trim());
-                    Image img = Image.getInstance(imgBytes);
-                    img.scaleToFit(400, 280);
-                    img.setIndentationLeft(30); img.setSpacingAfter(8);
-                    doc.add(img);
-                } catch (Exception ex) {
-                    log.warn("No se pudo incrustar imagen del paso {} en PDF: {}", i + 1, ex.getMessage());
-                    addPara(doc, "[Imagen del paso " + (i + 1) + " no disponible]", mutF, 4);
-                }
+                float pageW = doc.right() - doc.left();
+                addSmartImage(doc, writer, stepImages[i], pageW, 280, 30);
             }
         }
 
@@ -377,5 +346,30 @@ public class UatEmailService {
         Paragraph p = new Paragraph(new Chunk(ls));
         p.setSpacingBefore(4); p.setSpacingAfter(12);
         doc.add(p);
+    }
+    /** Smart image scaling: fits within available page width and max height, preserves aspect ratio. */
+    private void addSmartImage(Document doc, PdfWriter writer, String base64, float maxW, float maxH, float indent) {
+        try {
+            String b64 = base64;
+            if (b64.contains(",")) b64 = b64.substring(b64.indexOf(',') + 1);
+            byte[] imgBytes = Base64.getDecoder().decode(b64.trim());
+            Image img = Image.getInstance(imgBytes);
+            float origW = img.getWidth(), origH = img.getHeight();
+            float availW = maxW - indent;
+            float scale = Math.min(availW / origW, maxH / origH);
+            if (scale > 1f) scale = 1f;
+            img.scaleAbsolute(origW * scale, origH * scale);
+            // Page break if not enough space
+            float spaceNeeded = origH * scale + 20;
+            float vertPos = writer.getVerticalPosition(false);
+            if (vertPos - spaceNeeded < doc.bottom() + 20) doc.newPage();
+            if (indent > 0) img.setIndentationLeft(indent);
+            img.setSpacingAfter(10);
+            doc.add(img);
+        } catch (Exception ex) {
+            log.warn("No se pudo incrustar imagen en PDF: {}", ex.getMessage());
+            try { addPara(doc, "[Imagen no disponible]",
+                    new Font(Font.HELVETICA, 9, Font.ITALIC, C_MUTED), 8); } catch (Exception ignored) {}
+        }
     }
 }

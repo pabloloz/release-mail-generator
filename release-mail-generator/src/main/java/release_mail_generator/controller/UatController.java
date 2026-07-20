@@ -2,7 +2,9 @@ package release_mail_generator.controller;
 
 import release_mail_generator.model.UatRequest;
 import release_mail_generator.service.UatEmailService;
-import org.springframework.beans.factory.annotation.Autowired;
+import release_mail_generator.service.DocumentHistoryService;
+import release_mail_generator.util.FileNameUtils;
+import release_mail_generator.util.StringHelper;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -13,14 +15,18 @@ import org.springframework.web.bind.annotation.*;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Controlador VoBo UAT — version ligera (sin persistencia).
- * El formulario vive como tab embebido en index.html.
+ * Controlador VoBo UAT.
  */
 @Controller
 public class UatController {
 
-    @Autowired
-    private UatEmailService uatEmailService;
+    private final UatEmailService uatEmailService;
+    private final DocumentHistoryService historyService;
+
+    public UatController(UatEmailService uatEmailService, DocumentHistoryService historyService) {
+        this.uatEmailService = uatEmailService;
+        this.historyService = historyService;
+    }
 
     /** Redirige /uat al inicio (el tab vive en index.html). */
     @GetMapping("/uat")
@@ -32,7 +38,12 @@ public class UatController {
     @PostMapping("/generate-uat")
     @ResponseBody
     public String generateUat(@RequestBody UatRequest r) {
-        return uatEmailService.generateEmail(r);
+        String html = uatEmailService.generateEmail(r);
+        String ref = (r.getRfcNumber() != null && !r.getRfcNumber().isBlank()) ? r.getRfcNumber().trim() : "";
+        String rfcName = (r.getRfcName() != null && !r.getRfcName().isBlank()) ? r.getRfcName().trim() : "";
+        String title = "VoBo UAT" + (!ref.isEmpty() ? " RFC " + ref : "") + (!rfcName.isEmpty() ? " — " + rfcName : "");
+        historyService.saveVersion("UAT", ref.isEmpty() ? "sin-rfc" : ref, title, null, html, "CREATED", "HTML");
+        return html;
     }
 
     /** Exporta el correo como PDF. */
@@ -74,12 +85,10 @@ public class UatController {
     }
 
     private String sanitize(String s) {
-        if (s == null || s.isBlank()) return "sin-rfc";
-        return s.trim().replaceAll("[^a-zA-Z0-9\\-_]", "-");
+        return FileNameUtils.sanitize(s, "sin-rfc");
     }
 
     private String escHtml(String s) {
-        if (s == null) return "";
-        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        return StringHelper.escapeHtml(s);
     }
 }

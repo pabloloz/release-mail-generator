@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/js/dark-mode.js"></script>
     <script>
         function togglePath(cbId, groupId) {
             const group = document.getElementById(groupId);
@@ -197,6 +198,15 @@
             } catch (e) {}
         }
 
+        var _saveTimer = null;
+        function flashSaveIndicator() {
+            clearTimeout(_saveTimer);
+            var el = document.getElementById('save-indicator');
+            if (!el) return;
+            el.classList.add('visible');
+            _saveTimer = setTimeout(function() { el.classList.remove('visible'); }, 1200);
+        }
+
         function restoreMessageFormDraft(data) {
             if (!data) return;
             const channel = document.getElementById('messageChannel');
@@ -255,7 +265,13 @@
         function showPane(name, triggerEl) {
             document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
             const target = document.getElementById('pane-' + name);
-            if (target) target.classList.add('active');
+            if (target) {
+                target.classList.add('active');
+                const mainArea = document.querySelector('.main-area');
+                if (mainArea) mainArea.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            // Load dashboard data when switching to dashboard
+            if (name === 'dashboard') loadDashboardData();
             document.querySelectorAll('.sidebar-nav-item[data-pane]').forEach(a => a.classList.remove('active'));
             let navItem = triggerEl;
             if (!navItem) {
@@ -278,6 +294,113 @@
                 showPane('releases', document.getElementById('nav-artifacts-mail'));
             }
         }
+
+        // ── Dashboard Data Loader ──────────────────────────────
+        const DASH_TYPE_ICONS = { RFC: '📋', UAT: '✅', RELEASE: '📧', RDL: '📊', TELEGRAM: '✈️', RDL_TELEGRAM: '✈️' };
+        const DASH_TYPE_LABELS = { RFC: 'RFC', UAT: 'VoBo UAT', RELEASE: 'Liberación', RDL: 'RDL', TELEGRAM: 'Telegram', RDL_TELEGRAM: 'Telegram RDL' };
+        const DASH_ACTION_LABELS = { CREATED: 'Creado', MODIFIED: 'Modificado', EXPORTED: 'Exportado', RESTORED: 'Restaurado' };
+
+        async function loadDashboardData() {
+            try {
+                const resp = await fetch('/history/api/dashboard');
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const c = data.counts || {};
+
+                // KPI values with count-up animation
+                animateKpi('kpiRfc', c.RFC || 0);
+                animateKpi('kpiUat', c.UAT || 0);
+                animateKpi('kpiRelease', c.RELEASE || 0);
+                animateKpi('kpiRdl', c.RDL || 0);
+                animateKpi('kpiTelegram', (c.TELEGRAM || 0) + (c.RDL_TELEGRAM || 0));
+                animateKpi('kpiExports', data.exports || 0);
+
+                // Chart
+                renderMiniChart(data.chart || []);
+
+                // Recent activity
+                renderRecentActivity(data.recent || []);
+            } catch (e) { /* silent — dashboard is informational */ }
+        }
+
+        function animateKpi(id, target) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (target === 0) { el.textContent = '0'; return; }
+            let current = 0;
+            const step = Math.max(1, Math.ceil(target / 20));
+            const interval = setInterval(() => {
+                current = Math.min(current + step, target);
+                el.textContent = current.toLocaleString('es-MX');
+                if (current >= target) clearInterval(interval);
+            }, 30);
+        }
+
+        function renderMiniChart(chartData) {
+            const container = document.getElementById('dashChart');
+            const totalEl = document.getElementById('chartTotal');
+            if (!container) return;
+            if (!chartData.length) {
+                container.innerHTML = '<div class="dash-chart-empty">Sin datos aún. Genera un documento para ver actividad.</div>';
+                if (totalEl) totalEl.textContent = '';
+                return;
+            }
+            const max = Math.max(...chartData.map(d => d.count), 1);
+            const total = chartData.reduce((s, d) => s + d.count, 0);
+            if (totalEl) totalEl.textContent = total + ' doc' + (total !== 1 ? 's' : '');
+
+            const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+            container.innerHTML = chartData.map(d => {
+                const pct = Math.max((d.count / max) * 100, 4);
+                const dt = new Date(d.day + 'T12:00:00');
+                const dayLabel = days[dt.getDay()] + ' ' + dt.getDate();
+                return '<div class="chart-bar-col">'
+                    + '<span class="chart-bar-value">' + d.count + '</span>'
+                    + '<div class="chart-bar" style="height:' + pct + 'px;"></div>'
+                    + '<span class="chart-bar-label">' + dayLabel + '</span>'
+                    + '</div>';
+            }).join('');
+        }
+
+        function renderRecentActivity(items) {
+            const container = document.getElementById('dashRecent');
+            if (!container) return;
+            if (!items.length) {
+                container.innerHTML = '<div class="dash-chart-empty" style="padding:30px;">Sin actividad reciente.</div>';
+                return;
+            }
+            container.innerHTML = items.map(v => {
+                const icon = DASH_TYPE_ICONS[v.documentType] || '📄';
+                const date = new Date(v.createdAt);
+                const timeAgo = getTimeAgo(date);
+                const actionLabel = DASH_ACTION_LABELS[v.action] || v.action;
+                const badgeCls = 'history-action-' + v.action;
+                return '<div class="recent-item">'
+                    + '<span class="recent-icon">' + icon + '</span>'
+                    + '<div class="recent-text">'
+                    + '<div class="recent-title">' + escHtmlDash(v.title || v.documentRef) + '</div>'
+                    + '<div class="recent-meta">' + (v.author || 'Sistema') + ' · ' + timeAgo + '</div>'
+                    + '</div>'
+                    + '<span class="recent-badge ' + badgeCls + '">' + actionLabel + '</span>'
+                    + '</div>';
+            }).join('');
+        }
+
+        function getTimeAgo(date) {
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            if (diff < 60) return 'hace un momento';
+            if (diff < 3600) return 'hace ' + Math.floor(diff / 60) + ' min';
+            if (diff < 86400) return 'hace ' + Math.floor(diff / 3600) + 'h';
+            if (diff < 604800) return 'hace ' + Math.floor(diff / 86400) + 'd';
+            return date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+        }
+
+        function escHtmlDash(s) {
+            if (!s) return '';
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             const now = new Date();
             document.getElementById('anio').value = now.getFullYear();
@@ -342,6 +465,44 @@
                 setTimeout(() => el.remove(), 250);
             }, 2400);
         }
+        function pulseSuccess(btn) {
+            if (!btn) return;
+            btn.classList.add('anim-success');
+            btn.addEventListener('animationend', () => btn.classList.remove('anim-success'), { once: true });
+        }
+        function shakeElement(el) {
+            if (!el) return;
+            el.classList.remove('anim-shake');
+            void el.offsetWidth;
+            el.classList.add('anim-shake');
+            el.addEventListener('animationend', () => el.classList.remove('anim-shake'), { once: true });
+        }
+        function toggleHelp(btn) {
+            const block = btn.closest('.section-block') || btn.closest('.section-label')?.parentElement;
+            if (!block) return;
+            const popover = block.querySelector('.help-popover');
+            if (!popover) return;
+            const isOpen = popover.classList.contains('open');
+            // Close all other popovers first
+            document.querySelectorAll('.help-popover.open').forEach(p => {
+                p.classList.remove('open');
+                const t = p.closest('.section-block')?.querySelector('.help-trigger');
+                if (t) t.classList.remove('active');
+            });
+            if (!isOpen) {
+                popover.classList.add('open');
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        }
+        // Close popover on click outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.help-trigger') && !e.target.closest('.help-popover')) {
+                document.querySelectorAll('.help-popover.open').forEach(p => p.classList.remove('open'));
+                document.querySelectorAll('.help-trigger.active').forEach(t => t.classList.remove('active'));
+            }
+        });
         function onReleasesFormSubmit(e) {
             // Sync version hidden fields before submit
             syncVersionFields();
@@ -354,6 +515,7 @@
             if (hasModules && hasModules.checked && selectedModuleChecks.length === 0) {
                 e.preventDefault();
                 if (modulesSelectionError) modulesSelectionError.style.display = 'block';
+                shakeElement(document.querySelector('.module-badge')?.closest('.section-block'));
                 showToast('Selecciona al menos un módulo para distribuir.', 'error');
                 return;
             }
@@ -480,6 +642,7 @@
                 const a = document.createElement('a'); a.href = url; a.download = filename;
                 document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+                showToast('Archivo exportado correctamente', 'success');
             } catch (err) { showToast('Error al exportar: ' + err.message, 'error'); }
         }
 
@@ -501,6 +664,7 @@
                 const a = document.createElement('a'); a.href = url; a.download = filename;
                 document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+                showToast('Archivo exportado correctamente', 'success');
             } catch (err) { showToast('Error al exportar: ' + err.message, 'error'); }
         }
 
@@ -745,6 +909,7 @@
             if (!el) return;
             await navigator.clipboard.writeText(el.innerText || el.textContent || '');
             showToast('\u2714 Mensaje RDL copiado al portapapeles', 'success');
+            pulseSuccess(document.querySelector('#pane-rdl-telegram .btn-copy'));
         }
         async function copyRdlEmail() {
             const el = document.getElementById('rdlEmailPreview');
@@ -759,6 +924,7 @@
                 await navigator.clipboard.writeText(el.innerText);
             }
             showToast('\u2714 Correo RDL copiado al portapapeles', 'success');
+            pulseSuccess(document.querySelector('#pane-rdl .btn-copy'));
         }
         async function copyEmail() {
             const el = document.getElementById('emailPreview');
@@ -773,6 +939,7 @@
                 await navigator.clipboard.writeText(el.innerText);
             }
             showToast('\u2714 Correo copiado al portapapeles', 'success');
+            pulseSuccess(document.querySelector('#pane-releases .btn-copy'));
         }
 
         function addTelegramScriptRow() {
@@ -811,6 +978,7 @@
             if (!textEl) return;
             await navigator.clipboard.writeText(textEl.innerText || textEl.textContent || '');
             showToast('\u2714 Mensaje de Telegram copiado', 'success');
+            pulseSuccess(document.querySelector('#pane-messages .btn-copy'));
         }
 
         function collectReleaseMessageData() {
@@ -1364,6 +1532,145 @@
             font-size: 1rem;
         }
 
+        /* ── Form Validation Indicators ───────────────────────────────── */
+        .v-error {
+            border-color: var(--danger) !important;
+            box-shadow: 0 0 0 3px rgba(220,38,38,.12) !important;
+        }
+        .v-error::placeholder { color: var(--danger) !important; opacity: .6; }
+        .v-warning {
+            border-color: #d97706 !important;
+            box-shadow: 0 0 0 3px rgba(217,119,6,.1) !important;
+        }
+
+        .v-summary {
+            border-radius: var(--radius-sm); margin-bottom: 20px;
+            overflow: hidden; animation: scaleIn .15s ease-out;
+            border: 1.5px solid;
+        }
+        .v-summary-error { border-color: #fca5a5; background: #fef2f2; }
+        .v-summary-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 16px; font-size: .84rem; font-weight: 700; color: #991b1b;
+            background: #fee2e2; border-bottom: 1px solid #fca5a5;
+        }
+        .v-summary-close {
+            border: none; background: transparent; cursor: pointer;
+            font-size: .9rem; color: #991b1b; padding: 2px 6px; border-radius: 4px;
+        }
+        .v-summary-close:hover { background: rgba(0,0,0,.06); }
+        .v-summary-body { padding: 12px 16px; }
+        .v-list-title { font-size: .72rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+        .v-list { margin: 0; padding: 0 0 0 16px; font-size: .82rem; line-height: 1.8; }
+        .v-list-error { color: #991b1b; }
+        .v-list-error::marker { content: '✕ '; color: var(--danger); }
+        .v-list-warn { color: #92400e; }
+        .v-list-warn::marker { content: '△ '; color: #d97706; }
+
+        [data-theme="dark"] .v-summary-error { border-color: #7f1d1d; background: #1c0f0f; }
+        [data-theme="dark"] .v-summary-header { background: #2a1010; border-bottom-color: #7f1d1d; color: #fca5a5; }
+        [data-theme="dark"] .v-summary-close { color: #fca5a5; }
+        [data-theme="dark"] .v-list-error { color: #fca5a5; }
+        [data-theme="dark"] .v-list-warn { color: #fbbf24; }
+
+        /* ── Contextual Help ─────────────────────────────────────────── */
+        .help-trigger {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 16px; height: 16px; border-radius: 50%;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            font-size: .6rem; font-weight: 700; font-family: inherit;
+            cursor: pointer;
+            margin-left: auto;
+            flex-shrink: 0;
+            transition: border-color .15s, color .15s, background .15s;
+            line-height: 1;
+            padding: 0;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+        .help-trigger:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+        .help-trigger.active {
+            border-color: var(--primary);
+            color: white;
+            background: var(--primary);
+        }
+        .help-popover {
+            display: none;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            box-shadow: 0 8px 32px rgba(0,0,0,.12);
+            padding: 16px 18px;
+            margin: -6px 0 14px;
+            font-size: .78rem;
+            line-height: 1.6;
+            color: var(--text);
+            animation: scaleIn .12s ease-out;
+            max-width: 100%;
+        }
+        .help-popover.open { display: block; }
+        .help-popover-title {
+            font-size: .72rem; font-weight: 700;
+            color: var(--primary); text-transform: uppercase;
+            letter-spacing: .06em; margin-bottom: 8px;
+        }
+        .help-popover p { margin: 0 0 8px; }
+        .help-popover p:last-child { margin-bottom: 0; }
+        .help-popover strong { color: var(--text); font-weight: 600; }
+        .help-popover code {
+            background: var(--bg-section); border: 1px solid var(--border);
+            border-radius: 4px; padding: 1px 5px; font-size: .72rem;
+            font-family: 'Cascadia Code', Consolas, monospace;
+        }
+        .help-popover .help-example {
+            background: var(--bg-section);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: .72rem;
+            font-family: 'Cascadia Code', Consolas, monospace;
+            margin: 6px 0;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            color: var(--text-muted);
+        }
+        .help-popover .help-tip {
+            display: flex; align-items: flex-start; gap: 6px;
+            background: #eff6ff; border-radius: 6px; padding: 8px 10px;
+            font-size: .72rem; color: #1e40af; margin-top: 8px;
+        }
+        .help-popover .help-tip-icon { flex-shrink: 0; font-size: .8rem; }
+
+        [data-theme="dark"] .help-popover {
+            background: #1e293b; border-color: #334155;
+            box-shadow: 0 8px 32px rgba(0,0,0,.35);
+            color: var(--text);
+        }
+        [data-theme="dark"] .help-popover code {
+            background: #0f172a; border-color: #334155;
+        }
+        [data-theme="dark"] .help-popover .help-example {
+            background: #0f172a; border-color: #334155; color: var(--text-muted);
+        }
+        [data-theme="dark"] .help-popover .help-tip {
+            background: #1e3a5f; color: #93c5fd;
+        }
+        [data-theme="dark"] .help-trigger {
+            border-color: #475569; color: #94a3b8;
+        }
+        [data-theme="dark"] .help-trigger:hover {
+            border-color: #60a5fa; color: #60a5fa; background: #1e3a5f;
+        }
+        [data-theme="dark"] .help-trigger.active {
+            border-color: var(--primary); color: white; background: var(--primary);
+        }
+
         /* ── Form Controls ───────────────────────────────────────────── */
         .form-label {
             font-size: .8rem;
@@ -1410,8 +1717,17 @@
         .artifact-check { padding-top: 1px; flex-shrink: 0; }
         .artifact-check input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
         .artifact-check label { font-weight: 600; font-size: .875rem; cursor: pointer; user-select: none; }
-        .artifact-path { flex: 1; display: none; }
-        .artifact-path.visible { display: block; }
+        .artifact-path {
+            flex: 1;
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: max-height .25s ease, opacity .18s ease .04s, margin .2s ease;
+        }
+        .artifact-path.visible {
+            max-height: 500px;
+            opacity: 1;
+        }
 
         /* ── Buttons ─────────────────────────────────────────────────── */
         .btn-generate {
@@ -1437,6 +1753,18 @@
             font-family: inherit;
         }
         .btn-clear:hover { background: var(--bg); border-color: #94a3b8; color: var(--text); }
+        .btn-tpl {
+            background: white; color: var(--text-muted);
+            border: 1.5px solid var(--border);
+            padding: 10px 16px; border-radius: var(--radius-xs);
+            font-weight: 600; font-size: .82rem; cursor: pointer;
+            font-family: inherit; margin-right: auto;
+            display: inline-flex; align-items: center; gap: 5px;
+            transition: background .15s, border-color .15s, color .15s;
+        }
+        .btn-tpl:hover { background: var(--bg); border-color: var(--primary); color: var(--primary); }
+        [data-theme="dark"] .btn-tpl { background: #1e293b; border-color: var(--border); color: var(--text-muted); }
+        [data-theme="dark"] .btn-tpl:hover { background: #0f172a; border-color: #60a5fa; color: #60a5fa; }
         .btn-copy {
             background: var(--primary); color: white; border: none;
             padding: 6px 14px; border-radius: var(--radius-xs);
@@ -1509,6 +1837,9 @@
         #emailPreview, #rdlEmailPreview {
             background: white; padding: 32px 36px;
             font-size: 14px; color: #1e293b; line-height: 1.6;
+        }
+        .email-preview-body {
+            background: white; color: #1e293b;
         }
 
         /* ── RDL Entry ───────────────────────────────────────────────── */
@@ -1720,12 +2051,41 @@
         .uat-block .block-img-preview { padding-top: 4px; }
 
         /* ── Rich Editor for UAT ─────────────────────────────────── */
+        .re-toolbar {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 2px;
+            padding: 6px 8px; background: var(--bg-section);
+            border: 1.5px solid var(--border); border-bottom: none;
+            border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+        }
+        .re-btn {
+            border: none; background: transparent; cursor: pointer;
+            width: 28px; height: 28px; border-radius: 5px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: .8rem; font-family: inherit; color: var(--text);
+            transition: background .1s;
+        }
+        .re-btn:hover { background: var(--border); }
+        .re-btn:active { background: #dbeafe; }
+        .re-btn-img { cursor: pointer; }
+        .re-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+        .re-select {
+            border: 1px solid var(--border); border-radius: 4px;
+            font-size: .7rem; padding: 2px 4px; font-family: inherit;
+            color: var(--text); background: white; cursor: pointer; height: 26px;
+        }
+        .re-color {
+            width: 24px; height: 24px; border: 1.5px solid var(--border);
+            border-radius: 4px; padding: 0; cursor: pointer; background: none;
+        }
+        .re-color::-webkit-color-swatch-wrapper { padding: 2px; }
+        .re-color::-webkit-color-swatch { border-radius: 2px; border: none; }
+
         .uat-rich-editor {
-            min-height: 180px;
+            min-height: 220px;
             max-height: 500px;
             overflow-y: auto;
             border: 1.5px solid var(--border);
-            border-radius: var(--radius-xs);
+            border-radius: 0 0 var(--radius-xs) var(--radius-xs);
             padding: 14px 16px;
             font-size: .875rem;
             font-family: inherit;
@@ -1738,6 +2098,9 @@
         .uat-rich-editor:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px var(--primary-ring);
+        }
+        .re-toolbar:has(+ .uat-rich-editor:focus) {
+            border-color: var(--primary);
         }
         .uat-rich-editor.dragover {
             border-color: var(--primary);
@@ -1758,17 +2121,48 @@
             border-radius: 6px;
             border: 1px solid var(--border);
         }
-        .uat-rich-editor p {
-            margin: 0 0 8px 0;
+        .uat-rich-editor p { margin: 0 0 8px 0; }
+        .uat-rich-editor ul, .uat-rich-editor ol { margin: 0 0 8px 18px; padding: 0; }
+        .uat-rich-editor li { margin-bottom: 4px; }
+        .uat-rich-editor table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: .82rem; }
+        .uat-rich-editor table td, .uat-rich-editor table th {
+            border: 1px solid var(--border); padding: 6px 10px; text-align: left;
+        }
+        .uat-rich-editor table th { background: var(--bg-section); font-weight: 700; font-size: .78rem; }
+        .uat-rich-editor pre {
+            background: #1e293b; color: #e2e8f0; padding: 12px 14px;
+            border-radius: 6px; font-size: .8rem; font-family: 'Cascadia Code', Consolas, monospace;
+            overflow-x: auto; margin: 8px 0; white-space: pre-wrap;
+        }
+        .uat-rich-editor code {
+            background: var(--bg-section); border: 1px solid var(--border);
+            border-radius: 3px; padding: 1px 4px; font-size: .8rem;
+            font-family: 'Cascadia Code', Consolas, monospace;
+        }
+        .uat-rich-editor a { color: var(--primary); text-decoration: underline; }
+        .uat-rich-editor blockquote {
+            border-left: 3px solid var(--primary); margin: 8px 0;
+            padding: 6px 14px; color: var(--text-muted); font-style: italic;
         }
         .uat-editor-hints {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 8px;
-            font-size: .72rem;
-            color: var(--text-muted);
+            display: flex; flex-wrap: wrap; gap: 12px;
+            margin-top: 8px; font-size: .68rem; color: var(--text-muted);
         }
+        .uat-editor-hints b { font-weight: 700; color: var(--text); }
+
+        /* Dark mode editor */
+        [data-theme="dark"] .re-toolbar { background: #0f172a; border-color: var(--border); }
+        [data-theme="dark"] .re-btn { color: var(--text); }
+        [data-theme="dark"] .re-btn:hover { background: #334155; }
+        [data-theme="dark"] .re-select { background: #0f172a; border-color: var(--border); color: var(--text); }
+        [data-theme="dark"] .uat-rich-editor { background: #0f172a; color: var(--text); border-color: var(--border); }
+        [data-theme="dark"] .uat-rich-editor:focus { border-color: var(--primary); }
+        [data-theme="dark"] .re-toolbar:has(+ .uat-rich-editor:focus) { border-color: var(--primary); }
+        [data-theme="dark"] .uat-rich-editor table td,
+        [data-theme="dark"] .uat-rich-editor table th { border-color: #334155; }
+        [data-theme="dark"] .uat-rich-editor table th { background: #1e293b; }
+        [data-theme="dark"] .uat-rich-editor code { background: #1e293b; border-color: #334155; }
+        [data-theme="dark"] .uat-rich-editor a { color: #60a5fa; }
         .uat-drop-zone {
             border: 1.5px dashed #93c5fd;
             border-radius: var(--radius-xs);
@@ -1908,6 +2302,169 @@
         }
         .quick-action-btn:hover { border-color: var(--primary); color: var(--primary); box-shadow: 0 2px 8px rgba(37,99,235,.1); }
 
+        /* ── KPI Cards ───────────────────────────────────────────────── */
+        .kpi-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 14px; margin-bottom: 28px;
+        }
+        .kpi-card {
+            background: white; border: 1px solid var(--border); border-radius: 12px;
+            padding: 18px 20px; position: relative; overflow: hidden;
+            transition: box-shadow .15s, transform .12s;
+        }
+        .kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); transform: translateY(-2px); }
+        .kpi-icon { font-size: 1.4rem; margin-bottom: 6px; }
+        .kpi-value {
+            font-size: 1.6rem; font-weight: 800; letter-spacing: -.03em;
+            line-height: 1.1; margin-bottom: 2px;
+        }
+        .kpi-label { font-size: .7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+        .kpi-card::after {
+            content: ''; position: absolute; top: 0; right: 0;
+            width: 60px; height: 60px; border-radius: 0 12px 0 60px;
+            opacity: .08;
+        }
+        .kpi-blue .kpi-value { color: #2563eb; }
+        .kpi-blue::after { background: #2563eb; }
+        .kpi-green .kpi-value { color: #059669; }
+        .kpi-green::after { background: #059669; }
+        .kpi-indigo .kpi-value { color: #4f46e5; }
+        .kpi-indigo::after { background: #4f46e5; }
+        .kpi-amber .kpi-value { color: #d97706; }
+        .kpi-amber::after { background: #d97706; }
+        .kpi-purple .kpi-value { color: #7c3aed; }
+        .kpi-purple::after { background: #7c3aed; }
+        .kpi-slate .kpi-value { color: #475569; }
+        .kpi-slate::after { background: #475569; }
+
+        /* ── Favorites / Quick Access ─────────────────────────────────── */
+        .dash-favorites {
+            display: flex; flex-wrap: wrap; gap: 10px;
+            margin-bottom: 28px; min-height: 48px;
+        }
+        .fav-empty {
+            width: 100%; padding: 18px; text-align: center;
+            color: var(--text-muted); font-size: .8rem;
+            background: var(--bg-section); border: 1px dashed var(--border);
+            border-radius: 10px;
+        }
+        .fav-item {
+            display: flex; align-items: center; gap: 8px;
+            background: white; border: 1px solid var(--border); border-radius: 10px;
+            padding: 10px 14px; cursor: pointer;
+            transition: box-shadow .15s, border-color .15s, transform .1s;
+            min-width: 160px; max-width: 280px;
+        }
+        .fav-item:hover { border-color: #fbbf24; box-shadow: 0 3px 12px rgba(251,191,36,.12); transform: translateY(-1px); }
+        .fav-item-icon { font-size: 1.1rem; flex-shrink: 0; }
+        .fav-item-text { flex: 1; min-width: 0; }
+        .fav-item-title {
+            font-size: .8rem; font-weight: 600; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .fav-item-type { font-size: .62rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+        .fav-item-remove {
+            border: none; background: transparent; color: var(--text-muted);
+            font-size: .7rem; cursor: pointer; padding: 2px 5px; border-radius: 4px;
+            opacity: 0; transition: opacity .15s, background .1s;
+        }
+        .fav-item:hover .fav-item-remove { opacity: 1; }
+        .fav-item-remove:hover { background: #fef2f2; color: var(--danger); }
+
+        /* Favorite star button (reusable in lists/views) */
+        .btn-fav {
+            border: none; background: transparent; cursor: pointer;
+            font-size: 1rem; padding: 2px 4px; border-radius: 4px;
+            transition: transform .12s;
+            line-height: 1;
+        }
+        .btn-fav:hover { transform: scale(1.2); }
+        .btn-fav.is-fav { color: #f59e0b; }
+
+        [data-theme="dark"] .fav-item { background: #1e293b; border-color: var(--border); }
+        [data-theme="dark"] .fav-item:hover { border-color: #f59e0b; box-shadow: 0 3px 12px rgba(245,158,11,.1); }
+        [data-theme="dark"] .fav-empty { background: #0f172a; border-color: #334155; }
+        [data-theme="dark"] .fav-item-remove:hover { background: #3b1c1c; }
+
+        /* ── Dashboard Two-col Layout ────────────────────────────────── */
+        .dash-two-col {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 16px; margin-bottom: 28px;
+        }
+        .dash-panel {
+            background: white; border: 1px solid var(--border);
+            border-radius: 12px; overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+        .dash-panel-header {
+            padding: 14px 18px 10px; display: flex;
+            justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* ── Mini Bar Chart ──────────────────────────────────────────── */
+        .dash-chart-wrapper {
+            padding: 18px; flex: 1; display: flex;
+            align-items: flex-end; gap: 4px; min-height: 140px;
+        }
+        .dash-chart-empty {
+            width: 100%; text-align: center; color: var(--text-muted);
+            font-size: .78rem; align-self: center;
+        }
+        .chart-bar-col {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; gap: 4px;
+        }
+        .chart-bar {
+            width: 100%; max-width: 28px; border-radius: 4px 4px 0 0;
+            background: var(--primary); min-height: 4px;
+            transition: height .3s ease;
+        }
+        .chart-bar-label {
+            font-size: .58rem; color: var(--text-muted);
+            font-weight: 600; white-space: nowrap;
+        }
+        .chart-bar-value {
+            font-size: .62rem; font-weight: 700; color: var(--text);
+        }
+
+        /* ── Recent Activity List ────────────────────────────────────── */
+        .dash-recent-list {
+            flex: 1; overflow-y: auto; max-height: 220px;
+        }
+        .recent-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 18px; border-bottom: 1px solid var(--border);
+            font-size: .78rem; transition: background .1s;
+        }
+        .recent-item:last-child { border-bottom: none; }
+        .recent-item:hover { background: var(--bg-section); }
+        .recent-icon { font-size: .95rem; flex-shrink: 0; width: 22px; text-align: center; }
+        .recent-text { flex: 1; min-width: 0; }
+        .recent-title { font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .recent-meta { font-size: .68rem; color: var(--text-muted); }
+        .recent-badge {
+            font-size: .6rem; font-weight: 700; padding: 2px 6px;
+            border-radius: 8px; flex-shrink: 0;
+        }
+
+        /* ── Dark mode — KPI + Dashboard panels ──────────────────────── */
+        [data-theme="dark"] .kpi-card { background: #1e293b; border-color: var(--border); }
+        [data-theme="dark"] .kpi-card::after { opacity: .12; }
+        [data-theme="dark"] .dash-panel { background: #1e293b; border-color: var(--border); }
+        [data-theme="dark"] .dash-panel-header { border-bottom-color: var(--border); }
+        [data-theme="dark"] .recent-item { border-bottom-color: var(--border); }
+        [data-theme="dark"] .recent-item:hover { background: #0f172a; }
+        [data-theme="dark"] .chart-bar { background: #60a5fa; }
+
+        @media (max-width: 900px) {
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .dash-two-col { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 520px) {
+            .kpi-grid { grid-template-columns: 1fr 1fr; }
+        }
+
         /* ── Responsive ──────────────────────────────────────────────── */
         @media (max-width: 900px) {
             .sidebar { width: 56px; }
@@ -1928,16 +2485,701 @@
             #emailPreview, #rdlEmailPreview { padding: 16px; }
         }
 
-        /* ── Animations ──────────────────────────────────────────────── */
-        @keyframes fadeSlideUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to   { opacity: 1; transform: translateY(0); }
+        /* ── Micro-animations ─────────────────────────────────────────── */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
         }
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(16px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes subtleShake {
+            0%, 100% { transform: translateX(0); }
+            20%      { transform: translateX(-3px); }
+            40%      { transform: translateX(3px); }
+            60%      { transform: translateX(-2px); }
+            80%      { transform: translateX(2px); }
+        }
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(.97); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        @keyframes checkPop {
+            0%   { transform: scale(1); }
+            40%  { transform: scale(1.12); }
+            100% { transform: scale(1); }
+        }
+        @keyframes progressShrink {
+            from { transform: scaleX(1); }
+            to   { transform: scaleX(0); }
+        }
+        @keyframes successPulse {
+            0%   { box-shadow: 0 0 0 0 rgba(5,150,105,.35); }
+            70%  { box-shadow: 0 0 0 6px rgba(5,150,105,0); }
+            100% { box-shadow: 0 0 0 0 rgba(5,150,105,0); }
+        }
+
+        /* ── Pane transitions ────────────────────────────────────────── */
+        .pane.active { animation: fadeIn .18s ease-out; }
+        .pane.active .pane-body { animation: scaleIn .2s ease-out; }
+
+        /* ── Button press feedback ───────────────────────────────────── */
+        .btn-generate,
+        .btn-primary-action,
+        .btn-copy,
+        .btn-pdf,
+        .btn-md,
+        .btn-html-export { transition: background .15s, transform .08s ease, box-shadow .15s; }
+        .btn-generate:active:not(:disabled),
+        .btn-primary-action:active:not(:disabled),
+        .btn-copy:active,
+        .btn-pdf:active,
+        .btn-md:active,
+        .btn-html-export:active { transform: scale(.96); }
+
+        .btn-clear,
+        .btn-ghost,
+        .btn-add,
+        .btn-add-rdl,
+        .btn-add-uat,
+        .btn-remove,
+        .btn-remove-rdl { transition: background .15s, border-color .15s, color .15s, transform .08s ease; }
+        .btn-clear:active,
+        .btn-ghost:active,
+        .btn-add:active,
+        .btn-add-rdl:active,
+        .btn-add-uat:active { transform: scale(.97); }
+
+        .quick-action-btn { transition: border-color .15s, color .15s, box-shadow .15s, transform .1s ease; }
+        .quick-action-btn:active { transform: scale(.96); }
+
+        .sidebar-nav-item { transition: background .15s, color .15s, transform .08s ease; }
+        .sidebar-nav-item:active { transform: scale(.97); }
+
+        /* ── Checkbox pop ────────────────────────────────────────────── */
+        .artifact-check input:checked,
+        .module-badge input:checked { animation: checkPop .2s ease; }
+
+        /* ── Dynamic item entrance ───────────────────────────────────── */
+        .dynamic-item { animation: scaleIn .15s ease-out; }
+        .rdl-entry    { animation: scaleIn .18s ease-out; }
+
+        /* ── Toast micro-animations ──────────────────────────────────── */
+        .toast-msg {
+            position: relative;
+            transform: translateX(20px);
+            transition: opacity .2s ease, transform .2s ease;
+            overflow: hidden;
+        }
+        .toast-msg.show { transform: translateX(0); }
+        .toast-msg::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 2.5px;
+            background: rgba(255,255,255,.3);
+            transform-origin: left;
+            animation: progressShrink 2.4s linear forwards;
+            border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+        }
+        .toast-msg.toast-success::before { content: '✓  '; font-weight: 700; }
+        .toast-msg.toast-error::before   { content: '✕  '; font-weight: 700; }
+
+        /* ── Error shake ─────────────────────────────────────────────── */
+        .anim-shake { animation: subtleShake .35s ease; }
+
+        /* ── Email preview entrance ──────────────────────────────────── */
+        .email-wrapper { animation: scaleIn .2s ease-out; }
+
+        /* ── Section block subtle entrance ────────────────────────────── */
+        .pane.active .section-block { animation: fadeSlideUp .22s ease-out both; }
+
+        /* ── Success pulse on buttons ────────────────────────────────── */
+        .anim-success { animation: successPulse .4s ease-out; }
+
+        /* ── Autosave indicator ──────────────────────────────────────── */
+        .save-indicator {
+            position: fixed;
+            bottom: 24px;
+            left: 248px;
+            background: rgba(5,150,105,.9);
+            color: white;
+            font-size: .72rem;
+            font-weight: 600;
+            font-family: 'Inter', system-ui, sans-serif;
+            padding: 5px 12px;
+            border-radius: 20px;
+            opacity: 0;
+            transform: translateY(6px);
+            transition: opacity .2s ease, transform .2s ease;
+            pointer-events: none;
+            z-index: 9998;
+        }
+        .save-indicator.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        @media (max-width: 900px) {
+            .save-indicator { left: 76px; }
+        }
+
+        /* ── Recovery Banner ─────────────────────────────────────────── */
+        .recovery-banner {
+            position: fixed;
+            top: 0; left: 228px; right: 0;
+            z-index: 9990;
+            background: #1e40af;
+            color: white;
+            padding: 0;
+            transform: translateY(-100%);
+            transition: transform .25s ease;
+            box-shadow: 0 2px 12px rgba(0,0,0,.15);
+        }
+        .recovery-banner.recovery-banner-show { transform: translateY(0); }
+        .recovery-banner.recovery-banner-hide { transform: translateY(-100%); }
+        .recovery-banner-content {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 20px; max-width: 100%;
+            flex-wrap: wrap;
+        }
+        .recovery-banner-icon { font-size: 1.1rem; flex-shrink: 0; }
+        .recovery-banner-text { flex: 1; font-size: .82rem; min-width: 200px; }
+        .recovery-banner-text strong { font-weight: 700; }
+        .recovery-banner-time { opacity: .7; font-size: .75rem; }
+        .recovery-banner-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .recovery-btn {
+            border: none; padding: 5px 14px; border-radius: 6px;
+            font-size: .78rem; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: background .12s;
+        }
+        .recovery-btn-restore { background: white; color: #1e40af; }
+        .recovery-btn-restore:hover { background: #dbeafe; }
+        .recovery-btn-dismiss { background: rgba(255,255,255,.15); color: white; }
+        .recovery-btn-dismiss:hover { background: rgba(255,255,255,.25); }
+
+        @media (max-width: 900px) {
+            .recovery-banner { left: 56px; }
+        }
+
+        [data-theme="dark"] .recovery-banner { background: #1e3a8a; }
+        [data-theme="dark"] .recovery-btn-restore { background: #e2e8f0; color: #1e3a8a; }
+        [data-theme="dark"] .recovery-btn-dismiss { background: rgba(255,255,255,.12); }
+
+        /* ── Global Search (sidebar) ──────────────────────────────────── */
+        .sidebar-search {
+            padding: 10px 10px 0; position: relative;
+        }
+        .gs-input-wrap { position: relative; }
+        .gs-icon {
+            position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+            font-size: .72rem; pointer-events: none; z-index: 1;
+        }
+        .gs-input {
+            width: 100%; border: 1px solid rgba(255,255,255,.12); border-radius: 8px;
+            padding: 7px 42px 7px 28px; font-size: .78rem; font-family: inherit;
+            color: rgba(255,255,255,.85); background: rgba(255,255,255,.06);
+            outline: none; transition: border-color .15s, background .15s, box-shadow .15s;
+        }
+        .gs-input:focus {
+            border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.1);
+            box-shadow: 0 0 0 2px rgba(96,165,250,.2);
+        }
+        .gs-input::placeholder { color: rgba(255,255,255,.35); font-size: .75rem; }
+        .gs-kbd {
+            position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+            background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+            border-radius: 4px; padding: 1px 5px; font-size: .55rem;
+            color: rgba(255,255,255,.35); font-weight: 600; pointer-events: none;
+            font-family: inherit;
+        }
+        .gs-results {
+            display: none; position: fixed;
+            left: 228px; top: 80px;
+            width: 420px;
+            background: white; border: 1px solid var(--border);
+            border-radius: var(--radius-sm); box-shadow: 0 12px 40px rgba(0,0,0,.15);
+            max-height: 440px; overflow-y: auto; z-index: 301;
+            animation: scaleIn .1s ease-out;
+        }
+        .gs-results.open { display: block; }
+        .gs-overlay {
+            display: none; position: fixed; inset: 0; z-index: 299;
+            background: transparent;
+        }
+        .gs-overlay.open { display: block; }
+        .gs-group-header {
+            padding: 8px 14px 4px; font-size: .62rem; font-weight: 700;
+            letter-spacing: .06em; text-transform: uppercase;
+            color: var(--text-muted); background: var(--bg-section);
+            border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; z-index: 1;
+        }
+        .gs-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 14px; cursor: pointer; border-bottom: 1px solid var(--border);
+            transition: background .08s; text-decoration: none; color: inherit;
+        }
+        .gs-item:last-child { border-bottom: none; }
+        .gs-item:hover, .gs-item.gs-active { background: var(--primary-light); }
+        .gs-item-icon { font-size: .95rem; flex-shrink: 0; width: 20px; text-align: center; }
+        .gs-item-text { flex: 1; min-width: 0; }
+        .gs-item-title {
+            font-size: .8rem; font-weight: 600; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .gs-item-title mark {
+            background: #fef08a; color: inherit; border-radius: 2px;
+            padding: 0 1px; font-weight: 700;
+        }
+        .gs-item-sub {
+            font-size: .66rem; color: var(--text-muted);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .gs-empty {
+            padding: 28px 14px; text-align: center; color: var(--text-muted);
+            font-size: .8rem;
+        }
+        .gs-footer {
+            padding: 6px 14px; text-align: right; font-size: .6rem;
+            color: var(--text-muted); background: var(--bg-section);
+            border-top: 1px solid var(--border);
+        }
+
+        @media (max-width: 900px) {
+            .sidebar-search { display: none; }
+            .gs-results { left: 56px; width: 340px; }
+        }
+
+        [data-theme="dark"] .gs-results { background: #1e293b; border-color: #334155; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+        [data-theme="dark"] .gs-group-header { background: #0f172a; border-bottom-color: #334155; }
+        [data-theme="dark"] .gs-item { border-bottom-color: #334155; }
+        [data-theme="dark"] .gs-item:hover, [data-theme="dark"] .gs-item.gs-active { background: #0f172a; }
+        [data-theme="dark"] .gs-item-title mark { background: #854d0e; color: #fef08a; }
+        [data-theme="dark"] .gs-footer { background: #0f172a; border-top-color: #334155; }
+
+        /* ── Templates Panel ──────────────────────────────────────────── */
+        .tpl-panel-overlay {
+            display: none; position: fixed; inset: 0; z-index: 10000;
+            background: rgba(0,0,0,.35);
+        }
+        .tpl-panel-overlay.open { display: block; }
+        .tpl-panel {
+            position: absolute; right: 0; top: 0; bottom: 0;
+            width: 360px; max-width: 90vw;
+            background: white;
+            box-shadow: -8px 0 32px rgba(0,0,0,.12);
+            display: flex; flex-direction: column;
+            animation: tplSlideIn .2s ease-out;
+        }
+        @keyframes tplSlideIn {
+            from { transform: translateX(100%); }
+            to   { transform: translateX(0); }
+        }
+        .tpl-panel-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
+        .tpl-panel-title { font-size: .92rem; font-weight: 700; color: var(--text); }
+        .tpl-panel-toolbar {
+            padding: 10px 18px; border-bottom: 1px solid var(--border);
+            display: flex; gap: 8px; flex-shrink: 0;
+        }
+        .tpl-panel-body { flex: 1; overflow-y: auto; }
+
+        .tpl-group-header {
+            padding: 10px 18px 4px; font-size: .62rem; font-weight: 700;
+            letter-spacing: .06em; text-transform: uppercase;
+            color: var(--text-muted); background: var(--bg-section);
+            border-bottom: 1px solid var(--border);
+            position: sticky; top: 0;
+        }
+        .tpl-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 18px; border-bottom: 1px solid var(--border);
+            transition: background .08s;
+        }
+        .tpl-item:hover { background: var(--bg-section); }
+        .tpl-item-icon { font-size: 1.1rem; flex-shrink: 0; }
+        .tpl-item-body { flex: 1; min-width: 0; cursor: pointer; }
+        .tpl-item-name {
+            font-size: .84rem; font-weight: 600; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .tpl-item-meta { font-size: .66rem; color: var(--text-muted); margin-top: 1px; }
+        .tpl-item-actions { display: flex; gap: 2px; flex-shrink: 0; }
+        .tpl-action-btn {
+            border: none; background: transparent; cursor: pointer;
+            font-size: .72rem; padding: 4px 6px; border-radius: 4px;
+            transition: background .1s; color: var(--text-muted);
+        }
+        .tpl-action-btn:hover { background: var(--bg); }
+        .tpl-action-delete { color: var(--danger); }
+        .tpl-action-delete:hover { background: #fef2f2; }
+
+        .tpl-empty {
+            padding: 40px 18px; text-align: center;
+            color: var(--text-muted); font-size: .82rem; line-height: 1.6;
+        }
+
+        [data-theme="dark"] .tpl-panel { background: #1e293b; box-shadow: -8px 0 32px rgba(0,0,0,.4); }
+        [data-theme="dark"] .tpl-panel-header { border-bottom-color: var(--border); }
+        [data-theme="dark"] .tpl-panel-toolbar { border-bottom-color: var(--border); }
+        [data-theme="dark"] .tpl-group-header { background: #0f172a; border-bottom-color: var(--border); }
+        [data-theme="dark"] .tpl-item { border-bottom-color: var(--border); }
+        [data-theme="dark"] .tpl-item:hover { background: #0f172a; }
+        [data-theme="dark"] .tpl-action-btn:hover { background: #0f172a; }
+        [data-theme="dark"] .tpl-action-delete:hover { background: #3b1c1c; }
+        [data-theme="dark"] .tpl-panel-overlay { background: rgba(0,0,0,.55); }
+
+        /* ── History ──────────────────────────────────────────────────── */
+        .history-toolbar {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+        }
+        .history-toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .history-toolbar-right { display: flex; gap: 8px; }
+        .history-stats { font-size: .75rem; color: var(--text-muted); font-weight: 600; }
+
+        .history-table-wrapper {
+            background: white; border: 1px solid var(--border);
+            border-radius: var(--radius-sm); overflow: hidden;
+        }
+        .history-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+        .history-table thead th {
+            background: var(--bg-section); font-size: .68rem; font-weight: 700;
+            letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted);
+            padding: 9px 10px; text-align: left; border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+        .history-table tbody td {
+            padding: 10px 10px; border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        .history-row { transition: background .1s; }
+        .history-row:hover { background: var(--bg-section); }
+        .history-title { font-weight: 600; color: var(--text); font-size: .82rem; }
+        .history-ref { font-size: .7rem; color: var(--text-muted); margin-top: 1px; }
+        .history-author { font-size: .78rem; color: var(--text-muted); }
+        .history-date { font-size: .78rem; font-weight: 600; color: var(--text); }
+        .history-time { font-size: .68rem; color: var(--text-muted); }
+
+        .history-type-badge {
+            display: inline-block; font-size: .68rem; font-weight: 700;
+            padding: 2px 8px; border-radius: 12px; white-space: nowrap;
+        }
+        .history-type-RELEASE { background: #dbeafe; color: #1e40af; }
+        .history-type-TELEGRAM { background: #e0f2fe; color: #0369a1; }
+        .history-type-RDL { background: #fef3c7; color: #92400e; }
+        .history-type-RDL_TELEGRAM { background: #fef9c3; color: #854d0e; }
+        .history-type-RFC { background: #ede9fe; color: #5b21b6; }
+        .history-type-UAT { background: #d1fae5; color: #065f46; }
+
+        .history-action { font-size: .7rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+        .history-action-CREATED { background: #d1fae5; color: #065f46; }
+        .history-action-MODIFIED { background: #dbeafe; color: #1e40af; }
+        .history-action-EXPORTED { background: #fef3c7; color: #92400e; }
+        .history-action-RESTORED { background: #ede9fe; color: #5b21b6; }
+
+        .hbtn {
+            border: none; background: transparent; cursor: pointer;
+            font-size: .78rem; padding: 4px 8px; border-radius: 6px;
+            transition: background .12s; font-family: inherit;
+        }
+        .hbtn:hover { background: var(--bg-section); }
+        .hbtn-view { font-size: .85rem; }
+        .hbtn-restore { color: var(--primary); }
+        .hbtn-delete { color: var(--danger); font-size: .75rem; }
+        .hbtn-compare {
+            background: var(--primary-light); color: var(--primary);
+            font-weight: 600; padding: 6px 14px; border: 1.5px solid #bfdbfe;
+            border-radius: var(--radius-xs);
+        }
+        .hbtn-compare:hover { background: #dbeafe; }
+        .hbtn-close { font-size: 1rem; color: var(--text-muted); padding: 4px 10px; }
+
+        .history-actions-cell { white-space: nowrap; }
+
+        .compare-check { width: 14px; height: 14px; accent-color: var(--primary); cursor: pointer; }
+
+        /* ── History Modals ──────────────────────────────────── */
+        .history-modal-overlay {
+            display: none; position: fixed; inset: 0; z-index: 10000;
+            background: rgba(0,0,0,.45); align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .history-modal-overlay.open { display: flex; }
+        .history-modal {
+            background: white; border-radius: var(--radius); box-shadow: 0 20px 60px rgba(0,0,0,.2);
+            width: 100%; max-width: 800px; max-height: 85vh; display: flex; flex-direction: column;
+            animation: scaleIn .15s ease-out;
+        }
+        .history-modal-wide { max-width: 1200px; }
+        .history-modal-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            padding: 18px 22px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
+        .history-modal-title { font-size: .95rem; font-weight: 700; color: var(--text); }
+        .history-modal-meta { font-size: .72rem; color: var(--text-muted); margin-top: 4px; line-height: 1.6; }
+        .history-modal-body {
+            padding: 22px; overflow-y: auto; flex: 1;
+            font-size: .875rem; line-height: 1.6; color: var(--text);
+        }
+
+        .history-compare-grid { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; }
+        .history-compare-col { display: flex; flex-direction: column; overflow: hidden; }
+        .history-compare-col:first-child { border-right: 1px solid var(--border); }
+        .history-compare-label {
+            padding: 10px 14px; background: var(--bg-section);
+            border-bottom: 1px solid var(--border);
+            font-size: .78rem; font-weight: 700; color: var(--text);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .history-compare-date { font-size: .68rem; color: var(--text-muted); font-weight: 500; }
+        .history-compare-content {
+            padding: 14px; overflow-y: auto; flex: 1;
+            font-size: .78rem; line-height: 1.55; color: var(--text);
+            max-height: 60vh;
+        }
+
+        /* ── Dark Mode — History ─────────────────────────────── */
+        [data-theme="dark"] .history-table-wrapper { background: #1e293b; border-color: var(--border); }
+        [data-theme="dark"] .history-table thead th { background: #0f172a; }
+        [data-theme="dark"] .history-table tbody td { border-bottom-color: var(--border); }
+        [data-theme="dark"] .history-row:hover { background: #0f172a; }
+        [data-theme="dark"] .history-modal { background: #1e293b; }
+        [data-theme="dark"] .history-modal-header { border-bottom-color: var(--border); }
+        [data-theme="dark"] .history-compare-col:first-child { border-right-color: var(--border); }
+        [data-theme="dark"] .history-compare-label { background: #0f172a; border-bottom-color: var(--border); }
+        [data-theme="dark"] .hbtn:hover { background: #0f172a; }
+        [data-theme="dark"] .hbtn-compare { background: var(--primary-light); border-color: #334155; }
+        [data-theme="dark"] .history-type-RELEASE { background: #1e3a5f; color: #93c5fd; }
+        [data-theme="dark"] .history-type-TELEGRAM { background: #0c4a6e; color: #7dd3fc; }
+        [data-theme="dark"] .history-type-RDL { background: #451a03; color: #fbbf24; }
+        [data-theme="dark"] .history-type-RDL_TELEGRAM { background: #422006; color: #facc15; }
+        [data-theme="dark"] .history-type-RFC { background: #2e1065; color: #c4b5fd; }
+        [data-theme="dark"] .history-type-UAT { background: #064e3b; color: #6ee7b7; }
+        [data-theme="dark"] .history-modal-overlay { background: rgba(0,0,0,.65); }
+
+        /* ── Prefers reduced motion ──────────────────────────────────── */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* ── Dark Mode Overrides ─────────────────────────────────────── */
+        [data-theme="dark"] {
+            --primary-light:  #1e3a5f;
+            --primary-ring:   rgba(59,130,246,.25);
+            --border:         #334155;
+            --bg:             #0f172a;
+            --bg-section:     #1e293b;
+            --text:           #e2e8f0;
+            --text-muted:     #94a3b8;
+            --text-label:     #cbd5e1;
+            --shadow-md:      0 4px 24px rgba(0,0,0,.32);
+            --danger-light:   #3b1c1c;
+            --danger-border:  #7f1d1d;
+            color-scheme: dark;
+        }
+
+        /* ── Sidebar ─────────────────────────────────────────── */
+        [data-theme="dark"] .sidebar { background: #020617; }
+        [data-theme="dark"] .sidebar-brand { border-bottom-color: rgba(255,255,255,.06); }
+        [data-theme="dark"] .sidebar-footer { border-top-color: rgba(255,255,255,.06); }
+
+        /* ── Dashboard ───────────────────────────────────────── */
+        [data-theme="dark"] .dashboard-hero {
+            background: linear-gradient(135deg, #0c1528 0%, var(--primary-darker) 55%, #1d4ed8 100%);
+        }
+        [data-theme="dark"] .dashboard-body { background: var(--bg); }
+        [data-theme="dark"] .module-card { background: #1e293b; border-color: var(--border); }
+        [data-theme="dark"] .module-card:hover { border-color: #3b82f6; box-shadow: 0 8px 32px rgba(37,99,235,.18); }
+        [data-theme="dark"] .module-card::after { color: #475569; }
+        [data-theme="dark"] .module-card:hover::after { color: #60a5fa; }
+        [data-theme="dark"] .module-card-title { color: var(--text); }
+        [data-theme="dark"] .module-card-desc { color: var(--text-muted); }
+        [data-theme="dark"] .quick-action-btn { background: #1e293b; border-color: var(--border); color: var(--text); }
+        [data-theme="dark"] .quick-action-btn:hover { border-color: #3b82f6; color: #60a5fa; }
+
+        /* ── Pane structure ───────────────────────────────────── */
+        [data-theme="dark"] .pane-header { background: #1e293b; border-bottom-color: var(--border); }
+        [data-theme="dark"] .pane-title { color: var(--text); }
+        [data-theme="dark"] .pane-subtitle { color: var(--text-muted); }
+        [data-theme="dark"] .pane-breadcrumb a { color: var(--text-muted); }
+        [data-theme="dark"] .pane-breadcrumb span { color: #60a5fa; }
+
+        /* ── Card & body surfaces ────────────────────────────── */
+        [data-theme="dark"] .app-card { background: #1e293b; }
+        [data-theme="dark"] .app-body { background: #1e293b; color: var(--text); }
+
+        /* ── Section blocks ──────────────────────────────────── */
+        [data-theme="dark"] .section-block { background: #0f172a; border-color: var(--border); }
+        [data-theme="dark"] .section-block:focus-within { border-color: #3b82f6; }
+
+        /* ── Form controls ───────────────────────────────────── */
+        [data-theme="dark"] .form-control,
+        [data-theme="dark"] .form-select {
+            background: #0f172a !important;
+            background-color: #0f172a !important;
+            color: var(--text) !important;
+            border-color: var(--border) !important;
+        }
+        [data-theme="dark"] .form-control::placeholder { color: #64748b !important; }
+        [data-theme="dark"] .form-control:focus,
+        [data-theme="dark"] .form-select:focus {
+            background: #0f172a !important;
+            background-color: #0f172a !important;
+            color: var(--text) !important;
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(59,130,246,.25) !important;
+        }
+        [data-theme="dark"] .form-control-sm { background: #0f172a !important; color: var(--text) !important; }
+        [data-theme="dark"] .form-label { color: var(--text-label); }
+        [data-theme="dark"] .form-check-label { color: var(--text); }
+        [data-theme="dark"] .form-text { color: var(--text-muted); }
+        [data-theme="dark"] input[type="date"],
+        [data-theme="dark"] input[type="time"] {
+            color-scheme: dark;
+        }
+
+        /* ── Artifact rows (checkbox rows: Citrix, DLL, etc.) ── */
+        [data-theme="dark"] .artifact-row {
+            background: #0f172a;
+            border-color: var(--border);
+        }
+        [data-theme="dark"] .artifact-row:has(input[type=checkbox]:checked) {
+            background: var(--primary-light);
+            border-color: var(--primary);
+        }
+        [data-theme="dark"] .artifact-check label { color: var(--text); }
+
+        /* ── Module badge checkboxes ──────────────────────────── */
+        [data-theme="dark"] .module-badge {
+            background: #0f172a;
+            border-color: var(--border);
+            color: var(--text);
+        }
+        [data-theme="dark"] .module-badge:hover { border-color: #3b82f6; }
+        [data-theme="dark"] .module-badge:has(input:checked) {
+            background: var(--primary-light);
+            border-color: #3b82f6;
+        }
+
+        /* ── Version input group ─────────────────────────────── */
+        [data-theme="dark"] .version-input-group .version-dot {
+            background: #0f172a; border-color: var(--border); color: var(--text-muted);
+        }
+        [data-theme="dark"] .version-input-group .version-seg {
+            background: #0f172a !important; color: var(--text) !important; border-color: var(--border) !important;
+        }
+
+        /* ── Buttons ─────────────────────────────────────────── */
+        [data-theme="dark"] .btn-clear {
+            background: #1e293b; color: var(--text-muted); border-color: var(--border);
+        }
+        [data-theme="dark"] .btn-clear:hover { background: #0f172a; color: var(--text); }
+        [data-theme="dark"] .btn-ghost { background: #1e293b; border-color: var(--border); color: var(--text-muted); }
+        [data-theme="dark"] .btn-ghost:hover { background: #0f172a; color: var(--text); }
+        [data-theme="dark"] .btn-add { background: var(--primary-light); border-color: #334155; }
+        [data-theme="dark"] .btn-add:hover { background: #1e3a8a; }
+        [data-theme="dark"] .btn-add-rdl { background: var(--primary-light); border-color: #334155; }
+        [data-theme="dark"] .btn-add-rdl:hover { background: #1e3a8a; border-color: var(--primary); }
+        [data-theme="dark"] .btn-remove { background: #3b1c1c; border-color: #7f1d1d; }
+        [data-theme="dark"] .btn-remove:hover { background: #4c1d1d; }
+        [data-theme="dark"] .btn-remove-rdl { background: #3b1c1c; color: var(--danger); border-color: #7f1d1d; }
+        [data-theme="dark"] .btn-remove-rdl:hover { background: #4c1d1d; }
+        [data-theme="dark"] .btn-add-uat { background: var(--primary-light); border-color: #334155; }
+        [data-theme="dark"] .btn-add-uat:hover { background: #1e3a8a; border-color: var(--primary); }
+
+        /* ── Dynamic items ───────────────────────────────────── */
+        [data-theme="dark"] .dynamic-item { background: #0f172a; border-color: var(--border); }
+
+        /* ── RDL entries ─────────────────────────────────────── */
+        [data-theme="dark"] .rdl-entry { border-color: #334155 !important; }
+        [data-theme="dark"] .rdl-sp-group { border-color: var(--border); }
+
+        /* ── Nav tabs ────────────────────────────────────────── */
+        [data-theme="dark"] .nav-tabs { border-bottom-color: var(--border); }
+        [data-theme="dark"] .nav-tabs .nav-link { color: var(--text-muted); }
+        [data-theme="dark"] .nav-tabs .nav-link:hover { color: var(--text); }
+        [data-theme="dark"] .nav-tabs .nav-link.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+
+        /* ── Email preview area ──────────────────────────────── */
+        [data-theme="dark"] .email-wrapper { border-color: var(--border); }
+        [data-theme="dark"] #emailPreview,
+        [data-theme="dark"] #rdlEmailPreview,
+        [data-theme="dark"] #uatEmailPreview,
+        [data-theme="dark"] .email-preview-body {
+            background: #1e293b !important;
+            color: var(--text) !important;
+        }
+
+        /* ── Telegram message preview ────────────────────────── */
+        [data-theme="dark"] pre { background: #0f172a; color: var(--text); }
+
+        /* ── UAT blocks & tables ─────────────────────────────── */
+        [data-theme="dark"] .uat-block { background: #0f172a; border-color: var(--border); }
+        [data-theme="dark"] .uat-tbl thead th { background: #0f172a; color: var(--text-muted); border-bottom-color: var(--border); }
+        [data-theme="dark"] .uat-tbl tbody td { border-bottom-color: var(--border); color: var(--text); }
+        [data-theme="dark"] .uat-rich-editor { background: #0f172a; color: var(--text); border-color: var(--border); }
+        [data-theme="dark"] .uat-rich-editor:focus { border-color: var(--primary); }
+        [data-theme="dark"] .uat-rich-editor.dragover { background: var(--primary-light); }
+        [data-theme="dark"] .uat-drop-zone { border-color: #334155; color: var(--text-muted); }
+        [data-theme="dark"] .uat-drop-zone.dragover { background: var(--primary-light); border-color: var(--primary); }
+
+        /* ── Form actions border ─────────────────────────────── */
+        [data-theme="dark"] .form-actions { border-top-color: var(--border); }
+
+        /* ── Bootstrap overrides ─────────────────────────────── */
+        [data-theme="dark"] .text-muted { color: var(--text-muted) !important; }
+        [data-theme="dark"] .form-check-input {
+            background-color: #0f172a;
+            border-color: #475569;
+        }
+        [data-theme="dark"] .form-check-input:checked {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+        [data-theme="dark"] .card { background: #1e293b; border-color: var(--border); color: var(--text); }
+        [data-theme="dark"] .modal-content { background: #1e293b; border-color: var(--border); color: var(--text); }
+        [data-theme="dark"] .dropdown-menu { background: #1e293b; border-color: var(--border); }
+        [data-theme="dark"] .dropdown-item { color: var(--text); }
+        [data-theme="dark"] .dropdown-item:hover { background: #0f172a; }
+        [data-theme="dark"] hr { border-color: var(--border); }
+
+        /* ── Scrollbar ───────────────────────────────────────── */
+        [data-theme="dark"] ::-webkit-scrollbar { width: 8px; height: 8px; }
+        [data-theme="dark"] ::-webkit-scrollbar-track { background: #0f172a; }
+        [data-theme="dark"] ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        [data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Theme toggle in sidebar */
+        .theme-toggle-btn {
+            display: flex; align-items: center; gap: 9px;
+            padding: 8px 11px; border-radius: 8px;
+            color: rgba(255,255,255,.68); font-size: .84rem; font-weight: 500;
+            cursor: pointer; transition: background .15s, color .15s;
+            text-decoration: none; margin-bottom: 2px;
+            border: none; background: transparent; width: 100%; text-align: left; font-family: inherit;
+        }
+        .theme-toggle-btn:hover { background: rgba(255,255,255,.09); color: white; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/history.js"></script>
+    <script src="/js/autosave.js"></script>
+    <script src="/js/global-search.js"></script>
+    <script src="/js/templates.js"></script>
+    <script src="/js/favorites.js"></script>
+    <script src="/js/rich-editor.js"></script>
+    <script src="/js/validation.js"></script>
 </head>
 <body th:data-active-tab="${activeTab != null ? activeTab : 'dashboard'}">
 <div id="toast-container" aria-live="polite"></div>
+<div id="save-indicator" class="save-indicator">&#x1F4BE; Guardado</div>
 <div class="app-layout">
 
     <!-- ── SIDEBAR ────────────────────────────────────── -->
@@ -1948,6 +3190,18 @@
             <div class="sidebar-brand-name">Release Notifier QA</div>
             <div class="sidebar-brand-sub">Plataforma QA &amp; Liberaciones</div>
         </div>
+        <!-- Sidebar Search -->
+        <div class="sidebar-search">
+            <div class="gs-input-wrap">
+                <span class="gs-icon">&#x1F50D;</span>
+                <input type="text" id="globalSearchInput" class="gs-input"
+                       placeholder="Buscar..." autocomplete="off" spellcheck="false"
+                       oninput="onGlobalSearch()" onfocus="onGlobalSearchFocus()" />
+                <kbd class="gs-kbd" id="gsKbd">&#x2318;K</kbd>
+            </div>
+            <div class="gs-results" id="gsResults"></div>
+        </div>
+        <div class="gs-overlay" id="gsOverlay" onclick="closeGlobalSearch()"></div>
         <nav class="sidebar-nav">
             <div class="sidebar-nav-section">Plataforma</div>
             <button class="sidebar-nav-item" data-pane="dashboard" onclick="showPane('dashboard',this)">
@@ -1978,6 +3232,19 @@
             <button class="sidebar-nav-item" data-pane="uat" onclick="showPane('uat',this)">
                 <span class="nav-icon">&#x2705;</span> VoBo UAT
             </button>
+
+            <div class="sidebar-nav-section">Sistema</div>
+            <button class="sidebar-nav-item" onclick="openTemplatesPanel()">
+                <span class="nav-icon">&#x1F4D1;</span> Plantillas
+            </button>
+            <button class="sidebar-nav-item" data-pane="history" onclick="showPane('history',this); loadHistory();">
+                <span class="nav-icon">&#x1F4C2;</span> Historial
+            </button>
+
+            <div class="sidebar-nav-section">Preferencias</div>
+            <button class="theme-toggle-btn" onclick="toggleDarkMode()" title="Cambiar tema">
+                <span class="nav-icon" id="theme-toggle-icon">&#x1F319;</span> Modo Oscuro
+            </button>
         </nav>
         <div class="sidebar-footer">
             <img src="/images/logo-qa.png" alt="QA" onerror="this.style.display='none'">
@@ -1991,7 +3258,7 @@
     <div class="pane" id="pane-dashboard">
         <!-- Hero -->
         <div class="dashboard-hero">
-            <span class="dash-version">v1.0</span>
+            <span class="dash-version">v1.1</span>
             <div class="dashboard-hero-content">
                 <div class="dash-badge">&#x1F3E2; Megacable &mdash; Equipo QA &amp; Liberaciones</div>
                 <h1>Release Notifier QA</h1>
@@ -2002,6 +3269,71 @@
         <!-- Body -->
         <div class="dashboard-body">
             <div class="dashboard-body-inner">
+
+                <!-- KPI Cards -->
+                <div class="dash-section-title">Indicadores</div>
+                <div class="kpi-grid" id="kpiGrid">
+                    <div class="kpi-card kpi-blue">
+                        <div class="kpi-icon">&#x1F4CB;</div>
+                        <div class="kpi-value" id="kpiRfc">—</div>
+                        <div class="kpi-label">RFCs Creados</div>
+                    </div>
+                    <div class="kpi-card kpi-green">
+                        <div class="kpi-icon">&#x2705;</div>
+                        <div class="kpi-value" id="kpiUat">—</div>
+                        <div class="kpi-label">VoBos Generados</div>
+                    </div>
+                    <div class="kpi-card kpi-indigo">
+                        <div class="kpi-icon">&#x1F4E7;</div>
+                        <div class="kpi-value" id="kpiRelease">—</div>
+                        <div class="kpi-label">Correos de Liberaci&#xF3;n</div>
+                    </div>
+                    <div class="kpi-card kpi-amber">
+                        <div class="kpi-icon">&#x1F4CA;</div>
+                        <div class="kpi-value" id="kpiRdl">—</div>
+                        <div class="kpi-label">Reportes RDL</div>
+                    </div>
+                    <div class="kpi-card kpi-purple">
+                        <div class="kpi-icon">&#x2708;&#xFE0F;</div>
+                        <div class="kpi-value" id="kpiTelegram">—</div>
+                        <div class="kpi-label">Mensajes Telegram</div>
+                    </div>
+                    <div class="kpi-card kpi-slate">
+                        <div class="kpi-icon">&#x1F4C4;</div>
+                        <div class="kpi-value" id="kpiExports">—</div>
+                        <div class="kpi-label">Exportaciones</div>
+                    </div>
+                </div>
+
+                <!-- Activity Chart + Recent -->
+                <div class="dash-two-col">
+                    <!-- Mini Chart -->
+                    <div class="dash-panel">
+                        <div class="dash-panel-header">
+                            <div class="dash-section-title" style="margin-bottom:0;">Actividad (&#xFA;ltimos 14 d&#xED;as)</div>
+                            <span class="kpi-label" id="chartTotal"></span>
+                        </div>
+                        <div class="dash-chart-wrapper" id="dashChart">
+                            <div class="dash-chart-empty">Sin datos a&#xFA;n. Genera un documento para ver actividad.</div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="dash-panel">
+                        <div class="dash-panel-header">
+                            <div class="dash-section-title" style="margin-bottom:0;">Actividad reciente</div>
+                        </div>
+                        <div id="dashRecent" class="dash-recent-list">
+                            <div class="dash-chart-empty">Sin actividad reciente.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Favorites / Quick Access -->
+                <div class="dash-section-title">&#x2B50; Accesos R&#xE1;pidos</div>
+                <div id="dashFavorites" class="dash-favorites">
+                    <div class="fav-empty">Sin favoritos. Marca documentos con &#x2B50; para acceder r&#xE1;pidamente.</div>
+                </div>
 
                 <!-- Module Cards -->
                 <div class="dash-section-title">M&#xF3;dulos</div>
@@ -2056,7 +3388,15 @@
 
         <!-- DATOS GENERALES -->
         <div class="section-block">
-            <div class="section-label">📋 Datos Generales</div>
+            <div class="section-label">📋 Datos Generales <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Datos Generales</div>
+                <p><strong>¿Para qué sirve?</strong> Define la versión que se publicará, la versión de rollback y la fecha programada.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Usa formato <code>AA.M.P</code> (año.minor.patch). La versión de rollback es la versión activa anterior, a la que se revertiría si hay problemas.</p>
+                <div class="help-example">Publicar: 26.7.4
+Rollback: 26.7.3</div>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> La fecha se usa en el asunto del correo. Verifica que coincida con la ventana de liberación aprobada.</div>
+            </div>
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Versión a publicar</label>
@@ -2089,7 +3429,15 @@
 
         <!-- ARTEFACTOS -->
         <div class="section-block">
-            <div class="section-label">📦 Artefactos a Publicar</div>
+            <div class="section-label">📦 Artefactos a Publicar <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Artefactos a Publicar</div>
+                <p><strong>¿Para qué sirve?</strong> Selecciona los componentes que se incluyen en esta liberación y sus rutas en el servidor de sprints.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Marca los artefactos que aplican. Las rutas se generan automáticamente a partir de la semana y año. Puedes editarlas manualmente si es necesario.</p>
+                <div class="help-example">✅ Módulos → Cartera, Servicios
+✅ Scripts SQL → RFC23752_agregar_subtipo.sql</div>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> Si marcas "Módulos", selecciona al menos uno (Cartera, Servicios, etc.). Los scripts SQL van uno por línea.</div>
+            </div>
             <div class="row g-2 mb-3 align-items-end">
                 <div class="col-auto">
                     <label class="form-label">Semana</label>
@@ -2192,7 +3540,19 @@
 
         <!-- SPS -->
         <div class="section-block">
-            <div class="section-label">🗄️ SPS's — @DBAs TI</div>
+            <div class="section-label">🗄️ SPS's — @DBAs TI <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Stored Procedures</div>
+                <p><strong>¿Para qué sirve?</strong> Lista los Stored Procedures que los DBAs deben ejecutar, agrupados por ticket de soporte.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Escribe cada bloque con el formato <code>Ticket: [número]</code> seguido de <code>SP: [nombre]</code>. Separa bloques con línea en blanco.</p>
+                <div class="help-example">Ticket: 11839212
+SP: Mcab_sp_get_paquete_familiar_update
+
+Ticket: 11650995
+SP: [dbo].[mcab_job_Alt_Paq_Fam_Att]
+SP: [dbo].[sp_update_paquete_familiar]</div>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> Puedes agregar múltiples SPs por ticket. Si no hay SPs en esta liberación, deja el campo vacío.</div>
+            </div>
             <label class="form-label">Tickets y Stored Procedures <span class="fw-normal text-muted">(bloque por ticket)</span></label>
             <textarea class="form-control font-monospace" rows="7" name="spsTickets"
                       placeholder="Ticket: 11839212&#10;SP: Mcab_sp_get_paquete_familiar_update&#10;&#10;Ticket: 11650995&#10;SP: [dbo].[mcab_job_Alt_Paq_Fam_Att]&#10;SP: [dbo].[sp_update_paquete_familiar]"></textarea>
@@ -2200,7 +3560,15 @@
 
         <!-- BRANCHES -->
         <div class="section-block">
-            <div class="section-label">🌿 Branches de Compilación</div>
+            <div class="section-label">🌿 Branches de Compilación <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Branches de Compilación</div>
+                <p><strong>¿Para qué sirve?</strong> Indica las ramas de código fuente desde donde se compilaron los artefactos publicados.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Escribe el nombre exacto del branch tal como aparece en el repositorio.</p>
+                <div class="help-example">Módulos: Feature_BetoCambiosUrgentes
+WinterX: WinterXSPSV2</div>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> Copia el nombre del branch desde Azure DevOps o Git para evitar errores de escritura.</div>
+            </div>
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Branch Módulos</label>
@@ -2215,7 +3583,15 @@
 
         <!-- PROYECTOS -->
         <div class="section-block">
-            <div class="section-label">🚀 Proyectos / RFCs</div>
+            <div class="section-label">🚀 Proyectos / RFCs <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Proyectos / RFCs</div>
+                <p><strong>¿Para qué sirve?</strong> Lista los RFCs, problemas y proyectos incluidos en esta liberación. Se incluyen en el cuerpo del correo.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Escribe un proyecto por línea. Incluye el número de RFC o problema y una descripción breve.</p>
+                <div class="help-example">RFC 23374 Cancelación Unitaria Contratos Mega Móvil.
+Problema 23413 Telefonía Fija corrección de pantalla.</div>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> El Release URL es el enlace al tablero de Jira que agrupa los cambios de esta versión.</div>
+            </div>
             <textarea class="form-control" rows="5" name="projects"
                       placeholder="RFC 23374 Cancelación Unitaria Contratos Mega Móvil.&#10;Problema solución 23413 Telefonía Fija..."></textarea>
             <div class="mt-3">
@@ -2227,13 +3603,23 @@
 
         <!-- NOTAS -->
         <div class="section-block">
-            <div class="section-label">📝 Nota Especial</div>
+            <div class="section-label">📝 Nota Especial <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Nota Especial</div>
+                <p><strong>¿Para qué sirve?</strong> Agrega instrucciones especiales o advertencias que el equipo debe conocer antes de la liberación.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Escribe cualquier nota relevante. Se mostrará destacada en el correo.</p>
+                <div class="help-example">Ejecutar primero los scripts antes del reinicio de DLLs.
+No publicar en Citrix hasta confirmación de QA.</div>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> Úsalo solo cuando haya algo fuera del flujo normal. Si no hay notas, déjalo vacío.</div>
+            </div>
             <textarea class="form-control" rows="3" name="notes"
                       placeholder="Ej: Ejecutar primero los scripts antes del reinicio de DLLs."></textarea>
         </div>
 
 
         <div class="form-actions d-flex gap-2 justify-content-end">
+            <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearAll()">&#x2715; Limpiar</button>
             <button type="submit" class="btn-generate">Generar Correo &rarr;</button>
         </div>
@@ -2276,7 +3662,13 @@
     <form id="releaseMessageForm" onsubmit="event.preventDefault(); generateReleaseMessage();">
 
         <div class="section-block">
-            <div class="section-label">🧭 Tipo de Comunicación</div>
+            <div class="section-label">🧭 Tipo de Comunicación <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Tipo de Comunicación</div>
+                <p><strong>¿Para qué sirve?</strong> Define el canal de destino del mensaje generado. Puedes importar datos automáticamente desde el formulario de Correo de Liberación.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Selecciona el destino. Si ya llenaste el formulario de correo, usa <strong>Importar datos</strong> para evitar duplicar trabajo.</p>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> Al importar, se auto-genera el mensaje. Puedes editarlo después si necesitas ajustes.</div>
+            </div>
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Destino</label>
@@ -2293,7 +3685,13 @@
         </div>
 
         <div class="section-block">
-            <div class="section-label">📌 Acción (módulos afectados)</div>
+            <div class="section-label">📌 Acción (módulos afectados) <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Módulos Afectados</div>
+                <p><strong>¿Para qué sirve?</strong> Indica qué módulos se actualizan en esta liberación. Aparecen listados en el mensaje de Telegram.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Marca todos los módulos que reciben cambios. Incluye DLL, Citrix o WinterX si aplican.</p>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> Selecciona solo los módulos que realmente cambian para no generar confusión en el equipo.</div>
+            </div>
             <div class="d-flex flex-wrap gap-2">
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="Cartera">Cartera</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="Servicios">Servicios</label>
@@ -2309,7 +3707,14 @@
         </div>
 
         <div class="section-block">
-            <div class="section-label">🧾 Scripts a ejecutar</div>
+            <div class="section-label">🧾 Scripts a ejecutar <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Scripts a Ejecutar</div>
+                <p><strong>¿Para qué sirve?</strong> Lista los archivos SQL que deben ejecutarse como parte de la liberación.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Agrega una fila por cada script. Incluye el nombre completo del archivo.</p>
+                <div class="help-example">Updated-RFC24015.sql
+RFC23752_cambios_tabla.sql</div>
+            </div>
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <label class="form-label mb-0">Lista de archivos SQL</label>
                 <button type="button" class="btn-add-uat" onclick="addTelegramScriptRow()">&#x2b; Agregar script</button>
@@ -2318,12 +3723,26 @@
         </div>
 
         <div class="section-block">
-            <div class="section-label">📝 Notas e instrucciones</div>
+            <div class="section-label">📝 Notas e instrucciones <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Notas e Instrucciones</div>
+                <p><strong>¿Para qué sirve?</strong> Agrega instrucciones operativas que aparecerán al final del mensaje de Telegram.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Escribe indicaciones claras y directas para el equipo que ejecutará la liberación.</p>
+                <div class="help-example">Reiniciar servicios de Cartera después de los scripts.
+Validar que el job nocturno no esté en ejecución.</div>
+            </div>
             <textarea class="form-control" rows="3" id="telegramNotes" placeholder="Notas operativas importantes"></textarea>
         </div>
 
         <div class="section-block">
-            <div class="section-label">📅 Publicación y Versiones</div>
+            <div class="section-label">📅 Publicación y Versiones <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Publicación y Versiones</div>
+                <p><strong>¿Para qué sirve?</strong> Define la fecha y las versiones específicas de cada componente en la liberación.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Versión módulo se refiere a los módulos VB. Versión DLL C# aplica si se compilan DLLs de C#.</p>
+                <div class="help-example">Versión módulo: 26.6.13
+Versión DLL C#: 26.6.11.2</div>
+            </div>
             <div class="row g-3">
                 <div class="col-md-4"><label class="form-label">Fecha de publicación</label><input type="date" class="form-control" id="telegramPublishDate"></div>
                 <div class="col-md-4"><label class="form-label">Versión módulo</label><input type="text" class="form-control" id="telegramVersionModule" placeholder="Ej: 26.6.13"></div>
@@ -2332,7 +3751,14 @@
         </div>
 
         <div class="section-block">
-            <div class="section-label">📚 Cambios de release</div>
+            <div class="section-label">📚 Cambios de release <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Cambios de Release</div>
+                <p><strong>¿Para qué sirve?</strong> Detalla cada cambio incluido con su identificador (RFC o Problema) y una descripción breve.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Agrega una fila por cambio. El ID es el número de RFC o problema; la descripción es un resumen corto.</p>
+                <div class="help-example">RFC 24015 → Corrección de CheckBox en campo Sucursal
+Problema 33520 → Error en cálculo de tarifas</div>
+            </div>
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <label class="form-label mb-0">RFC / Problema + descripción</label>
                 <button type="button" class="btn-add-uat" onclick="addTelegramChangeRow()">&#x2b; Agregar cambio</button>
@@ -2341,7 +3767,13 @@
         </div>
 
         <div class="section-block">
-            <div class="section-label">🛡 Rollback y Branches</div>
+            <div class="section-label">🛡 Rollback y Branches <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Rollback y Branches</div>
+                <p><strong>¿Para qué sirve?</strong> Información para revertir la liberación si es necesario: versión anterior, branches de compilación y URLs de repositorios.</p>
+                <p><strong>¿Cómo llenarlo?</strong> La versión rollback es la versión anterior a la que se publicará. Los branches y URLs deben coincidir exactamente con los del repositorio.</p>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> Solo llena Branch DLL C# y URL del repositorio si la liberación incluye DLLs compiladas en C#.</div>
+            </div>
             <div class="row g-3">
                 <div class="col-md-4"><label class="form-label">Versión rollback</label><input type="text" class="form-control" id="telegramRollbackVersion" placeholder="Ej: 26.6.12"></div>
                 <div class="col-md-4"><label class="form-label">Branch módulos</label><input type="text" class="form-control" id="telegramBranchModules" placeholder="Feature_Modulos"></div>
@@ -2353,6 +3785,8 @@
         </div>
 
         <div class="form-actions d-flex gap-2 justify-content-end">
+            <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearReleaseMessageForm()">&#x2715; Limpiar</button>
             <button type="button" id="btnGenerateReleaseMessage" class="btn-generate" onclick="generateReleaseMessage()">Generar Mensaje &rarr;</button>
         </div>
@@ -2390,7 +3824,13 @@
 
         <!-- SEMANA / AÑO compartido -->
         <div class="section-block">
-            <div class="section-label">&#x1F4C1; Semana y A&#xF1;o</div>
+            <div class="section-label">&#x1F4C1; Semana y A&#xF1;o <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Semana y Año</div>
+                <p><strong>¿Para qué sirve?</strong> Define la semana del sprint para generar automáticamente las rutas de carpeta en los servidores MEGANG-612 y NTRS02.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Se llena automáticamente con la semana actual. Ajusta si el RDL corresponde a otra semana.</p>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> Las rutas Sprint de cada RDL se actualizan al cambiar estos valores.</div>
+            </div>
             <div class="row g-2 align-items-end">
                 <div class="col-auto">
                     <label class="form-label">Semana</label>
@@ -2410,7 +3850,13 @@
 
         <!-- DATOS DE LA LIBERACIÓN (global) -->
         <div class="section-block">
-            <div class="section-label">&#x1F4C5; Datos de la Liberaci&#xF3;n</div>
+            <div class="section-label">&#x1F4C5; Datos de la Liberaci&#xF3;n <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Datos de la Liberación</div>
+                <p><strong>¿Para qué sirve?</strong> Fecha, hora y URL de Jira que aparecen en el encabezado del correo de RDL.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Selecciona la fecha y hora programada. El enlace de Jira es la URL del release que agrupa los reportes.</p>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> La hora es opcional pero recomendada para que el equipo sepa cuándo se publicará.</div>
+            </div>
             <div class="row g-3">
                 <div class="col-md-5">
                     <label class="form-label">Fecha de Liberaci&#xF3;n</label>
@@ -2497,7 +3943,13 @@
     <form id="rdlTelegramForm" onsubmit="event.preventDefault(); generateRdlTelegramMessage();">
 
         <div class="section-block">
-            <div class="section-label">&#x1F680; Acci&#xF3;n</div>
+            <div class="section-label">&#x1F680; Acci&#xF3;n <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Acción del Deployment</div>
+                <p><strong>¿Para qué sirve?</strong> Define la acción principal del deployment que aparecerá como encabezado del mensaje de Telegram.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Deja el valor por defecto o personaliza si la acción es diferente. Puedes importar datos desde el formulario de Correo RDL.</p>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> Al importar, se copian los RDLs, SPs, proyectos y fecha desde el Correo RDL automáticamente.</div>
+            </div>
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label">Descripci&#xF3;n de la acci&#xF3;n</label>
@@ -2512,7 +3964,14 @@
         </div>
 
         <div class="section-block">
-            <div class="section-label">&#x1F4CA; RDLs a desplegar</div>
+            <div class="section-label">&#x1F4CA; RDLs a desplegar <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">RDLs a Desplegar</div>
+                <p><strong>¿Para qué sirve?</strong> Lista los nombres de los reportes RDL que se publicarán en SSRS.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Agrega una fila por cada RDL con el nombre exacto del archivo (sin extensión).</p>
+                <div class="help-example">CON_AuxiliarInstalacionesQuejas
+SER_ReporteFacturacion</div>
+            </div>
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <label class="form-label mb-0">Nombre de cada RDL</label>
                 <button type="button" class="btn-add-uat" onclick="addRdlTgRdlRow()">&#x2b; Agregar RDL</button>
@@ -2521,7 +3980,14 @@
         </div>
 
         <div class="section-block">
-            <div class="section-label">&#x1F5C4;&#xFE0F; Stored Procedures</div>
+            <div class="section-label">&#x1F5C4;&#xFE0F; Stored Procedures <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Stored Procedures</div>
+                <p><strong>¿Para qué sirve?</strong> Lista los SPs que deben ejecutarse junto con el deployment de los RDLs.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Agrega una fila por cada SP con el nombre completo incluyendo el schema.</p>
+                <div class="help-example">dbo.mcab_rdl_auxiliar_trabajos.sql
+dbo.sp_reporte_facturacion.sql</div>
+            </div>
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <label class="form-label mb-0">Nombre de cada SP</label>
                 <button type="button" class="btn-add-uat" onclick="addRdlTgSpRow()">&#x2b; Agregar SP</button>
@@ -2530,7 +3996,12 @@
         </div>
 
         <div class="section-block">
-            <div class="section-label">&#x1F4C5; Fecha de publicaci&#xF3;n</div>
+            <div class="section-label">&#x1F4C5; Fecha de publicaci&#xF3;n <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Fecha de Publicación</div>
+                <p><strong>¿Para qué sirve?</strong> Define cuándo se ejecutará el deployment de los RDLs en los servidores SSRS.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Selecciona la fecha y hora programada para la publicación.</p>
+            </div>
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Fecha</label>
@@ -2563,7 +4034,13 @@
         </div>
 
         <div class="section-block">
-            <div class="section-label">&#x1F4DA; Proyectos relacionados</div>
+            <div class="section-label">&#x1F4DA; Proyectos relacionados <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Proyectos Relacionados</div>
+                <p><strong>¿Para qué sirve?</strong> Documenta qué problemas o RFCs justifican los cambios en los reportes.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Agrega una fila por proyecto con el número de problema y descripción breve del cambio.</p>
+                <div class="help-example">Problema 33162 – Corrección de CheckBox en campo Sucursal</div>
+            </div>
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <label class="form-label mb-0">Proyecto / Problema + descripci&#xF3;n</label>
                 <button type="button" class="btn-add-uat" onclick="addRdlTgProjectRow()">&#x2b; Agregar proyecto</button>
@@ -2607,7 +4084,15 @@
 
         <!-- RFC / INTRO -->
         <div class="section-block">
-            <div class="section-label">&#x2705; RFC a Validar</div>
+            <div class="section-label">&#x2705; RFC a Validar <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">RFC a Validar</div>
+                <p><strong>¿Para qué sirve?</strong> Identifica el RFC que se está solicitando validar en UAT. Se usa en el asunto y cuerpo del correo.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Escribe solo el número (sin "RFC"). El nombre debe ser descriptivo del cambio.</p>
+                <div class="help-example">Número: 24269
+Nombre: Anexo a RFC 24015 Promociones combinen con 120 Mbps</div>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> El saludo y adjunto son opcionales. El adjunto se menciona en el texto del correo, no como archivo real.</div>
+            </div>
             <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">N&#xFA;mero de RFC</label>
@@ -2631,8 +4116,19 @@
 
         <!-- REQUERIMIENTOS -->
         <div class="section-block">
-            <div class="section-label">&#x1F4CB; Requerimientos
-                <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.7rem;">(opcional)</span>
+            <div class="section-label">&#x1F4CB; Requerimientos <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button>
+                <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.7rem;margin-left:0;">(opcional)</span>
+            </div>
+            <div class="help-popover">
+                <div class="help-popover-title">Requerimientos</div>
+                <p><strong>¿Para qué sirve?</strong> Describe los requerimientos, condiciones y resultado esperado que QA debe validar.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Escribe las condiciones y el resultado esperado. Puedes agregar una imagen de referencia (tabla, captura, etc.).</p>
+                <div class="help-example">Promociones:
+2315 - Doble se vuelve Triple
+
+Resultado esperado:
+✓ Que la promoción conviva con los servicios 131 y 331.</div>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> Puedes pegar imágenes con Ctrl+V o arrastrarlas a la zona indicada.</div>
             </div>
             <textarea id="uatRequerimientos" class="form-control" rows="6"
                       placeholder="Describe las promociones, servicios o condiciones a considerar, resultado esperado...&#10;&#10;Ej:&#10;Promociones:&#10;2315 - Doble se vuelve Triple&#10;&#10;Resultado esperado: &#x2713; Que la promoci&#xF3;n conviva con los servicios 131 y 331."></textarea>
@@ -2657,7 +4153,7 @@
         <!-- EDITOR RICO DE EVIDENCIAS (reemplaza bloques) -->
         <div class="section-block">
             <div class="section-label d-flex justify-content-between align-items-center">
-                <span>&#x1F4DD; Ejemplos / Pasos / Evidencias
+                <span>&#x1F4DD; Ejemplos / Pasos / Evidencias <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda" style="margin-left:4px;">?</button>
                     <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.7rem;">(opcional)</span>
                 </span>
                 <label class="btn-add-uat" style="cursor:pointer;white-space:nowrap;">
@@ -2665,20 +4161,64 @@
                     <input type="file" id="uatEditorFileInput" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
                 </label>
             </div>
+            <div class="help-popover">
+                <div class="help-popover-title">Ejemplos / Pasos / Evidencias</div>
+                <p><strong>¿Para qué sirve?</strong> Documenta visualmente la prueba: capturas de pantalla, pasos ejecutados y resultados obtenidos.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Escribe texto con formato, pega imágenes (Ctrl+V), arrástralas o usa la barra de herramientas.</p>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> Usa los atajos: Ctrl+B (negrita), Ctrl+I (cursiva), Ctrl+K (enlace). Las imágenes se comprimen automáticamente.</div>
+            </div>
+            <!-- Rich Editor Toolbar -->
+            <div class="re-toolbar">
+                <button type="button" class="re-btn" onclick="reCmd('bold')" title="Negrita (Ctrl+B)"><b>B</b></button>
+                <button type="button" class="re-btn" onclick="reCmd('italic')" title="Cursiva (Ctrl+I)"><i>I</i></button>
+                <button type="button" class="re-btn" onclick="reCmd('underline')" title="Subrayado (Ctrl+U)"><u>U</u></button>
+                <button type="button" class="re-btn" onclick="reCmd('strikeThrough')" title="Tachado"><s>S</s></button>
+                <span class="re-sep"></span>
+                <button type="button" class="re-btn" onclick="reCmd('insertUnorderedList')" title="Lista con viñetas">&#x2022;</button>
+                <button type="button" class="re-btn" onclick="reCmd('insertOrderedList')" title="Lista numerada">1.</button>
+                <span class="re-sep"></span>
+                <button type="button" class="re-btn" onclick="reInsertLink()" title="Enlace (Ctrl+K)">&#x1F517;</button>
+                <button type="button" class="re-btn" onclick="reInsertTable()" title="Tabla">&#x25A6;</button>
+                <button type="button" class="re-btn" onclick="reInsertCode()" title="Código">&lt;/&gt;</button>
+                <span class="re-sep"></span>
+                <select class="re-select" onchange="reFontSize(this.value);this.selectedIndex=0;" title="Tamaño">
+                    <option value="">Aa</option>
+                    <option value="1">Pequeño</option>
+                    <option value="3">Normal</option>
+                    <option value="5">Grande</option>
+                    <option value="7">Enorme</option>
+                </select>
+                <input type="color" class="re-color" value="#000000" onchange="reTextColor(this.value)" title="Color de texto">
+                <input type="color" class="re-color" value="#ffff00" onchange="reHighlight(this.value)" title="Resaltado" style="border-color:#fbbf24;">
+                <span class="re-sep"></span>
+                <button type="button" class="re-btn" onclick="reCmd('removeFormat')" title="Quitar formato">&#x2718;</button>
+                <label class="re-btn re-btn-img" title="Insertar imagen">
+                    &#x1F4CE;
+                    <input type="file" id="uatEditorFileInput" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
+                </label>
+            </div>
             <div id="uatRichEditor" contenteditable="true" class="uat-rich-editor"
-                 placeholder="Escribe ejemplos, pasos o evidencias. Puedes pegar im&#xE1;genes con Ctrl+V o arrastrarlas aqu&#xED;..."></div>
+                 placeholder="Escribe con formato, pega im&#xE1;genes (Ctrl+V), arrastra archivos o usa la barra de herramientas..."></div>
             <div class="uat-editor-hints">
-                <span>&#x2328;&#xFE0F; Escribe texto</span>
-                <span>&#x1F4CB; Ctrl+V para pegar im&#xE1;genes</span>
-                <span>&#x1F5BC;&#xFE0F; Arrastra im&#xE1;genes</span>
-                <span>&#x1F4CE; Bot&#xF3;n para seleccionar archivos</span>
+                <span><b>Ctrl+B</b> Negrita</span>
+                <span><b>Ctrl+I</b> Cursiva</span>
+                <span><b>Ctrl+K</b> Enlace</span>
+                <span><b>Ctrl+V</b> Pegar imagen</span>
+                <span>&#x1F5BC;&#xFE0F; Drag &amp; Drop</span>
             </div>
         </div>
 
         <!-- NOTA -->
         <div class="section-block">
-            <div class="section-label">&#x26A0;&#xFE0F; NOTA
-                <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.7rem;">(opcional)</span>
+            <div class="section-label">&#x26A0;&#xFE0F; NOTA <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button>
+                <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.7rem;margin-left:0;">(opcional)</span>
+            </div>
+            <div class="help-popover">
+                <div class="help-popover-title">Nota</div>
+                <p><strong>¿Para qué sirve?</strong> Agrega aclaraciones importantes que el equipo de UAT debe tener en cuenta al validar.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Escribe advertencias o condiciones especiales. Se muestra destacada en el correo.</p>
+                <div class="help-example">Para esta promoción solo se consideran servicios residenciales.
+No aplica para clientes empresariales.</div>
             </div>
             <textarea id="uatNota" class="form-control" rows="3"
                       placeholder="Ej: Para esta promoci&#xF3;n solo se consideran servicios residenciales..."></textarea>
@@ -2686,11 +4226,19 @@
 
         <!-- CIERRE -->
         <div class="section-block">
-            <div class="section-label">&#x2709;&#xFE0F; Cierre</div>
+            <div class="section-label">&#x2709;&#xFE0F; Cierre <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Cierre</div>
+                <p><strong>¿Para qué sirve?</strong> Texto de despedida que aparece al final del correo de VoBo UAT.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Deja el texto por defecto o personaliza el cierre según el contexto.</p>
+                <div class="help-tip"><span class="help-tip-icon">💡</span> El cierre predeterminado es formal y funciona para la mayoría de los casos.</div>
+            </div>
             <input type="text" id="uatCierre" class="form-control" value="Quedo pendiente por cualquier duda o comentario.">
         </div>
 
         <div class="form-actions d-flex gap-2 justify-content-end">
+            <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearUatForm()">&#x2715; Limpiar</button>
             <button type="button" class="btn-generate" onclick="generateUatEmail()">Generar Correo VoBo UAT &rarr;</button>
         </div>
@@ -2713,13 +4261,108 @@
                         <button class="btn-copy"        onclick="copyUatEmail()">&#x1F4CB; Copiar</button>
                     </div>
                 </div>
-                <div id="uatEmailPreview"
-                     style="background:white; padding:32px 36px; font-size:14px; color:#1e293b; line-height:1.6;"></div>
+                <div id="uatEmailPreview" class="email-preview-body"
+                     style="padding:32px 36px; font-size:14px; line-height:1.6;"></div>
             </div>
         </div>
 
     </div><!-- /pane-body -->
     </div><!-- /pane-uat -->
+
+    <!-- ══════════════════════════════════════ PANE: HISTORIAL ════════════════ -->
+    <div class="pane" id="pane-history">
+    <div class="pane-header">
+        <div class="pane-breadcrumb"><a href="#" onclick="showPane('dashboard',null);return false;">Inicio</a> / <span>Historial</span></div>
+        <h2 class="pane-title">&#x1F4C2; Historial de Documentos</h2>
+        <p class="pane-subtitle">Registro autom&#xE1;tico de todos los documentos generados. Consulta, compara y restaura versiones anteriores.</p>
+    </div>
+    <div class="pane-body">
+
+        <!-- Toolbar -->
+        <div class="history-toolbar">
+            <div class="history-toolbar-left">
+                <select id="historyTypeFilter" class="form-select form-select-sm" onchange="filterHistory()" style="width:180px;">
+                    <option value="ALL">Todos los tipos</option>
+                    <option value="RELEASE">&#x1F4E7; Correo Liberaci&#xF3;n</option>
+                    <option value="TELEGRAM">&#x2708;&#xFE0F; Telegram</option>
+                    <option value="RDL">&#x1F4CA; Reporte RDL</option>
+                    <option value="RDL_TELEGRAM">&#x2708;&#xFE0F; Telegram RDL</option>
+                    <option value="RFC">&#x1F4CB; RFC T&#xE9;cnico</option>
+                    <option value="UAT">&#x2705; VoBo UAT</option>
+                </select>
+                <input type="text" id="historySearch" class="form-control form-control-sm" placeholder="&#x1F50D; Buscar por t&#xED;tulo, referencia o autor..." style="width:280px;" oninput="searchHistory()">
+                <span id="historyStats" class="history-stats"></span>
+            </div>
+            <div class="history-toolbar-right">
+                <button class="hbtn hbtn-compare" onclick="compareSelected()" title="Comparar seleccionados">&#x1F504; Comparar</button>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="history-table-wrapper">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th style="width:32px;"></th>
+                        <th>Tipo</th>
+                        <th>Documento</th>
+                        <th>Acci&#xF3;n</th>
+                        <th>Autor</th>
+                        <th>Fecha</th>
+                        <th style="width:100px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                    <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">
+                        <div style="font-size:2rem;opacity:.4;margin-bottom:8px;">&#x1F4C2;</div>
+                        Haz clic en <strong>Historial</strong> en el men&#xFA; para cargar los datos.
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div><!-- /pane-body -->
+    </div><!-- /pane-history -->
+
+    <!-- ── History View Modal ──────────────────────────────────── -->
+    <div id="historyViewModal" class="history-modal-overlay" onclick="if(event.target===this)closeHistoryModal()">
+        <div class="history-modal">
+            <div class="history-modal-header">
+                <div>
+                    <div id="hvmTitle" class="history-modal-title"></div>
+                    <div id="hvmMeta" class="history-modal-meta"></div>
+                </div>
+                <button class="hbtn hbtn-close" onclick="closeHistoryModal()">&#x2715;</button>
+            </div>
+            <div id="hvmContent" class="history-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- ── History Compare Modal ───────────────────────────────── -->
+    <div id="historyCompareModal" class="history-modal-overlay" onclick="if(event.target===this)closeHistoryModal()">
+        <div class="history-modal history-modal-wide">
+            <div class="history-modal-header">
+                <div style="font-weight:700;font-size:.9rem;">Comparaci&#xF3;n de versiones</div>
+                <button class="hbtn hbtn-close" onclick="closeHistoryModal()">&#x2715;</button>
+            </div>
+            <div class="history-compare-grid">
+                <div class="history-compare-col">
+                    <div class="history-compare-label">
+                        <span id="hcmTitle1"></span>
+                        <span id="hcmDate1" class="history-compare-date"></span>
+                    </div>
+                    <div id="hcmContent1" class="history-compare-content"></div>
+                </div>
+                <div class="history-compare-col">
+                    <div class="history-compare-label">
+                        <span id="hcmTitle2"></span>
+                        <span id="hcmDate2" class="history-compare-date"></span>
+                    </div>
+                    <div id="hcmContent2" class="history-compare-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- ══════════════════════════════════════ PANE: RFC TÉCNICO ══════════════ -->
     <div class="pane" id="pane-rfc">
@@ -2729,6 +4372,31 @@
     </div>
 
     </main>
+
+    <!-- ── Templates Panel (slide-out) ────────────────── -->
+    <div id="templatesPanel" class="tpl-panel-overlay" onclick="if(event.target===this)closeTemplatesPanel()">
+        <div class="tpl-panel">
+            <div class="tpl-panel-header">
+                <div class="tpl-panel-title">&#x1F4D1; Plantillas</div>
+                <button class="hbtn hbtn-close" onclick="closeTemplatesPanel()">&#x2715;</button>
+            </div>
+            <div class="tpl-panel-toolbar">
+                <select id="templatesFilter" class="form-select form-select-sm" onchange="filterTemplates()" style="flex:1;">
+                    <option value="ALL">Todos los m&#xF3;dulos</option>
+                    <option value="releases">&#x1F4E7; Correo Liberaci&#xF3;n</option>
+                    <option value="messages">&#x2708;&#xFE0F; Telegram</option>
+                    <option value="uat">&#x2705; VoBo UAT</option>
+                </select>
+            </div>
+            <div id="templatesList" class="tpl-panel-body">
+                <div class="tpl-empty">
+                    <div style="font-size:1.8rem;opacity:.3;margin-bottom:8px;">&#x1F4D1;</div>
+                    No hay plantillas guardadas.
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div><!-- /app-layout -->
 
 <!-- Template para entradas dinámicas de RDL -->
