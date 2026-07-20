@@ -164,11 +164,9 @@
                 c1.innerHTML = '<div style="padding:20px;text-align:center;color:var(--success);font-weight:600;">✓ Contenido idéntico</div>';
                 c2.innerHTML = c1.innerHTML;
             } else {
-                // Show as text for meaningful comparison
-                c1.textContent = stripHtml(data.content1 || '');
-                c2.textContent = stripHtml(data.content2 || '');
-                c1.style.whiteSpace = 'pre-wrap';
-                c2.style.whiteSpace = 'pre-wrap';
+                // HTML documents render as HTML, text documents as pre-wrapped text
+                renderCompareContent(c1, data.content1, data.v1.format);
+                renderCompareContent(c2, data.content2, data.v2.format);
             }
 
             modal.classList.add('open');
@@ -186,6 +184,21 @@
         clearTimeout(window._histSearchTimer);
         window._histSearchTimer = setTimeout(() => filterHistory(), 300);
     };
+
+    function renderCompareContent(el, content, format) {
+        if (!content) { el.innerHTML = '<em style="color:var(--text-muted);">Sin contenido</em>'; return; }
+        if (format === 'HTML') {
+            // Render HTML content in a sandboxed styled container
+            el.className = 'history-compare-content history-compare-html';
+            el.innerHTML = content;
+        } else {
+            // Plain text (Telegram messages, etc.)
+            el.className = 'history-compare-content';
+            el.style.whiteSpace = 'pre-wrap';
+            el.style.fontFamily = "'Cascadia Code', Consolas, monospace";
+            el.textContent = content;
+        }
+    }
 
     function stripHtml(html) {
         const tmp = document.createElement('div');

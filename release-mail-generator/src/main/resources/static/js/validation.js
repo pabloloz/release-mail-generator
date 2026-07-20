@@ -6,12 +6,12 @@
     var RULES = {
         releases: {
             required: [
-                { check: function () { return getVal('vPubYear') && getVal('vPubMinor'); }, label: 'Versión a publicar', field: 'vPubYear' },
-                { check: function () { return getVal('vRbYear') && getVal('vRbMinor'); }, label: 'Versión de rollback', field: 'vRbYear' },
                 { check: function () { return getVal(null, '[name="publishDate"]'); }, label: 'Fecha de publicación', selector: '[name="publishDate"]' },
                 { check: function () { return hasAnyArtifact(); }, label: 'Al menos un artefacto seleccionado', field: 'hasModules' }
             ],
             warnings: [
+                { check: function () { return getVal('vPubYear') && getVal('vPubMinor'); }, label: 'Versión a publicar (recomendado)' },
+                { check: function () { return getVal('vRbYear') && getVal('vRbMinor'); }, label: 'Versión de rollback (recomendado)' },
                 { check: function () { return getVal(null, '[name="projects"]'); }, label: 'Proyectos / RFCs (recomendado)' },
                 { check: function () { return getVal(null, '[name="branchModules"]') || getVal(null, '[name="branchWinter"]'); }, label: 'Branches de compilación (recomendado)' }
             ]
