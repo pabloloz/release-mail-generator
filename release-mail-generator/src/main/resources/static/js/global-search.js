@@ -28,7 +28,7 @@
         var input = document.getElementById('globalSearchInput');
         var kbd = document.getElementById('gsKbd');
         if (kbd) kbd.style.display = 'none';
-        if (input && input.value.trim().length >= 2) doSearch();
+        if (input && input.value.trim().length >= 1) doSearch();
     };
 
     window.closeGlobalSearch = function () {
@@ -48,7 +48,7 @@
         if (!input || !results) return;
 
         var q = input.value.trim();
-        if (q.length < 2) {
+        if (q.length < 1) {
             results.classList.remove('open');
             overlay.classList.remove('open');
             return;
