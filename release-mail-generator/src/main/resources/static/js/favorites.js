@@ -59,10 +59,17 @@
     };
 
     window.navigateFavorite = function (type, id, url) {
-        if (url) {
+        if (type === 'RFC' && url) {
+            // Open RFC inside the iframe instead of navigating away
+            if (typeof showPane === 'function') {
+                showPane('rfc', null);
+                var frame = document.getElementById('rfcFrame');
+                if (frame) frame.src = url;
+            } else {
+                window.location.href = url;
+            }
+        } else if (url) {
             window.location.href = url;
-        } else if (type === 'RFC') {
-            window.location.href = '/rfc/' + id;
         } else if (typeof showPane === 'function' && typeof viewVersion === 'function') {
             showPane('history', null);
             setTimeout(function () { viewVersion(id); }, 200);

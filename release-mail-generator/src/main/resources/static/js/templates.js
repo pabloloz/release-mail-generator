@@ -166,7 +166,10 @@
     };
     window.closeTemplatesPanel = function () {
         var panel = document.getElementById('templatesPanel');
-        if (panel) panel.classList.remove('open');
+        if (panel && panel.classList.contains('open')) {
+            panel.style.opacity = '0';
+            setTimeout(function () { panel.classList.remove('open'); panel.style.opacity = ''; }, 250);
+        }
     };
 
     function renderTemplatesList() {

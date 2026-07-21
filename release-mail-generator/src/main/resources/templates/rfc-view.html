@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/animations.css" rel="stylesheet">
     <script src="/js/dark-mode.js"></script>
     <style>
         :root {
@@ -100,6 +101,95 @@
         .btn-fav { border: none; background: transparent; cursor: pointer; font-size: 1rem; padding: 2px 6px; border-radius: 4px; transition: transform .12s; line-height: 1; color: var(--text-muted); }
         .btn-fav:hover { transform: scale(1.2); }
         .btn-fav.is-fav { color: #f59e0b; }
+
+        /* ── Action Toolbar ─────────────────────────────── */
+        .rfc-actions {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; padding: 10px 0; margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .rfc-actions-left { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .rfc-act-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 6px 14px; border-radius: 6px;
+            font-size: .78rem; font-weight: 600; font-family: inherit;
+            border: 1px solid var(--border); background: transparent;
+            color: var(--text); text-decoration: none; cursor: pointer;
+            transition: background .12s, border-color .12s, color .12s;
+        }
+        .rfc-act-btn:hover { background: var(--bg-section); border-color: #94a3b8; color: var(--text); }
+        .rfc-act-primary { background: var(--primary); color: white; border-color: var(--primary); }
+        .rfc-act-primary:hover { background: #1d4ed8; border-color: #1d4ed8; color: white; }
+        .rfc-act-purple { background: #7c3aed; color: white; border-color: #7c3aed; }
+        .rfc-act-purple:hover { background: #6d28d9; border-color: #6d28d9; color: white; }
+        .rfc-act-danger { background: transparent; color: var(--danger); border-color: #fecaca; }
+        .rfc-act-danger:hover { background: #fef2f2; border-color: var(--danger); }
+        .rfc-act-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+        [data-theme="dark"] .rfc-actions { border-bottom-color: var(--border); }
+        [data-theme="dark"] .rfc-act-btn { border-color: #334155; color: var(--text); }
+        [data-theme="dark"] .rfc-act-btn:hover { background: #0f172a; border-color: #475569; }
+        [data-theme="dark"] .rfc-act-danger { color: #f87171; border-color: #7f1d1d; }
+        [data-theme="dark"] .rfc-act-danger:hover { background: #1c0f0f; border-color: #f87171; }
+
+        .rfc-meta-footer {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            padding: 12px 0; margin-top: 12px;
+            font-size: .72rem; color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+        .rfc-meta-sep { opacity: .4; }
+
+        /* ── PDF Viewer ────────────────────────────────────── */
+        .pdf-viewer-overlay {
+            display: none; position: fixed; inset: 0; z-index: 10000;
+            background: rgba(0,0,0,.6); align-items: center; justify-content: center;
+        }
+        .pdf-viewer-overlay.open { display: flex; }
+        .pdf-viewer {
+            background: #1e293b; border-radius: 12px;
+            width: 95vw; height: 92vh; max-width: 1200px;
+            display: flex; flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,.4);
+            animation: cardIn .2s var(--ease-out, cubic-bezier(0.16,1,0.3,1));
+        }
+        .pdf-viewer-toolbar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 16px; border-bottom: 1px solid #334155;
+            flex-shrink: 0;
+        }
+        .pdf-viewer-title {
+            font-size: .84rem; font-weight: 700; color: #e2e8f0;
+            flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .pdf-toolbar-btn {
+            border: none; background: rgba(255,255,255,.08); color: #e2e8f0;
+            padding: 6px 14px; border-radius: 6px; font-size: .78rem;
+            font-weight: 600; cursor: pointer; font-family: inherit;
+            display: inline-flex; align-items: center; gap: 5px;
+            transition: background .12s;
+        }
+        .pdf-toolbar-btn:hover { background: rgba(255,255,255,.15); }
+        .pdf-toolbar-btn-primary { background: var(--primary); }
+        .pdf-toolbar-btn-primary:hover { background: #1d4ed8; }
+        .pdf-toolbar-close {
+            border: none; background: transparent; color: #94a3b8;
+            font-size: 1.1rem; cursor: pointer; padding: 4px 8px;
+            border-radius: 4px; transition: background .12s;
+        }
+        .pdf-toolbar-close:hover { background: rgba(255,255,255,.1); color: white; }
+        .pdf-viewer-body {
+            flex: 1; overflow: hidden; background: #0f172a;
+            border-radius: 0 0 12px 12px;
+        }
+        .pdf-viewer-body iframe {
+            width: 100%; height: 100%; border: none;
+        }
+        .pdf-viewer-loading {
+            display: flex; align-items: center; justify-content: center;
+            height: 100%; color: #94a3b8; font-size: .88rem; gap: 10px;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
@@ -132,17 +222,29 @@
     <!-- BODY -->
     <div class="app-body">
 
-    <!-- Action buttons -->
-    <div class="d-flex gap-2 flex-wrap mb-4">
-        <button class="btn-fav" id="rfcViewFavBtn" type="button" onclick="toggleRfcFav()" title="Favorito" style="font-size:1.2rem;padding:6px 10px;">☆</button>
-        <a th:href="@{/rfc/{id}/pdf(id=${record.id})}" class="btn-pdf">📥 Exportar PDF</a>
-        <a th:href="@{/rfc/{id}/markdown(id=${record.id})}" class="btn-md">📄 Exportar Markdown</a>
-        <a th:href="@{/rfc/{id}/testcases-pdf(id=${record.id})}" class="btn-pdf" style="background:#8b5cf6;">🧪 Casos de Prueba PDF</a>
-        <a th:href="@{/rfc/{id}/testcases-markdown(id=${record.id})}" class="btn-md" style="background:#0d9488;">🧪 Casos de Prueba MD</a>
-        <a th:href="@{/rfc/{id}/edit(id=${record.id})}" class="btn-ghost">✏️ Editar</a>
+    <!-- Action bar -->
+    <div class="rfc-actions">
+        <div class="rfc-actions-left">
+            <button class="btn-fav" id="rfcViewFavBtn" type="button" onclick="toggleRfcFav()" title="Favorito">&#x2606;</button>
+            <a th:href="@{/rfc/{id}/edit(id=${record.id})}" class="rfc-act-btn">&#x270F;&#xFE0F; Editar</a>
+            <span class="rfc-act-sep"></span>
+            <button type="button" class="rfc-act-btn rfc-act-primary"
+                    th:data-url="@{/rfc/{id}/pdf(id=${record.id})}"
+                    th:data-title="${'RFC ' + record.rfcNumber}"
+                    th:data-filename="${'RFC_' + record.rfcNumber + '.pdf'}"
+                    onclick="previewPdf(this.dataset.url, this.dataset.title, this.dataset.filename)">&#x1F4C4; RFC PDF</button>
+            <a th:href="@{/rfc/{id}/markdown(id=${record.id})}" class="rfc-act-btn">&#x1F4DD; RFC MD</a>
+            <span class="rfc-act-sep"></span>
+            <button type="button" class="rfc-act-btn rfc-act-purple"
+                    th:data-url="@{/rfc/{id}/testcases-pdf(id=${record.id})}"
+                    th:data-title="${'Casos de Prueba ' + record.rfcNumber}"
+                    th:data-filename="${'CasosPrueba_' + record.rfcNumber + '.pdf'}"
+                    onclick="previewPdf(this.dataset.url, this.dataset.title, this.dataset.filename)">&#x1F9EA; Casos PDF</button>
+            <a th:href="@{/rfc/{id}/testcases-markdown(id=${record.id})}" class="rfc-act-btn">&#x1F9EA; Casos MD</a>
+        </div>
         <form th:action="@{/rfc/{id}/delete(id=${record.id})}" method="post"
-              onsubmit="return confirm('¿Eliminar este RFC? Esta acción no se puede deshacer.')">
-            <button type="submit" class="btn-danger-sm">🗑 Eliminar RFC</button>
+              onsubmit="return confirm('&#xBF;Eliminar este RFC?')">
+            <button type="submit" class="rfc-act-btn rfc-act-danger">&#x1F5D1; Eliminar</button>
         </form>
     </div>
 
@@ -270,16 +372,21 @@
                         <td th:text="${tc.expectedResult ?: '—'}"></td>
                         <td th:text="${tc.obtainedResult ?: '—'}"></td>
                         <td>
-                            <span th:text="${tc.result ?: '—'}"
-                                  th:classappend="${tc.result == 'Exitoso' ? 'tc-pass' : 'tc-fail'}"></span>
+                            <span th:with="st=${tc.status ?: tc.result ?: '—'}"
+                                  th:text="${st}"
+                                  th:classappend="${st == 'Aprobado' or st == 'Exitoso' ? 'tc-pass' : (st == 'Fallido' or st == 'Rechazado' ? 'tc-fail' : '')}"></span>
                         </td>
                     </tr>
                 </tbody>
             </table>
             <!-- Export test cases only -->
             <div class="d-flex gap-2 mt-3">
-                <a th:href="@{/rfc/{id}/testcases-pdf(id=${record.id})}" class="btn-pdf" style="font-size:.78rem; padding:5px 12px;">📥 Exportar Casos de Prueba PDF</a>
-                <a th:href="@{/rfc/{id}/testcases-markdown(id=${record.id})}" class="btn-md" style="font-size:.78rem; padding:5px 12px;">📄 Exportar Casos de Prueba MD</a>
+                <button type="button" class="btn-pdf" style="font-size:.78rem; padding:5px 12px;"
+                        th:data-url="@{/rfc/{id}/testcases-pdf(id=${record.id})}"
+                        th:data-title="${'Casos de Prueba ' + record.rfcNumber}"
+                        th:data-filename="${'CasosPrueba_' + record.rfcNumber + '.pdf'}"
+                        onclick="previewPdf(this.dataset.url, this.dataset.title, this.dataset.filename)">&#x1F50D; Vista previa Casos de Prueba</button>
+                <a th:href="@{/rfc/{id}/testcases-markdown(id=${record.id})}" class="btn-md" style="font-size:.78rem; padding:5px 12px;">&#x1F4C4; Exportar MD</a>
             </div>
         </div>
     </div>
@@ -352,27 +459,57 @@
         <p class="body-empty" th:if="${record.finalNotes == null or record.finalNotes.isBlank()}">Sin notas finales</p>
     </div>
 
-    <!-- Bottom action bar -->
-    <div class="d-flex gap-2 flex-wrap pt-2 border-top" style="margin-top:8px; padding-top:20px;">
-        <a th:href="@{/rfc/{id}/pdf(id=${record.id})}" class="btn-pdf">📥 Exportar PDF</a>
-        <a th:href="@{/rfc/{id}/markdown(id=${record.id})}" class="btn-md">📄 Exportar Markdown</a>
-        <a th:href="@{/rfc/{id}/testcases-pdf(id=${record.id})}" class="btn-pdf" style="background:#8b5cf6;">🧪 Casos de Prueba PDF</a>
-        <a th:href="@{/rfc/{id}/testcases-markdown(id=${record.id})}" class="btn-md" style="background:#0d9488;">🧪 Casos de Prueba MD</a>
-        <a th:href="@{/rfc/{id}/edit(id=${record.id})}" class="btn-primary-sm">✏️ Editar RFC</a>
-        <a href="/rfc" class="btn-ghost">← Volver a la lista</a>
+    <!-- Bottom actions -->
+    <div class="rfc-actions" style="margin-top:24px;">
+        <div class="rfc-actions-left">
+            <button type="button" class="rfc-act-btn rfc-act-primary"
+                    th:data-url="@{/rfc/{id}/pdf(id=${record.id})}"
+                    th:data-title="${'RFC ' + record.rfcNumber}"
+                    th:data-filename="${'RFC_' + record.rfcNumber + '.pdf'}"
+                    onclick="previewPdf(this.dataset.url, this.dataset.title, this.dataset.filename)">&#x1F4C4; RFC PDF</button>
+            <button type="button" class="rfc-act-btn rfc-act-purple"
+                    th:data-url="@{/rfc/{id}/testcases-pdf(id=${record.id})}"
+                    th:data-title="${'Casos de Prueba ' + record.rfcNumber}"
+                    th:data-filename="${'CasosPrueba_' + record.rfcNumber + '.pdf'}"
+                    onclick="previewPdf(this.dataset.url, this.dataset.title, this.dataset.filename)">&#x1F9EA; Casos PDF</button>
+            <span class="rfc-act-sep"></span>
+            <a th:href="@{/rfc/{id}/edit(id=${record.id})}" class="rfc-act-btn">&#x270F;&#xFE0F; Editar</a>
+            <a href="/rfc" class="rfc-act-btn">&larr; Volver a la lista</a>
+        </div>
     </div>
 
-    <!-- Metadata -->
-    <div class="meta-info mt-3 pt-2 border-top d-flex gap-4 flex-wrap">
-        <span th:if="${record.createdAt != null}"
-              th:text="'Creado: ' + ${#temporals.format(record.createdAt, 'dd/MM/yyyy HH:mm')}"></span>
-        <span th:if="${record.updatedAt != null}"
-              th:text="'Última modificación: ' + ${#temporals.format(record.updatedAt, 'dd/MM/yyyy HH:mm')}"></span>
+    <!-- Metadata footer -->
+    <div class="rfc-meta-footer">
+        <span th:if="${record.createdAt != null}">
+            &#x1F4C5; Creado: <span th:text="${#temporals.format(record.createdAt, 'dd/MM/yyyy HH:mm')}"></span>
+        </span>
+        <span class="rfc-meta-sep">&middot;</span>
+        <span th:if="${record.updatedAt != null}">
+            &#x270F;&#xFE0F; Modificado: <span th:text="${#temporals.format(record.updatedAt, 'dd/MM/yyyy HH:mm')}"></span>
+        </span>
     </div>
 
     </div><!-- /app-body -->
 </div>
 </div>
+<!-- PDF Viewer Modal -->
+<div id="pdfViewer" class="pdf-viewer-overlay" onclick="if(event.target===this)closePdfViewer()">
+    <div class="pdf-viewer">
+        <div class="pdf-viewer-toolbar">
+            <div class="pdf-viewer-title" id="pdfViewerTitle">Vista previa</div>
+            <button class="pdf-toolbar-btn" onclick="refreshPdfViewer()" title="Actualizar">&#x1F504; Actualizar</button>
+            <button class="pdf-toolbar-btn" onclick="printPdf()" title="Imprimir">&#x1F5A8;&#xFE0F; Imprimir</button>
+            <button class="pdf-toolbar-btn pdf-toolbar-btn-primary" onclick="downloadCurrentPdf()" title="Descargar">&#x1F4E5; Descargar</button>
+            <button class="pdf-toolbar-close" onclick="closePdfViewer()">&#x2715;</button>
+        </div>
+        <div class="pdf-viewer-body" id="pdfViewerBody">
+            <div class="pdf-viewer-loading" id="pdfViewerLoading">
+                <span class="spinner"></span> Generando vista previa...
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="/js/favorites.js"></script>
 <script th:inline="javascript">
     var rfcId = /*[[${record.id}]]*/ '';
@@ -399,6 +536,73 @@
             btn.textContent = '★';
             btn.classList.add('is-fav');
         }
+    });
+
+    // ── PDF Viewer ───────────────────────────────────────
+    var _currentPdfUrl = '';
+    var _currentPdfBlob = null;
+    var _currentPdfFilename = '';
+
+    function previewPdf(url, title, filename) {
+        _currentPdfUrl = url;
+        _currentPdfFilename = filename || 'documento.pdf';
+        document.getElementById('pdfViewerTitle').textContent = title || 'Vista previa';
+        var body = document.getElementById('pdfViewerBody');
+        body.innerHTML = '<div class="pdf-viewer-loading"><span class="spinner"></span> Generando vista previa...</div>';
+        document.getElementById('pdfViewer').classList.add('open');
+
+        fetch(url)
+            .then(function(r) {
+                if (!r.ok) throw new Error('Error ' + r.status);
+                return r.blob();
+            })
+            .then(function(blob) {
+                _currentPdfBlob = blob;
+                var blobUrl = URL.createObjectURL(blob);
+                body.innerHTML = '<iframe src="' + blobUrl + '#toolbar=1&navpanes=0"></iframe>';
+            })
+            .catch(function(err) {
+                body.innerHTML = '<div class="pdf-viewer-loading" style="color:#ef4444;">Error al generar PDF: ' + err.message + '</div>';
+            });
+    }
+
+    function closePdfViewer() {
+        var overlay = document.getElementById('pdfViewer');
+        overlay.classList.remove('open');
+        var body = document.getElementById('pdfViewerBody');
+        body.innerHTML = '';
+        _currentPdfBlob = null;
+    }
+
+    function refreshPdfViewer() {
+        if (_currentPdfUrl) {
+            var title = document.getElementById('pdfViewerTitle').textContent;
+            previewPdf(_currentPdfUrl, title, _currentPdfFilename);
+        }
+    }
+
+    function downloadCurrentPdf() {
+        if (_currentPdfBlob) {
+            var url = URL.createObjectURL(_currentPdfBlob);
+            var a = document.createElement('a');
+            a.href = url; a.download = _currentPdfFilename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('PDF descargado', 'success');
+        }
+    }
+
+    function printPdf() {
+        var iframe = document.querySelector('#pdfViewerBody iframe');
+        if (iframe) {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+        }
+    }
+
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closePdfViewer();
     });
 </script>
 </body>

@@ -107,8 +107,13 @@
     };
 
     window.closeHistoryModal = function () {
-        document.getElementById('historyViewModal')?.classList.remove('open');
-        document.getElementById('historyCompareModal')?.classList.remove('open');
+        var modals = [document.getElementById('historyViewModal'), document.getElementById('historyCompareModal')];
+        modals.forEach(function(m) {
+            if (m && m.classList.contains('open')) {
+                m.style.opacity = '0';
+                setTimeout(function() { m.classList.remove('open'); m.style.opacity = ''; }, 200);
+            }
+        });
     };
 
     window.restoreVersion = async function (id) {

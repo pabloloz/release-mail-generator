@@ -280,7 +280,9 @@
             if (navItem) navItem.classList.add('active');
             if (name === 'rfc') {
                 const frame = document.getElementById('rfcFrame');
-                if (frame && !frame.dataset.loaded) { frame.src = '/rfc'; frame.dataset.loaded = 'true'; }
+                if (frame && (!frame.src || frame.src === 'about:blank' || frame.contentDocument?.URL === 'about:blank')) {
+                    frame.src = '/rfc';
+                }
             }
         }
         function openArtifactsSubmenu(type) {
@@ -529,11 +531,14 @@
             const anio   = document.getElementById('rdlAnio').value.trim();
             if (!semana || !anio) return;
             const base = `\\\\ntdesarrollo.evolution.corp\\sprints$\\RFC'S Semana ${semana} ${anio}\\RDLL's\\`;
+            const scriptsPath = `\\\\ntdesarrollo.evolution.corp\\sprints$\\RFC'S Semana ${semana} ${anio}\\Scripts`;
             document.querySelectorAll('#rdlEntries .rdl-entry').forEach(entry => {
                 const m = entry.querySelector('[name$=".rdlPathMegang"]');
                 const n = entry.querySelector('[name$=".rdlPathNtrs02"]');
+                const s = entry.querySelector('[name$=".rdlScriptPath"]');
                 if (m) m.value = base + 'MEGANG-612';
                 if (n) n.value = base + 'NTRS02';
+                if (s && !s.value) s.value = scriptsPath;
             });
         }
         function updateRdlEntryUrls(input) {
@@ -591,6 +596,10 @@
             const grp = cb.closest('.artifact-row').querySelector('.rdl-sp-group');
             if (grp) grp.style.display = cb.checked ? 'block' : 'none';
         }
+        function toggleEntryRdlScript(cb) {
+            const grp = cb.closest('.artifact-row').querySelector('.rdl-script-group');
+            if (grp) grp.style.display = cb.checked ? 'block' : 'none';
+        }
         function clearRdlForm() {
             document.getElementById('rdlForm').reset();
             const preview = document.getElementById('rdlEmailSection');
@@ -601,6 +610,7 @@
             container.querySelectorAll('input, textarea').forEach(el => el.value = '');
             container.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
             container.querySelectorAll('.rdl-sp-group').forEach(g => g.style.display = 'none');
+            container.querySelectorAll('.rdl-script-group').forEach(g => g.style.display = 'none');
             updateRemoveButtons();
             updateRdlPaths();
         }
@@ -701,6 +711,9 @@
                     hasRdlSp:        gc('hasRdlSp'),
                     rdlSpName:       g('rdlSpName'),
                     rdlSpTicket:     g('rdlSpTicket'),
+                    hasRdlScript:    gc('hasRdlScript'),
+                    rdlScriptName:   g('rdlScriptName'),
+                    rdlScriptPath:   g('rdlScriptPath'),
                     rdlProject:      g('rdlProject')
                 });
             });
@@ -2227,8 +2240,9 @@
         .main-area { flex: 1; display: flex; flex-direction: column; min-height: 100vh; overflow-y: auto; min-width: 0; }
 
         /* ── Panes ───────────────────────────────────────────────────── */
-        .pane { display: none; flex-direction: column; flex: 1; }
+        .pane { display: none; flex-direction: column; flex: 1; min-height: 0; }
         .pane.active { display: flex; }
+        #pane-rfc { overflow: hidden; }
         .pane-header { background: white; border-bottom: 1px solid var(--border); padding: 28px 48px 22px; flex-shrink: 0; }
         .pane-breadcrumb { font-size: .72rem; color: var(--text-muted); margin-bottom: 4px; }
         .pane-breadcrumb a { color: var(--text-muted); text-decoration: none; }
@@ -2446,6 +2460,7 @@
 
         /* ── Dark mode — KPI + Dashboard panels ──────────────────────── */
         [data-theme="dark"] .kpi-card { background: #1e293b; border-color: var(--border); }
+        [data-theme="dark"] .kpi-card:hover { box-shadow: 0 6px 24px rgba(37,99,235,.15); border-color: #3b82f6; }
         [data-theme="dark"] .kpi-card::after { opacity: .12; }
         [data-theme="dark"] .dash-panel { background: #1e293b; border-color: var(--border); }
         [data-theme="dark"] .dash-panel-header { border-bottom-color: var(--border); }
@@ -2517,7 +2532,6 @@
         }
 
         /* ── Pane transitions ────────────────────────────────────────── */
-        .pane.active { animation: fadeIn .18s ease-out; }
         .pane.active .pane-body { animation: scaleIn .2s ease-out; }
 
         /* ── Button press feedback ───────────────────────────────────── */
@@ -2959,6 +2973,22 @@
         [data-theme="dark"] .history-modal-header { border-bottom-color: var(--border); }
         [data-theme="dark"] .history-compare-col:first-child { border-right-color: var(--border); }
         [data-theme="dark"] .history-compare-label { background: #0f172a; border-bottom-color: var(--border); }
+        [data-theme="dark"] .history-compare-content { color: #e2e8f0; }
+        [data-theme="dark"] .history-compare-html { color: #e2e8f0 !important; }
+        [data-theme="dark"] .history-compare-html * { color: #e2e8f0 !important; }
+        [data-theme="dark"] .history-compare-html a,
+        [data-theme="dark"] .history-compare-html a * { color: #60a5fa !important; }
+        [data-theme="dark"] .history-compare-html b,
+        [data-theme="dark"] .history-compare-html strong { color: #f1f5f9 !important; }
+        [data-theme="dark"] .history-compare-html td,
+        [data-theme="dark"] .history-compare-html th { border-color: #334155 !important; color: #e2e8f0 !important; }
+        [data-theme="dark"] .history-compare-html img { border-color: #334155; }
+        [data-theme="dark"] .history-modal-body { color: #e2e8f0; }
+        [data-theme="dark"] .history-modal-body * { color: #e2e8f0 !important; }
+        [data-theme="dark"] .history-modal-body a,
+        [data-theme="dark"] .history-modal-body a * { color: #60a5fa !important; }
+        [data-theme="dark"] .history-modal-body b,
+        [data-theme="dark"] .history-modal-body strong { color: #f1f5f9 !important; }
         [data-theme="dark"] .hbtn:hover { background: #0f172a; }
         [data-theme="dark"] .hbtn-compare { background: var(--primary-light); border-color: #334155; }
         [data-theme="dark"] .history-type-RELEASE { background: #1e3a5f; color: #93c5fd; }
@@ -3184,6 +3214,7 @@
     <script src="/js/favorites.js"></script>
     <script src="/js/rich-editor.js"></script>
     <script src="/js/validation.js"></script>
+    <link href="/css/animations.css" rel="stylesheet">
 </head>
 <body th:data-active-tab="${activeTab != null ? activeTab : 'dashboard'}">
 <div id="toast-container" aria-live="polite"></div>
@@ -4375,7 +4406,7 @@ No aplica para clientes empresariales.</div>
     <!-- ══════════════════════════════════════ PANE: RFC TÉCNICO ══════════════ -->
     <div class="pane" id="pane-rfc">
         <iframe id="rfcFrame" src="about:blank"
-                style="width:100%; min-height:calc(100vh - 1px); border:none; display:block;"
+                style="width:100%; height:100%; border:none; display:block;"
                 title="RFC T&#xE9;cnico"></iframe>
     </div>
 
@@ -4468,6 +4499,29 @@ No aplica para clientes empresariales.</div>
                                 <label class="form-label">N&#xB0;(s) Ticket VoBo <span class="fw-normal text-muted">(uno por l&#xED;nea)</span></label>
                                 <textarea class="form-control form-control-sm font-monospace" rows="2" name="rdls[0].rdlSpTicket"
                                           placeholder="11814905&#10;11839212"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Script de Alta (para RDLs nuevos) -->
+            <div class="col-12">
+                <div class="artifact-row" style="flex-direction:column; align-items:stretch; margin-bottom:0;">
+                    <div class="artifact-check" style="padding-top:0;">
+                        <input type="checkbox" name="rdls[0].hasRdlScript" value="true" onchange="toggleEntryRdlScript(this)">
+                        <label>&nbsp;Incluir Script de Alta (RDL nuevo)</label>
+                    </div>
+                    <div class="rdl-script-group" style="display:none; margin-top:12px;">
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label class="form-label">Nombre del script</label>
+                                <input type="text" class="form-control form-control-sm font-monospace" name="rdls[0].rdlScriptName"
+                                       placeholder="Ej: Alta_rdl_bitacora_movimientos_cuadrillas_tecnicos.sql">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Ubicaci&#xF3;n</label>
+                                <input type="text" class="form-control form-control-sm font-monospace" name="rdls[0].rdlScriptPath"
+                                       placeholder="\\ntdesarrollo...\RFC'S Semana XX 2026\Scripts">
                             </div>
                         </div>
                     </div>

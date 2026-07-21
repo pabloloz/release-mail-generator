@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/animations.css" rel="stylesheet">
     <script src="/js/dark-mode.js"></script>
     <style>
         :root {
@@ -59,7 +60,7 @@
         .search-no-results { padding: 14px; text-align: center; font-size: .82rem; color: var(--text-muted); }
 
         /* ── Tabs ───────────────────────────────────────────────── */
-        .rfc-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); background: white; padding: 0 24px; overflow-x: auto; }
+        .rfc-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); background: white; padding: 0 24px; overflow-x: auto; position: sticky; top: 44px; z-index: 99; }
         .rfc-tab { padding: 12px 18px; font-size: .8rem; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2.5px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: color .15s, border-color .15s; }
         .rfc-tab:hover { color: var(--text); }
         .rfc-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
@@ -651,8 +652,13 @@
 function switchTab(name, el) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.rfc-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('tab-' + name).classList.add('active');
+    var panel = document.getElementById('tab-' + name);
+    if (panel) panel.classList.add('active');
     if (el) el.classList.add('active');
+    // Scroll to top of content area so the panel is visible
+    var content = document.querySelector('.rfc-content');
+    if (content) content.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ── Collapse/Expand ──────────────────────────────────────────────────────
@@ -747,7 +753,45 @@ function createDynamicItem(containerId, label, badgeHtml, bodyHtml) {
     scheduleAutosave();
     // Scroll to new item
     div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Wire up badge sync for selects
+    div.querySelectorAll('select[name="rule-status"], select[name="tc-status"], select[name="bug-status"]').forEach(function(sel) {
+        sel.addEventListener('change', function() { syncBadge(this); });
+    });
 }
+
+var BADGE_MAP = {
+    'Pendiente':     { bg: '#fef3c7', color: '#92400e', icon: '⏳' },
+    'Válida':        { bg: '#d1fae5', color: '#065f46', icon: '✅' },
+    'Inválida':      { bg: '#fee2e2', color: '#991b1b', icon: '❌' },
+    'Aprobado':      { bg: '#d1fae5', color: '#065f46', icon: '✅' },
+    'Fallido':       { bg: '#fee2e2', color: '#991b1b', icon: '❌' },
+    'En ejecución':  { bg: '#dbeafe', color: '#1e40af', icon: '▶' },
+    'Bloqueado':     { bg: '#f3e8ff', color: '#6b21a8', icon: '🚫' },
+    'Abierto':       { bg: '#fee2e2', color: '#991b1b', icon: '🔴' },
+    'En revisión':   { bg: '#fef3c7', color: '#92400e', icon: '🟡' },
+    'Cerrado':       { bg: '#d1fae5', color: '#065f46', icon: '✅' },
+    'No aplica':     { bg: '#f1f5f9', color: '#475569', icon: '⚪' }
+};
+
+function syncBadge(select) {
+    var item = select.closest('.dynamic-item');
+    if (!item) return;
+    var badge = item.querySelector('.item-badge');
+    if (!badge) return;
+    var val = select.value;
+    var m = BADGE_MAP[val] || { bg: '#f1f5f9', color: '#475569', icon: '' };
+    badge.style.background = m.bg;
+    badge.style.color = m.color;
+    badge.textContent = m.icon + ' ' + val;
+    scheduleAutosave();
+}
+
+// Also wire up existing items on page load (for edit mode)
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('select[name="rule-status"], select[name="tc-status"], select[name="bug-status"]').forEach(function(sel) {
+        sel.addEventListener('change', function() { syncBadge(this); });
+    });
+});
 
 function addBusinessRule() {
     createDynamicItem('businessRulesContainer', 'Regla',
@@ -1000,6 +1044,31 @@ function showToast(msg, type) {
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
     setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 4000);
 }
+
+// ── Lazy-load evidence images after page render ────────────────────────
+(function() {
+    var recordId = document.getElementById('recordId')?.value;
+    var isEdit = document.getElementById('isEditMode')?.value === 'true';
+    if (!isEdit || !recordId) return;
+
+    fetch('/rfc/' + recordId + '/json')
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+            if (!data || !data.testCases) return;
+            data.testCases.forEach(function(tc, tcIdx) {
+                if (!tc.evidences) return;
+                tc.evidences.forEach(function(ev, evIdx) {
+                    if (!ev.imageBase64) return;
+                    // Find the evidence thumbnail and hidden input for this test case/evidence
+                    var containers = document.querySelectorAll('.dynamic-item[data-tc-idx="' + tcIdx + '"] .tc-ev-thumb');
+                    if (containers[evIdx]) containers[evIdx].src = ev.imageBase64;
+                    var inputs = document.querySelectorAll('.dynamic-item[data-tc-idx="' + tcIdx + '"] input[name$=".imageBase64"]');
+                    if (inputs[evIdx]) inputs[evIdx].value = ev.imageBase64;
+                });
+            });
+        })
+        .catch(function() { /* images will just be empty */ });
+})();
 </script>
 </body>
 </html>

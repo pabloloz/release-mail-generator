@@ -1,0 +1,511 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Micro-animations — Notion / Linear / GitHub inspired
+   Duration: 150–300ms  |  Easing: cubic-bezier(0.16, 1, 0.3, 1)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Easing tokens ───────────────────────────────────────────────────────── */
+:root {
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --duration-fast: 150ms;
+    --duration-base: 200ms;
+    --duration-slow: 300ms;
+}
+
+/* ── 1. NAVIGATION — Pane transitions ────────────────────────────────────── */
+/* Pane entrance is handled by content-level animations (section blocks, cards) */
+/* No opacity/transform on .pane itself to avoid iframe visibility issues */
+
+/* ── 2. CARDS — Dashboard & module cards ─────────────────────────────────── */
+.module-card,
+.kpi-card,
+.fav-item,
+.quick-action-btn {
+    transition: transform var(--duration-fast) var(--ease-out),
+                box-shadow var(--duration-base) var(--ease-smooth),
+                border-color var(--duration-fast) var(--ease-smooth);
+}
+.module-card:hover {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 8px 32px rgba(37,99,235,.12);
+    border-color: #93c5fd;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,.08);
+    border-color: #93c5fd;
+}
+.fav-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 12px rgba(251,191,36,.12);
+    border-color: #fbbf24;
+}
+.quick-action-btn:hover {
+    transform: translateY(-1px);
+    border-color: var(--primary);
+    color: var(--primary);
+    box-shadow: 0 2px 8px rgba(37,99,235,.1);
+}
+.module-card:active,
+.kpi-card:active,
+.quick-action-btn:active {
+    transform: translateY(0) scale(0.98);
+    transition-duration: 80ms;
+}
+
+/* Dashboard staggered entrance */
+.pane.active .kpi-card { animation: cardIn var(--duration-slow) var(--ease-out) both; }
+.pane.active .kpi-card:nth-child(1) { animation-delay: 0ms; }
+.pane.active .kpi-card:nth-child(2) { animation-delay: 40ms; }
+.pane.active .kpi-card:nth-child(3) { animation-delay: 80ms; }
+.pane.active .kpi-card:nth-child(4) { animation-delay: 120ms; }
+.pane.active .kpi-card:nth-child(5) { animation-delay: 160ms; }
+.pane.active .kpi-card:nth-child(6) { animation-delay: 200ms; }
+.pane.active .module-card { animation: cardIn var(--duration-slow) var(--ease-out) both; }
+.pane.active .module-card:nth-child(1) { animation-delay: 50ms; }
+.pane.active .module-card:nth-child(2) { animation-delay: 100ms; }
+.pane.active .module-card:nth-child(3) { animation-delay: 150ms; }
+.pane.active .module-card:nth-child(4) { animation-delay: 200ms; }
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Dashboard panels */
+.pane.active .dash-panel {
+    animation: cardIn var(--duration-slow) var(--ease-out) both;
+    animation-delay: 100ms;
+}
+
+/* ── 3. BUTTONS — Hover, press, loading ──────────────────────────────────── */
+.btn-generate,
+.btn-primary-action,
+.btn-copy,
+.btn-pdf,
+.btn-md,
+.btn-html-export,
+.btn-clear,
+.btn-ghost,
+.btn-add,
+.btn-add-rdl,
+.btn-add-uat,
+.btn-tpl,
+.btn-remove,
+.btn-remove-rdl,
+.hbtn,
+.tb-btn,
+.recovery-btn {
+    transition: background var(--duration-fast) var(--ease-smooth),
+                color var(--duration-fast) var(--ease-smooth),
+                border-color var(--duration-fast) var(--ease-smooth),
+                transform 80ms var(--ease-out),
+                box-shadow var(--duration-fast) var(--ease-smooth);
+}
+.btn-generate:active:not(:disabled),
+.btn-primary-action:active:not(:disabled),
+.btn-copy:active,
+.btn-pdf:active,
+.btn-md:active,
+.btn-html-export:active,
+.btn-tpl:active,
+.tb-btn:active {
+    transform: scale(0.96);
+    transition-duration: 60ms;
+}
+.btn-clear:active,
+.btn-ghost:active,
+.btn-add:active,
+.btn-add-rdl:active,
+.btn-add-uat:active,
+.quick-action-btn:active,
+.recovery-btn:active {
+    transform: scale(0.97);
+    transition-duration: 60ms;
+}
+
+/* ── 4. FORMS — Focus & validation ───────────────────────────────────────── */
+.form-control,
+.form-select {
+    transition: border-color var(--duration-fast) var(--ease-smooth),
+                box-shadow var(--duration-base) var(--ease-smooth),
+                background-color var(--duration-fast) var(--ease-smooth);
+}
+.section-block {
+    transition: border-color var(--duration-fast) var(--ease-smooth);
+}
+
+/* Validation shake — gentler */
+@keyframes gentleShake {
+    0%, 100% { transform: translateX(0); }
+    25%  { transform: translateX(-2px); }
+    50%  { transform: translateX(2px); }
+    75%  { transform: translateX(-1px); }
+}
+.anim-shake { animation: gentleShake 280ms var(--ease-out); }
+.v-error { animation: gentleShake 280ms var(--ease-out); }
+
+/* ── 5. MODALS — Fade + scale ────────────────────────────────────────────── */
+.history-modal-overlay,
+.tpl-panel-overlay {
+    transition: opacity var(--duration-base) var(--ease-smooth);
+    opacity: 0;
+    pointer-events: none;
+}
+.history-modal-overlay.open,
+.tpl-panel-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+.history-modal {
+    transform: scale(0.96) translateY(8px);
+    opacity: 0;
+    transition: transform var(--duration-base) var(--ease-out),
+                opacity var(--duration-fast) var(--ease-smooth);
+}
+.history-modal-overlay.open .history-modal {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
+/* Template panel slide-in */
+.tpl-panel {
+    transform: translateX(100%);
+    transition: transform var(--duration-slow) var(--ease-out);
+}
+.tpl-panel-overlay.open .tpl-panel {
+    transform: translateX(0);
+}
+
+/* ── 6. SIDEBAR — Active indicator & hover ───────────────────────────────── */
+.sidebar-nav-item {
+    transition: background var(--duration-fast) var(--ease-smooth),
+                color var(--duration-fast) var(--ease-smooth),
+                transform 80ms var(--ease-out);
+    position: relative;
+}
+.sidebar-nav-item:active {
+    transform: scale(0.97);
+}
+.sidebar-nav-item.active {
+    transition: background var(--duration-base) var(--ease-out);
+}
+.sidebar-nav-item .nav-icon {
+    transition: transform var(--duration-fast) var(--ease-spring);
+}
+.sidebar-nav-item:hover .nav-icon {
+    transform: scale(1.1);
+}
+.theme-toggle-btn {
+    transition: background var(--duration-fast) var(--ease-smooth),
+                color var(--duration-fast) var(--ease-smooth);
+}
+
+/* ── 7. TABLES — Row entrance & hover ────────────────────────────────────── */
+.history-row,
+.recent-item,
+.tpl-item,
+.gs-item {
+    transition: background var(--duration-fast) var(--ease-smooth);
+}
+
+/* History table row stagger on load */
+.history-row {
+    animation: rowIn var(--duration-base) var(--ease-out) both;
+}
+@keyframes rowIn {
+    from { opacity: 0; transform: translateX(-4px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── 8. DYNAMIC ITEMS — Entrance ─────────────────────────────────────────── */
+.dynamic-item {
+    animation: itemIn var(--duration-base) var(--ease-out);
+}
+@keyframes itemIn {
+    from { opacity: 0; transform: translateY(4px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.rdl-entry {
+    animation: itemIn var(--duration-base) var(--ease-out);
+}
+
+/* ── 9. TOASTS — Slide + progress ────────────────────────────────────────── */
+.toast-msg {
+    transform: translateX(20px);
+    opacity: 0;
+    transition: transform var(--duration-base) var(--ease-out),
+                opacity var(--duration-fast) var(--ease-smooth);
+}
+.toast-msg.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+/* ── 10. ARTIFACT PATH — Reveal ──────────────────────────────────────────── */
+.artifact-path {
+    transition: max-height var(--duration-slow) var(--ease-out),
+                opacity var(--duration-base) var(--ease-smooth);
+}
+
+/* ── 11. HELP POPOVERS — Entrance ────────────────────────────────────────── */
+.help-popover {
+    animation: none;
+}
+.help-popover.open {
+    animation: popoverIn var(--duration-fast) var(--ease-out);
+}
+@keyframes popoverIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 12. SEARCH — Results dropdown ───────────────────────────────────────── */
+.gs-results {
+    animation: none;
+}
+.gs-results.open {
+    animation: dropdownIn var(--duration-fast) var(--ease-out);
+}
+@keyframes dropdownIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 13. IMAGES — Fade in on load ────────────────────────────────────────── */
+.uat-rich-editor img,
+.tc-ev-thumb {
+    animation: imgIn var(--duration-slow) var(--ease-smooth);
+}
+@keyframes imgIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ── 14. CHECKBOX POP ────────────────────────────────────────────────────── */
+.artifact-check input:checked,
+.module-badge input:checked {
+    animation: checkPop var(--duration-fast) var(--ease-spring);
+}
+@keyframes checkPop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.15); }
+    100% { transform: scale(1); }
+}
+
+/* ── 15. SECTION BLOCKS — Subtle entrance ────────────────────────────────── */
+.pane.active .section-block {
+    animation: sectionIn var(--duration-base) var(--ease-out) both;
+}
+@keyframes sectionIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 16. EMAIL WRAPPER — Preview entrance ────────────────────────────────── */
+.email-wrapper {
+    animation: cardIn var(--duration-base) var(--ease-out);
+}
+
+/* ── 17. VALIDATION SUMMARY — Entrance ───────────────────────────────────── */
+.v-summary {
+    animation: cardIn var(--duration-base) var(--ease-out);
+}
+
+/* ── 18. RECOVERY BANNER ─────────────────────────────────────────────────── */
+.recovery-banner {
+    transition: transform var(--duration-slow) var(--ease-out);
+}
+
+/* ── 19. SAVE INDICATOR ──────────────────────────────────────────────────── */
+.save-indicator {
+    transition: opacity var(--duration-base) var(--ease-smooth),
+                transform var(--duration-base) var(--ease-out);
+}
+
+/* ── 20. SKELETON LOADER — For loading states ────────────────────────────── */
+@keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+.skeleton {
+    background: linear-gradient(90deg, var(--bg-section) 25%, var(--border) 50%, var(--bg-section) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 6px;
+}
+.skeleton-text { height: 12px; margin-bottom: 8px; width: 80%; }
+.skeleton-title { height: 18px; margin-bottom: 10px; width: 50%; }
+.skeleton-card { height: 80px; margin-bottom: 12px; }
+
+/* ── 21. SPINNER — Refined ───────────────────────────────────────────────── */
+.spinner {
+    animation: spin 0.6s linear infinite;
+}
+
+/* ── 22. FAV STAR ────────────────────────────────────────────────────────── */
+.btn-fav {
+    transition: transform var(--duration-fast) var(--ease-spring),
+                color var(--duration-fast) var(--ease-smooth);
+}
+.btn-fav:hover {
+    transform: scale(1.2);
+}
+.btn-fav:active {
+    transform: scale(0.9);
+    transition-duration: 60ms;
+}
+
+/* ── 23. RICH EDITOR TOOLBAR ─────────────────────────────────────────────── */
+.re-btn {
+    transition: background var(--duration-fast) var(--ease-smooth),
+                transform 60ms var(--ease-out);
+}
+.re-btn:active {
+    transform: scale(0.92);
+}
+
+/* ── 24. SCROLLBAR — Smooth reveal ───────────────────────────────────────── */
+::-webkit-scrollbar-thumb {
+    transition: background var(--duration-fast);
+}
+
+/* ── 25. RFC PAGES — Standalone page animations ──────────────────────────── */
+
+/* Page entrance */
+.rfc-toolbar {
+    animation: slideDown var(--duration-base) var(--ease-out);
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.rfc-tabs {
+    animation: slideDown var(--duration-base) var(--ease-out);
+    animation-delay: 50ms;
+    animation-fill-mode: both;
+}
+.rfc-content {
+    animation: paneIn var(--duration-slow) var(--ease-out);
+    animation-delay: 80ms;
+    animation-fill-mode: both;
+}
+
+/* Tab panel transition */
+.tab-panel.active {
+    animation: paneIn var(--duration-base) var(--ease-out);
+}
+
+/* Form sections staggered */
+.form-section {
+    animation: sectionIn var(--duration-base) var(--ease-out) both;
+}
+.form-section:nth-child(1) { animation-delay: 0ms; }
+.form-section:nth-child(2) { animation-delay: 40ms; }
+.form-section:nth-child(3) { animation-delay: 80ms; }
+.form-section:nth-child(4) { animation-delay: 120ms; }
+
+/* RFC list cards entrance */
+.rfc-card {
+    animation: cardIn var(--duration-base) var(--ease-out) both;
+    transition: box-shadow var(--duration-base) var(--ease-smooth),
+                border-color var(--duration-fast) var(--ease-smooth),
+                transform var(--duration-fast) var(--ease-out);
+}
+.rfc-card:hover {
+    transform: translateY(-1px);
+}
+.rfc-card:active {
+    transform: scale(0.99);
+    transition-duration: 60ms;
+}
+.rfc-card:nth-child(1)  { animation-delay: 0ms; }
+.rfc-card:nth-child(2)  { animation-delay: 30ms; }
+.rfc-card:nth-child(3)  { animation-delay: 60ms; }
+.rfc-card:nth-child(4)  { animation-delay: 90ms; }
+.rfc-card:nth-child(5)  { animation-delay: 120ms; }
+.rfc-card:nth-child(6)  { animation-delay: 150ms; }
+.rfc-card:nth-child(7)  { animation-delay: 180ms; }
+.rfc-card:nth-child(8)  { animation-delay: 210ms; }
+.rfc-card:nth-child(9)  { animation-delay: 240ms; }
+.rfc-card:nth-child(10) { animation-delay: 270ms; }
+
+/* RFC view page — sections */
+.app-card {
+    animation: cardIn var(--duration-slow) var(--ease-out);
+}
+.app-header {
+    animation: slideDown var(--duration-base) var(--ease-out);
+}
+.app-body .section-block {
+    animation: sectionIn var(--duration-base) var(--ease-out) both;
+}
+
+/* Page header entrance */
+.page-header {
+    animation: slideDown var(--duration-base) var(--ease-out);
+}
+.page-body {
+    animation: paneIn var(--duration-base) var(--ease-out);
+    animation-delay: 60ms;
+    animation-fill-mode: both;
+}
+
+/* Search bar */
+.search-bar input {
+    transition: border-color var(--duration-fast) var(--ease-smooth),
+                box-shadow var(--duration-base) var(--ease-smooth);
+}
+
+/* Test case items — collapse/expand */
+.dynamic-item .item-body {
+    transition: opacity var(--duration-fast) var(--ease-smooth);
+}
+
+/* Tab buttons */
+.rfc-tab {
+    transition: color var(--duration-fast) var(--ease-smooth),
+                border-color var(--duration-fast) var(--ease-smooth);
+}
+
+/* Toolbar buttons */
+.tb-btn {
+    transition: background var(--duration-fast) var(--ease-smooth),
+                color var(--duration-fast) var(--ease-smooth),
+                transform 60ms var(--ease-out);
+}
+.tb-btn:active {
+    transform: scale(0.95);
+}
+
+/* Evidence thumbnails */
+.tc-ev-thumb {
+    transition: transform var(--duration-base) var(--ease-out),
+                box-shadow var(--duration-base) var(--ease-smooth);
+}
+.tc-ev-thumb:hover {
+    transform: scale(1.03);
+    box-shadow: 0 4px 16px rgba(0,0,0,.1);
+}
+
+/* Evidence dropzone */
+.tc-ev-dropzone {
+    transition: background var(--duration-fast) var(--ease-smooth),
+                border-color var(--duration-fast) var(--ease-smooth),
+                color var(--duration-fast) var(--ease-smooth);
+}
+
+/* Empty state */
+.empty-state {
+    animation: paneIn var(--duration-slow) var(--ease-out);
+}
+
+/* ── REDUCED MOTION — Respect user preference ────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        animation-delay: 0ms !important;
+    }
+}

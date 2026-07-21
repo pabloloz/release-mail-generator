@@ -595,6 +595,18 @@ public class EmailGeneratorService {
                 html.append("</p>");
             }
 
+            // ── Script de Alta (para RDLs nuevos) ──────────────────────────────────
+            if (item.isHasRdlScript() && item.getRdlScriptName() != null && !item.getRdlScriptName().isBlank()) {
+                html.append("<p style=\"margin: 0 0 4px 0;\"><b>Ejecutar Script:</b></p>")
+                    .append("<p style=\"margin: 0 0 14px 0;\">")
+                    .append("<b>Nombre del script:</b>&nbsp;")
+                    .append("<span style=\"color:#7030A0;\">").append(esc(item.getRdlScriptName().trim())).append("</span><br>");
+                if (item.getRdlScriptPath() != null && !item.getRdlScriptPath().isBlank()) {
+                    html.append("<b>Ubicaci\u00f3n:</b>&nbsp;").append(esc(item.getRdlScriptPath().trim())).append("<br>");
+                }
+                html.append("</p>");
+            }
+
 
             // ── Proyecto / RFC (por RDL) ──────────────────────────────────────────────
             if (item.getRdlProject() != null && !item.getRdlProject().isBlank()) {
@@ -903,6 +915,11 @@ public class EmailGeneratorService {
                     try { addPara(doc, "  Ticket: " + t, bodyF, 2); } catch (Exception e) {}
                 });
             }
+            if (item.isHasRdlScript() && item.getRdlScriptName() != null && !item.getRdlScriptName().isBlank()) {
+                pdfLine(doc, boldF, monoF, "Script de Alta:", clean(item.getRdlScriptName()));
+                if (item.getRdlScriptPath() != null && !item.getRdlScriptPath().isBlank())
+                    pdfLine(doc, boldF, monoF, "Ubicación:", clean(item.getRdlScriptPath()));
+            }
             if (item.getRdlProject() != null && !item.getRdlProject().isBlank())
                 pdfLine(doc, boldF, bodyF, "Proyecto:", clean(item.getRdlProject()));
         }
@@ -939,6 +956,11 @@ public class EmailGeneratorService {
             if (item.isHasRdlSp()) {
                 linesFromText(item.getRdlSpName()).forEach(sp -> md.append("- **SP:** `").append(sp).append("`\n"));
                 linesFromText(item.getRdlSpTicket()).forEach(t -> md.append("- **Ticket:** ").append(t).append("\n"));
+            }
+            if (item.isHasRdlScript() && item.getRdlScriptName() != null && !item.getRdlScriptName().isBlank()) {
+                md.append("- **Script de Alta:** `").append(clean(item.getRdlScriptName())).append("`\n");
+                if (item.getRdlScriptPath() != null && !item.getRdlScriptPath().isBlank())
+                    md.append("- **Ubicación:** `").append(clean(item.getRdlScriptPath())).append("`\n");
             }
             if (item.getRdlProject() != null && !item.getRdlProject().isBlank())
                 md.append("- **Proyecto:** ").append(clean(item.getRdlProject())).append("\n");

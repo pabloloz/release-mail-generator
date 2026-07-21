@@ -19,10 +19,12 @@ import com.lowagie.text.pdf.draw.LineSeparator;
 import release_mail_generator.model.*;
 import release_mail_generator.repository.RfcTechnicalRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import jakarta.annotation.PostConstruct;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -38,17 +40,37 @@ public class RfcTechnicalService {
     @Autowired
     private RfcTechnicalRepository repository;
 
-    // ── Color palette ──────────────────────────────────────────────────────
+    private byte[] logoBytes;
+
+    @PostConstruct
+    private void init() {
+        try {
+            ClassPathResource res = new ClassPathResource("static/images/logo-empresa.png");
+            logoBytes = res.getInputStream().readAllBytes();
+            log.info("Logo de empresa cargado ({} bytes)", logoBytes.length);
+        } catch (Exception e) {
+            log.warn("No se pudo cargar logo-empresa.png: {}", e.getMessage());
+            logoBytes = null;
+        }
+    }
+
+    // ── Color palette (corporate modern) ──────────────────────────────────
     private static final Color C_PRIMARY    = new Color(37, 99, 235);
+    private static final Color C_PRIMARY_BG = new Color(239, 246, 255);   // light blue tint
     private static final Color C_DARK       = new Color(30, 58, 138);
+    private static final Color C_NAVY       = new Color(15, 23, 42);
     private static final Color C_BORDER     = new Color(226, 232, 240);
     private static final Color C_BG_ALT     = new Color(241, 245, 249);
     private static final Color C_ROW_ALT    = new Color(248, 250, 252);
+    private static final Color C_CARD_BG    = new Color(248, 250, 252);
     private static final Color C_TEXT       = new Color(15, 23, 42);
     private static final Color C_MUTED      = new Color(100, 116, 139);
     private static final Color C_SUCCESS    = new Color(5, 150, 105);
+    private static final Color C_SUCCESS_BG = new Color(209, 250, 229);
     private static final Color C_DANGER     = new Color(220, 38, 38);
+    private static final Color C_DANGER_BG  = new Color(254, 226, 226);
     private static final Color C_WARNING    = new Color(217, 119, 6);
+    private static final Color C_WARNING_BG = new Color(254, 243, 199);
 
     // ── CRUD ───────────────────────────────────────────────────────────────
 
@@ -70,6 +92,14 @@ public class RfcTechnicalService {
         if (record.getRelatedBugs()   == null) record.setRelatedBugs(new ArrayList<>());
         if (record.getStatus() == null || record.getStatus().isBlank()) {
             record.setStatus("Borrador");
+        }
+        // Auto-update status based on final result
+        if (notBlank(record.getFinalResult())) {
+            if ("Cumple".equalsIgnoreCase(record.getFinalResult())) {
+                record.setStatus("Aprobado");
+            } else if ("No cumple".equalsIgnoreCase(record.getFinalResult())) {
+                record.setStatus("Rechazado");
+            }
         }
         // Validate unique RFC number
         if (notBlank(record.getRfcNumber())) {
@@ -157,6 +187,9 @@ public class RfcTechnicalService {
         doc.newPage();
 
         // ═══════════════════════ CONTENT ══════════════════════════════════
+
+        // ── Executive Summary Card ─────────────────────────────────────
+        addExecutiveSummary(doc, r, labelFont, valueFont);
 
         // ── 1. Información General ────────────────────────────────────
         addSectionHeading(doc, "1. Información General", sectionFont);
@@ -262,11 +295,7 @@ public class RfcTechnicalService {
         // ── 8. Conclusiones ───────────────────────────────────────────
         addSectionHeading(doc, "8. Conclusiones", sectionFont);
         if (notBlank(r.getFinalResult())) {
-            boolean cumple = "Cumple".equalsIgnoreCase(r.getFinalResult());
-            Color rc = cumple ? C_SUCCESS : C_DANGER;
-            Paragraph rp = new Paragraph("Resultado final: " + r.getFinalResult(),
-                    new Font(Font.HELVETICA, 14, Font.BOLD, rc));
-            rp.setSpacingBefore(4); rp.setSpacingAfter(10); doc.add(rp);
+            addVerdictCard(doc, r.getFinalResult());
         }
         if (notBlank(r.getObservations())) addLabelAndText(doc, "Observaciones:", s(r.getObservations()), labelFont, valueFont, mutedFont);
         if (notBlank(r.getRisks())) addLabelAndText(doc, "Riesgos:", s(r.getRisks()), labelFont, valueFont, mutedFont);
@@ -713,67 +742,226 @@ public class RfcTechnicalService {
 
     private void addCoverPage(Document doc, String docType, String rfcNumber, String changeName,
                               String testerName, String validationDate, String generatedAt) throws DocumentException {
-        // Top spacing
-        doc.add(new Paragraph(" ")); doc.add(new Paragraph(" ")); doc.add(new Paragraph(" "));
+        // Navy top band
+        PdfPTable topBand = new PdfPTable(1);
+        topBand.setWidthPercentage(110);
+        PdfPCell bandCell = new PdfPCell();
+        bandCell.setBackgroundColor(C_NAVY);
+        bandCell.setFixedHeight(5);
+        bandCell.setBorder(Rectangle.NO_BORDER);
+        topBand.addCell(bandCell);
+        doc.add(topBand);
 
-        // System name
-        Font sysFont = new Font(Font.HELVETICA, 10, Font.BOLD, C_PRIMARY);
-        Paragraph sys = new Paragraph("RELEASE NOTIFIER QA", sysFont);
-        sys.setAlignment(Element.ALIGN_CENTER); sys.setSpacingAfter(6); doc.add(sys);
+        doc.add(new Paragraph(" "));
 
-        // Separator
-        LineSeparator ls = new LineSeparator(2f, 30f, C_PRIMARY, Element.ALIGN_CENTER, 0);
-        Paragraph sep = new Paragraph(new Chunk(ls));
-        sep.setSpacingAfter(40); doc.add(sep);
+        // Logo + branding row
+        if (logoBytes != null) {
+            try {
+                com.lowagie.text.Image logo = com.lowagie.text.Image.getInstance(logoBytes);
+                float maxH = 44;
+                float scale = maxH / logo.getHeight();
+                logo.scaleAbsolute(logo.getWidth() * scale, maxH);
+                logo.setAlignment(Element.ALIGN_LEFT);
 
-        // Document type
-        Font typeFont = new Font(Font.HELVETICA, 28, Font.BOLD, C_TEXT);
-        Paragraph typeP = new Paragraph(docType, typeFont);
-        typeP.setAlignment(Element.ALIGN_CENTER); typeP.setSpacingAfter(16); doc.add(typeP);
+                PdfPTable logoRow = new PdfPTable(new float[]{0.2f, 0.8f});
+                logoRow.setWidthPercentage(100);
+                logoRow.setSpacingAfter(20);
 
-        // RFC Number
-        if (notBlank(rfcNumber)) {
-            Font rfcFont = new Font(Font.HELVETICA, 16, Font.NORMAL, C_PRIMARY);
-            Paragraph rfcP = new Paragraph(rfcNumber, rfcFont);
-            rfcP.setAlignment(Element.ALIGN_CENTER); rfcP.setSpacingAfter(8); doc.add(rfcP);
-        }
+                PdfPCell logoCell = new PdfPCell(logo, false);
+                logoCell.setBorder(Rectangle.NO_BORDER);
+                logoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                logoCell.setPaddingTop(6);
+                logoRow.addCell(logoCell);
 
-        // Change name
-        if (notBlank(changeName)) {
-            Font nameFont = new Font(Font.HELVETICA, 12, Font.NORMAL, C_MUTED);
-            Paragraph nameP = new Paragraph(changeName, nameFont);
-            nameP.setAlignment(Element.ALIGN_CENTER); nameP.setSpacingAfter(60); doc.add(nameP);
+                Font brandFont = new Font(Font.HELVETICA, 8.5f, Font.BOLD, C_PRIMARY);
+                Phrase brandPhrase = new Phrase("RELEASE NOTIFIER QA\nEquipo QA & Liberaciones", brandFont);
+                PdfPCell brandCell = new PdfPCell(brandPhrase);
+                brandCell.setBorder(Rectangle.NO_BORDER);
+                brandCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                brandCell.setPaddingLeft(8);
+                logoRow.addCell(brandCell);
+
+                doc.add(logoRow);
+            } catch (Exception e) {
+                // Fallback: text-only branding
+                Font brandFont = new Font(Font.HELVETICA, 8.5f, Font.BOLD, C_PRIMARY);
+                Paragraph brand = new Paragraph("RELEASE NOTIFIER QA  \u00b7  MEGACABLE", brandFont);
+                brand.setSpacingAfter(30);
+                doc.add(brand);
+            }
         } else {
-            doc.add(new Paragraph(" ")); doc.add(new Paragraph(" "));
+            doc.add(new Paragraph(" "));
+            Font brandFont = new Font(Font.HELVETICA, 8.5f, Font.BOLD, C_PRIMARY);
+            Paragraph brand = new Paragraph("RELEASE NOTIFIER QA  \u00b7  MEGACABLE", brandFont);
+            brand.setSpacingAfter(30);
+            doc.add(brand);
         }
 
-        // Bottom info
-        Font infoLabel = new Font(Font.HELVETICA, 9, Font.BOLD, C_MUTED);
-        Font infoValue = new Font(Font.HELVETICA, 10, Font.NORMAL, C_TEXT);
+        // Document type — large bold
+        Font typeFont = new Font(Font.HELVETICA, 30, Font.BOLD, C_NAVY);
+        Paragraph typeP = new Paragraph(docType, typeFont);
+        typeP.setSpacingAfter(8);
+        doc.add(typeP);
 
-        PdfPTable coverInfo = new PdfPTable(new float[]{1.5f, 3f});
-        coverInfo.setWidthPercentage(50); coverInfo.setHorizontalAlignment(Element.ALIGN_CENTER);
-        coverInfo.setSpacingBefore(20);
+        // Blue accent bar
+        LineSeparator accent = new LineSeparator(3f, 12f, C_PRIMARY, Element.ALIGN_LEFT, 0);
+        Paragraph accentP = new Paragraph(new Chunk(accent));
+        accentP.setSpacingAfter(20);
+        doc.add(accentP);
 
-        addCoverRow(coverInfo, "Tester responsable:", testerName, infoLabel, infoValue);
-        addCoverRow(coverInfo, "Fecha de validación:", validationDate, infoLabel, infoValue);
-        addCoverRow(coverInfo, "Generado:", generatedAt, infoLabel, infoValue);
-        doc.add(coverInfo);
+        // RFC identifier
+        if (notBlank(rfcNumber)) {
+            Font rfcFont = new Font(Font.HELVETICA, 17, Font.BOLD, C_TEXT);
+            Paragraph rfcP = new Paragraph(rfcNumber, rfcFont);
+            rfcP.setSpacingAfter(6);
+            doc.add(rfcP);
+        }
+        if (notBlank(changeName)) {
+            Font nameFont = new Font(Font.HELVETICA, 11, Font.NORMAL, C_MUTED);
+            Paragraph nameP = new Paragraph(changeName, nameFont);
+            nameP.setSpacingAfter(50);
+            doc.add(nameP);
+        } else {
+            doc.add(new Paragraph(" "));
+            doc.add(new Paragraph(" "));
+        }
 
-        // Footer note
-        doc.add(new Paragraph(" ")); doc.add(new Paragraph(" "));
-        Font footNote = new Font(Font.HELVETICA, 8, Font.ITALIC, C_MUTED);
-        Paragraph fn = new Paragraph("Documento generado automáticamente por Release Notifier QA — Megacable", footNote);
-        fn.setAlignment(Element.ALIGN_CENTER); doc.add(fn);
+        // Metadata grid (2x2)
+        Font metaLabel = new Font(Font.HELVETICA, 7, Font.BOLD, C_MUTED);
+        Font metaValue = new Font(Font.HELVETICA, 10, Font.NORMAL, C_TEXT);
+        PdfPTable meta = new PdfPTable(new float[]{1f, 1f});
+        meta.setWidthPercentage(65);
+        meta.setHorizontalAlignment(Element.ALIGN_LEFT);
+        meta.setSpacingBefore(10);
+        addCoverMetaCell(meta, "TESTER RESPONSABLE", testerName, metaLabel, metaValue);
+        addCoverMetaCell(meta, "FECHA DE VALIDACI\u00d3N", validationDate, metaLabel, metaValue);
+        addCoverMetaCell(meta, "GENERADO", generatedAt, metaLabel, metaValue);
+        addCoverMetaCell(meta, "PLATAFORMA", "Release Notifier QA", metaLabel, metaValue);
+        doc.add(meta);
+
+        // Footer
+        doc.add(new Paragraph(" "));
+        doc.add(new Paragraph(" "));
+        doc.add(new Paragraph(" "));
+        Font footNote = new Font(Font.HELVETICA, 7.5f, Font.ITALIC, C_MUTED);
+        Paragraph fn = new Paragraph("Documento generado autom\u00e1ticamente  \u00b7  Megacable  \u00b7  Equipo QA & Liberaciones", footNote);
+        fn.setSpacingBefore(30);
+        doc.add(fn);
+    }
+
+    private void addCoverMetaCell(PdfPTable table, String label, String value, Font lf, Font vf) {
+        Phrase content = new Phrase();
+        content.add(new Chunk(label + "\n", lf));
+        content.add(new Chunk(notBlank(value) ? value : "\u2014", vf));
+        PdfPCell cell = new PdfPCell(content);
+        cell.setBorder(Rectangle.TOP);
+        cell.setBorderColor(C_BORDER);
+        cell.setBorderWidth(0.5f);
+        cell.setPaddingTop(10);
+        cell.setPaddingBottom(14);
+        cell.setPaddingLeft(0);
+        table.addCell(cell);
     }
 
     private void addCoverRow(PdfPTable table, String label, String value, Font lf, Font vf) {
         PdfPCell lc = new PdfPCell(new Phrase(label, lf));
         lc.setBorder(Rectangle.NO_BORDER); lc.setPaddingBottom(8); lc.setHorizontalAlignment(Element.ALIGN_RIGHT);
         table.addCell(lc);
-        PdfPCell vc = new PdfPCell(new Phrase(notBlank(value) ? value : "—", vf));
+        PdfPCell vc = new PdfPCell(new Phrase(notBlank(value) ? value : "\u2014", vf));
         vc.setBorder(Rectangle.NO_BORDER); vc.setPaddingBottom(8); vc.setPaddingLeft(8);
         table.addCell(vc);
+    }
+
+    /** Executive summary card — a quick-glance panel shown before the detailed content. */
+    private void addExecutiveSummary(Document doc, RfcTechnicalRecord r, Font labelFont, Font valueFont) throws DocumentException {
+        PdfPTable card = new PdfPTable(1);
+        card.setWidthPercentage(100);
+        card.setSpacingBefore(4);
+        card.setSpacingAfter(20);
+
+        // Inner content table (3 columns: Status | Key Info | Metrics)
+        PdfPTable inner = new PdfPTable(new float[]{1.2f, 2f, 1.5f});
+        inner.setWidthPercentage(100);
+
+        // Column 1: Result badge
+        String result = s(r.getFinalResult());
+        boolean cumple = "Cumple".equalsIgnoreCase(result);
+        Color badgeBg = result.isEmpty() ? C_WARNING_BG : (cumple ? C_SUCCESS_BG : C_DANGER_BG);
+        Color badgeColor = result.isEmpty() ? C_WARNING : (cumple ? C_SUCCESS : C_DANGER);
+        String badgeText = result.isEmpty() ? "Pendiente" : result;
+
+        Phrase resultPhrase = new Phrase();
+        resultPhrase.add(new Chunk("RESULTADO\n", new Font(Font.HELVETICA, 7, Font.BOLD, C_MUTED)));
+        resultPhrase.add(new Chunk(badgeText, new Font(Font.HELVETICA, 14, Font.BOLD, badgeColor)));
+        PdfPCell resultCell = new PdfPCell(resultPhrase);
+        resultCell.setBackgroundColor(badgeBg);
+        resultCell.setBorder(Rectangle.NO_BORDER);
+        resultCell.setPadding(14);
+        resultCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        inner.addCell(resultCell);
+
+        // Column 2: Key info
+        Phrase infoPhrase = new Phrase();
+        infoPhrase.add(new Chunk(s(r.getRfcNumber()) + "\n", new Font(Font.HELVETICA, 11, Font.BOLD, C_TEXT)));
+        infoPhrase.add(new Chunk(s(r.getChangeName()) + "\n", new Font(Font.HELVETICA, 8.5f, Font.NORMAL, C_MUTED)));
+        infoPhrase.add(new Chunk(s(r.getTesterName()), new Font(Font.HELVETICA, 8.5f, Font.NORMAL, C_TEXT)));
+        PdfPCell infoCell = new PdfPCell(infoPhrase);
+        infoCell.setBackgroundColor(C_CARD_BG);
+        infoCell.setBorder(Rectangle.NO_BORDER);
+        infoCell.setPadding(14);
+        infoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        inner.addCell(infoCell);
+
+        // Column 3: Metrics
+        int tcCount = r.getTestCases() != null ? r.getTestCases().size() : 0;
+        int brCount = r.getBusinessRules() != null ? r.getBusinessRules().size() : 0;
+        int bugCount = r.getRelatedBugs() != null ? r.getRelatedBugs().size() : 0;
+        Phrase metricsPhrase = new Phrase();
+        metricsPhrase.add(new Chunk(tcCount + " casos de prueba\n", new Font(Font.HELVETICA, 8.5f, Font.NORMAL, C_TEXT)));
+        metricsPhrase.add(new Chunk(brCount + " reglas de negocio\n", new Font(Font.HELVETICA, 8.5f, Font.NORMAL, C_TEXT)));
+        metricsPhrase.add(new Chunk(bugCount + " bugs reportados", new Font(Font.HELVETICA, 8.5f, Font.NORMAL, C_TEXT)));
+        PdfPCell metricsCell = new PdfPCell(metricsPhrase);
+        metricsCell.setBackgroundColor(C_CARD_BG);
+        metricsCell.setBorder(Rectangle.NO_BORDER);
+        metricsCell.setPadding(14);
+        metricsCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        inner.addCell(metricsCell);
+
+        // Wrap in outer cell with border
+        PdfPCell outerCell = new PdfPCell(inner);
+        outerCell.setBorderColor(C_BORDER);
+        outerCell.setBorderWidth(1f);
+        outerCell.setPadding(0);
+        card.addCell(outerCell);
+
+        doc.add(card);
+    }
+
+    /** Verdict card — a colored banner showing the final result prominently. */
+    private void addVerdictCard(Document doc, String finalResult) throws DocumentException {
+        boolean cumple = "Cumple".equalsIgnoreCase(finalResult);
+        Color bg = cumple ? C_SUCCESS_BG : C_DANGER_BG;
+        Color fg = cumple ? C_SUCCESS : C_DANGER;
+        String icon = cumple ? "\u2713" : "\u2717";
+
+        PdfPTable card = new PdfPTable(1);
+        card.setWidthPercentage(100);
+        card.setSpacingBefore(6);
+        card.setSpacingAfter(14);
+
+        Phrase content = new Phrase();
+        content.add(new Chunk("RESULTADO DE VALIDACI\u00d3N:  ", new Font(Font.HELVETICA, 9, Font.BOLD, fg)));
+        content.add(new Chunk(icon + "  " + finalResult.toUpperCase(), new Font(Font.HELVETICA, 14, Font.BOLD, fg)));
+
+        PdfPCell cell = new PdfPCell(content);
+        cell.setBackgroundColor(bg);
+        cell.setBorderColor(fg);
+        cell.setBorderWidth(1.5f);
+        cell.setPadding(14);
+        cell.setPaddingLeft(18);
+        card.addCell(cell);
+
+        doc.add(card);
     }
 
     private String s(String v) {
@@ -797,15 +985,26 @@ public class RfcTechnicalService {
     }
 
     private void addSectionHeading(Document doc, String text, Font font) throws DocumentException {
-        Paragraph p = new Paragraph(text, font);
-        p.setSpacingBefore(20);
-        p.setSpacingAfter(0);
-        doc.add(p);
-        LineSeparator ls = new LineSeparator(1.2f, 100f, C_PRIMARY, Element.ALIGN_LEFT, -4f);
-        Paragraph line = new Paragraph(new Chunk(ls));
-        line.setSpacingBefore(3);
-        line.setSpacingAfter(10);
-        doc.add(line);
+        // Corporate-style section heading with left accent bar and tinted background
+        PdfPTable section = new PdfPTable(new float[]{0.015f, 0.985f});
+        section.setWidthPercentage(100);
+        section.setSpacingBefore(22);
+        section.setSpacingAfter(12);
+        section.setKeepTogether(true);
+
+        PdfPCell accentCell = new PdfPCell();
+        accentCell.setBackgroundColor(C_PRIMARY);
+        accentCell.setBorder(Rectangle.NO_BORDER);
+        section.addCell(accentCell);
+
+        PdfPCell textCell = new PdfPCell(new Phrase(text, font));
+        textCell.setBackgroundColor(C_PRIMARY_BG);
+        textCell.setBorder(Rectangle.NO_BORDER);
+        textCell.setPadding(10);
+        textCell.setPaddingLeft(14);
+        section.addCell(textCell);
+
+        doc.add(section);
     }
 
     private void addBodyText(Document doc, String text, Font valueFont, Font mutedFont) throws DocumentException {
@@ -844,27 +1043,32 @@ public class RfcTechnicalService {
         PdfPCell lc = new PdfPCell(new Phrase(label, lf));
         lc.setBackgroundColor(C_BG_ALT);
         lc.setBorderColor(C_BORDER);
-        lc.setPadding(7);
+        lc.setBorderWidth(0.5f);
+        lc.setPadding(8);
+        lc.setPaddingLeft(10);
         table.addCell(lc);
-        String display = (value == null || value.isBlank()) ? "—" : value;
+        String display = (value == null || value.isBlank()) ? "\u2014" : value;
         PdfPCell vc = new PdfPCell(new Phrase(display, vf));
         vc.setBorderColor(C_BORDER);
-        vc.setPadding(7);
+        vc.setBorderWidth(0.5f);
+        vc.setPadding(8);
         table.addCell(vc);
     }
 
     private void addTableHeader(PdfPTable table, String[] headers, Font font) {
         for (String h : headers) {
-            PdfPCell cell = new PdfPCell(new Phrase(h, font));
-            cell.setBackgroundColor(C_PRIMARY);
-            cell.setPadding(8);
-            cell.setBorderColor(C_DARK);
+            PdfPCell cell = new PdfPCell(new Phrase(h.toUpperCase(), font));
+            cell.setBackgroundColor(C_NAVY);
+            cell.setPadding(9);
+            cell.setPaddingBottom(10);
+            cell.setBorderColor(C_NAVY);
+            cell.setBorderWidth(0.5f);
             table.addCell(cell);
         }
     }
 
     private PdfPCell tableCell(String text, Font font, Color bg, int align) {
-        String display = (text == null || text.isBlank()) ? "—" : text;
+        String display = (text == null || text.isBlank()) ? "\u2014" : text;
         PdfPCell cell = new PdfPCell(new Phrase(display, font));
         cell.setBackgroundColor(bg);
         cell.setPadding(7);

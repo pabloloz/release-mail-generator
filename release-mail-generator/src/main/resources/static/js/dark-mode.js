@@ -32,8 +32,26 @@
     window.toggleDarkMode = function () {
         var current = document.documentElement.getAttribute('data-theme') || 'light';
         var next = current === 'dark' ? 'light' : 'dark';
+
+        // Smooth crossfade
+        var style = document.createElement('style');
+        style.id = 'theme-transition';
+        style.textContent = '*, *::before, *::after { transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease !important; }';
+        document.head.appendChild(style);
+
         applyTheme(next);
         setStoredTheme(next);
+
+        // Also update any iframes (e.g. RFC Técnico)
+        try {
+            document.querySelectorAll('iframe').forEach(function (f) {
+                if (f.contentDocument) {
+                    f.contentDocument.documentElement.setAttribute('data-theme', next);
+                }
+            });
+        } catch (e) { /* cross-origin iframe, ignore */ }
+
+        setTimeout(function () { style.remove(); }, 400);
     };
 
     // Re-apply on DOM ready (for dynamic toggle icon)

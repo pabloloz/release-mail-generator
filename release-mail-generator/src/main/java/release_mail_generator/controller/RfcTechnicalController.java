@@ -43,6 +43,15 @@ public class RfcTechnicalController {
     public String editForm(@PathVariable String id, Model model) {
         return rfcService.findById(id)
                 .map(r -> {
+                    // Strip base64 images from evidences to keep the HTML response small.
+                    // Images are loaded asynchronously via /rfc/{id}/json on the client.
+                    if (r.getTestCases() != null) {
+                        r.getTestCases().forEach(tc -> {
+                            if (tc.getEvidences() != null) {
+                                tc.getEvidences().forEach(ev -> ev.setImageBase64(null));
+                            }
+                        });
+                    }
                     model.addAttribute("record", r);
                     model.addAttribute("isEdit", true);
                     return "rfc-form";

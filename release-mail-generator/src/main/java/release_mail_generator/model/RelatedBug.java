@@ -7,4 +7,5 @@ public class RelatedBug {
     private String identifier;
     private String description;
     private String bugStatus;
+    private String severity;
 }
