@@ -3185,9 +3185,21 @@
             color: #e2e8f0 !important;
         }
         /* Force email inline colors to inherit in dark mode */
-        [data-theme="dark"] #uatEmailPreview * {
+        [data-theme="dark"] #emailPreview *:not(a),
+        [data-theme="dark"] #rdlEmailPreview *:not(a),
+        [data-theme="dark"] #uatEmailPreview *:not(a),
+        [data-theme="dark"] .email-preview-body *:not(a) {
             color: inherit !important;
         }
+        [data-theme="dark"] #emailPreview a,
+        [data-theme="dark"] #rdlEmailPreview a,
+        [data-theme="dark"] #uatEmailPreview a,
+        [data-theme="dark"] .email-preview-body a {
+            color: #60a5fa !important;
+        }
+        [data-theme="dark"] .email-preview-body img,
+        [data-theme="dark"] #emailPreview img,
+        [data-theme="dark"] #rdlEmailPreview img,
         [data-theme="dark"] #uatEmailPreview img {
             border-radius: 6px;
         }

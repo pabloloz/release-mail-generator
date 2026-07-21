@@ -281,9 +281,6 @@ public class EmailGeneratorService {
             if (r.isHasModules()) {
                 html.append("<li style=\"margin-bottom: 8px;\">")
                     .append("<b>Módulos</b><br>")
-                    .append("Módulos seleccionados: <b>")
-                    .append(esc(selectedModulesLabel))
-                    .append("</b><br>")
                     .append("Se encuentra en la siguiente ubicación:&nbsp;")
                     .append(pathLink(clean(r.getPathModules())))
                     .append("</li>");
@@ -372,7 +369,7 @@ public class EmailGeneratorService {
             html.append("<p style=\"margin: 0 0 12px 0;\">");
             if (hasVersion)  html.append("<b>Versión:</b>&nbsp;").append(esc(r.getVersion().trim())).append("<br>");
             if (hasRollback) html.append("<b>Rollback:</b>&nbsp;").append(esc(r.getRollbackVersion().trim())).append("<br>");
-            if (hasDate)     html.append("<b>Publicar:</b>&nbsp;").append(esc(r.getPublishDate().trim())).append("<br>");
+            if (hasDate)     html.append("<b>Publicar:</b>&nbsp;").append(esc(formatDateEs(r.getPublishDate().trim()))).append("<br>");
             html.append("</p>");
         }
 
