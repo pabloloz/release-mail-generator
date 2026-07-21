@@ -429,7 +429,7 @@
         </div>
         <div id="testCasesContainer">
             <!-- Server-rendered existing test cases (Thymeleaf) -->
-            <div th:each="tc, stat : ${record.testCases ?: {}}" class="dynamic-item collapsed">
+            <div th:each="tc, stat : ${record.testCases ?: {}}" class="dynamic-item collapsed" th:data-tc-idx="${stat.index}">
                 <div class="item-header" onclick="toggleCollapse(this)">
                     <div class="item-title">
                         <span th:text="${tc.caseId ?: ('TC-' + (stat.index + 1))}"></span>
@@ -517,12 +517,7 @@
                         <div class="tc-sub-title" onclick="this.parentElement.classList.toggle('closed')">📷 Evidencias</div>
                         <div class="tc-sub-body">
                             <div class="tc-evidences-container">
-                                <div th:each="ev : ${tc.evidences ?: {}}" class="tc-evidence-item">
-                                    <img class="tc-ev-thumb" th:src="${ev.imageBase64}" onclick="this.classList.toggle('expanded')">
-                                    <input type="text" class="form-control" name="ev-description" placeholder="Descripción..." th:value="${ev.description}">
-                                    <input type="hidden" name="ev-imageBase64" th:value="${ev.imageBase64}">
-                                    <button type="button" class="btn-remove" onclick="this.closest('.tc-evidence-item').remove()">✕</button>
-                                </div>
+                                <!-- Evidences are loaded asynchronously via JS to avoid large page payloads -->
                             </div>
                             <div class="tc-ev-dropzone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleEvidenceDrop(event,this)">
                                 📷 Arrastra imágenes aquí, pega con Ctrl+V, o
@@ -1055,19 +1050,22 @@ function showToast(msg, type) {
         .then(function(r) { return r.ok ? r.json() : null; })
         .then(function(data) {
             if (!data || !data.testCases) return;
+            // Get all test case items in DOM order
+            var tcItems = document.querySelectorAll('#testCasesContainer .dynamic-item');
             data.testCases.forEach(function(tc, tcIdx) {
-                if (!tc.evidences) return;
-                tc.evidences.forEach(function(ev, evIdx) {
+                if (!tc.evidences || !tc.evidences.length) return;
+                var tcItem = tcItems[tcIdx];
+                if (!tcItem) return;
+                var evContainer = tcItem.querySelector('.tc-evidences-container');
+                if (!evContainer) return;
+                // Clear placeholder empty items and populate with real images
+                tc.evidences.forEach(function(ev) {
                     if (!ev.imageBase64) return;
-                    // Find the evidence thumbnail and hidden input for this test case/evidence
-                    var containers = document.querySelectorAll('.dynamic-item[data-tc-idx="' + tcIdx + '"] .tc-ev-thumb');
-                    if (containers[evIdx]) containers[evIdx].src = ev.imageBase64;
-                    var inputs = document.querySelectorAll('.dynamic-item[data-tc-idx="' + tcIdx + '"] input[name$=".imageBase64"]');
-                    if (inputs[evIdx]) inputs[evIdx].value = ev.imageBase64;
+                    addEvidenceToContainer(evContainer, ev.imageBase64, ev.description || '');
                 });
             });
         })
-        .catch(function() { /* images will just be empty */ });
+        .catch(function(err) { console.warn('Failed to load evidence images:', err); });
 })();
 </script>
 </body>

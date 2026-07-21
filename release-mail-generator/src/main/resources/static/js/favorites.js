@@ -76,11 +76,62 @@
         }
     };
 
+    /* ── Refresh favorite titles from server ──────────────────────────────── */
+    function refreshFavoriteTitles() {
+        var favs = loadFavorites();
+        if (favs.length === 0) return;
+
+        var changed = false;
+        var pending = 0;
+
+        favs.forEach(function (f, idx) {
+            if (f.type !== 'RFC') return;
+            // Use the stored id directly (it's the DB id passed to toggleFavorite)
+            var rfcId = f.id;
+            if (!rfcId) return;
+            pending++;
+            fetch('/rfc/' + encodeURIComponent(rfcId) + '/json')
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!data) return;
+                    var newTitle = 'RFC ' + (data.rfcNumber || rfcId) + ' \u2014 ' + (data.changeName || '');
+                    if (newTitle !== f.title) {
+                        favs[idx].title = newTitle;
+                        changed = true;
+                    }
+                })
+                .catch(function () {})
+                .finally(function () {
+                    pending--;
+                    if (pending === 0 && changed) {
+                        saveFavorites(favs);
+                        renderFavorites();
+                    }
+                });
+        });
+    }
+
+    /* ── Listen for RFC iframe changes (save/edit) ─────────────────────── */
+    function watchRfcFrame() {
+        var frame = document.getElementById('rfcFrame');
+        if (!frame) return;
+        frame.addEventListener('load', function () {
+            setTimeout(refreshFavoriteTitles, 500);
+        });
+    }
+
     function esc(s) {
         if (!s) return '';
         return s.replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    // Render on load
-    document.addEventListener('DOMContentLoaded', function () { renderFavorites(); });
+    // Render on load + refresh titles
+    document.addEventListener('DOMContentLoaded', function () {
+        renderFavorites();
+        refreshFavoriteTitles();
+        watchRfcFrame();
+    });
+
+    // Also expose for manual trigger
+    window.refreshFavoriteTitles = refreshFavoriteTitles;
 })();

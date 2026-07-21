@@ -1518,23 +1518,29 @@
 
         /* ── Section Blocks ──────────────────────────────────────────── */
         .section-block {
-            background: var(--bg-section);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 22px 24px;
-            margin-bottom: 20px;
-            transition: border-color .15s;
+            background: white;
+            border: none;
+            border-radius: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.06);
+            padding: 24px 28px;
+            margin-bottom: 22px;
+            transition: box-shadow .15s;
+        }
+        .section-block:hover {
+            box-shadow: 0 2px 6px rgba(0,0,0,.06), 0 6px 20px rgba(0,0,0,.08);
         }
         .section-label {
-            font-size: .72rem;
+            font-size: .82rem;
             font-weight: 700;
-            letter-spacing: .08em;
-            text-transform: uppercase;
-            color: var(--primary);
-            margin-bottom: 14px;
+            letter-spacing: -.01em;
+            text-transform: none;
+            color: #0f172a;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f1f5f9;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 8px;
         }
         .section-label > span:first-child,
         .section-label::first-letter {
@@ -3055,8 +3061,31 @@
         [data-theme="dark"] .app-body { background: #1e293b; color: var(--text); }
 
         /* ── Section blocks ──────────────────────────────────── */
-        [data-theme="dark"] .section-block { background: #0f172a; border-color: var(--border); }
+        [data-theme="dark"] .section-block {
+            background: #1e293b;
+            box-shadow: 0 1px 3px rgba(0,0,0,.2), 0 4px 16px rgba(0,0,0,.15);
+        }
+        [data-theme="dark"] .section-block:hover {
+            box-shadow: 0 2px 6px rgba(0,0,0,.25), 0 6px 20px rgba(0,0,0,.2);
+        }
         [data-theme="dark"] .section-block:focus-within { border-color: #3b82f6; }
+        [data-theme="dark"] .section-label { color: #f1f5f9; border-color: #334155; }
+
+        /* ── UAT elevated cards (dark mode extras) ──────────── */
+        [data-theme="dark"] #pane-uat [style*="border-bottom"] { border-color: #334155 !important; }
+        [data-theme="dark"] #pane-uat .section-block h3 { color: #f1f5f9 !important; }
+        [data-theme="dark"] #pane-uat .section-block p { color: #94a3b8 !important; }
+        [data-theme="dark"] #pane-uat [style*="background:white"] { background: #1e293b !important; }
+        [data-theme="dark"] #pane-uat .email-wrapper { background: #0f172a !important; }
+        [data-theme="dark"] #pane-uat .uat-rich-editor { background: #0f172a !important; color: #e2e8f0 !important; }
+        [data-theme="dark"] #pane-uat .re-toolbar { background: #1e293b !important; border-color: #334155 !important; }
+        [data-theme="dark"] #pane-uat .re-btn { color: #e2e8f0 !important; }
+        [data-theme="dark"] #pane-uat .re-btn:hover { background: #334155 !important; }
+        [data-theme="dark"] #pane-uat .uat-editor-hints { color: #64748b !important; }
+        [data-theme="dark"] #pane-uat .uat-editor-hints span b { color: #94a3b8 !important; }
+        [data-theme="dark"] #pane-uat #uatEmailSection > div { background: #1e293b !important; box-shadow: 0 1px 3px rgba(0,0,0,.2), 0 4px 16px rgba(0,0,0,.15) !important; }
+        [data-theme="dark"] #pane-uat #uatEmailSection h3 { color: #f1f5f9 !important; }
+        [data-theme="dark"] #pane-uat .form-label span[style*="opacity"] { opacity: .9 !important; }
 
         /* ── Form controls ───────────────────────────────────── */
         [data-theme="dark"] .form-control,
@@ -3153,7 +3182,14 @@
         [data-theme="dark"] #uatEmailPreview,
         [data-theme="dark"] .email-preview-body {
             background: #1e293b !important;
-            color: var(--text) !important;
+            color: #e2e8f0 !important;
+        }
+        /* Force email inline colors to inherit in dark mode */
+        [data-theme="dark"] #uatEmailPreview * {
+            color: inherit !important;
+        }
+        [data-theme="dark"] #uatEmailPreview img {
+            border-radius: 6px;
         }
 
         /* ── Telegram message preview ────────────────────────── */
@@ -4121,187 +4157,218 @@ dbo.sp_reporte_facturacion.sql</div>
     </div>
     <div class="pane-body">
 
-        <!-- RFC / INTRO -->
-        <div class="section-block">
-            <div class="section-label">&#x2705; RFC a Validar <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
-            <div class="help-popover">
-                <div class="help-popover-title">RFC a Validar</div>
-                <p><strong>¿Para qué sirve?</strong> Identifica el RFC que se está solicitando validar en UAT. Se usa en el asunto y cuerpo del correo.</p>
-                <p><strong>¿Cómo llenarlo?</strong> Escribe solo el número (sin "RFC"). El nombre debe ser descriptivo del cambio.</p>
-                <div class="help-example">Número: 24269
-Nombre: Anexo a RFC 24015 Promociones combinen con 120 Mbps</div>
-                <div class="help-tip"><span class="help-tip-icon">💡</span> El saludo y adjunto son opcionales. El adjunto se menciona en el texto del correo, no como archivo real.</div>
+        <!-- RFC / INTRO — Información General del VoBo -->
+        <div class="section-block" style="border:none;background:white;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.06);padding:0;overflow:hidden;">
+            <!-- Section Header -->
+            <div style="padding:22px 28px 16px;border-bottom:1px solid #f1f5f9;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                    <span style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#2563eb,#3b82f6);display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:white;">&#x2705;</span>
+                    <h3 style="margin:0;font-size:1.05rem;font-weight:700;color:#0f172a;letter-spacing:-.02em;">Informaci&#xF3;n General del VoBo</h3>
+                </div>
+                <p style="margin:0;font-size:.8rem;color:#64748b;padding-left:42px;">Identifica el RFC y los datos b&#xE1;sicos de la solicitud de validaci&#xF3;n en UAT.</p>
             </div>
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">N&#xFA;mero de RFC</label>
-                    <input type="text" id="uatRfcNumber" class="form-control" placeholder="24269">
-                    <div class="form-text">Se agrega autom&#xE1;ticamente el prefijo RFC.</div>
-                </div>
-                <div class="col-md-9">
-                    <label class="form-label">Nombre del RFC</label>
-                    <input type="text" id="uatRfcName" class="form-control" placeholder="Ej: Anexo a RFC 24015 Promociones combinen con 120 Mbps">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Saludo</label>
-                    <input type="text" id="uatSaludo" class="form-control" value="Buenas tardes.">
-                </div>
-                <div class="col-md-8">
-                    <label class="form-label">Adjunto <span class="fw-normal text-muted">(opcional)</span></label>
-                    <input type="text" id="uatAdjunto" class="form-control" placeholder="Ej: Adjunto documentaci&#xF3;n y universo.">
+            <!-- Section Body -->
+            <div style="padding:24px 28px 28px;">
+                <div class="row g-3">
+                    <!-- RFC Number — destacado -->
+                    <div class="col-md-3">
+                        <label class="form-label" style="display:flex;align-items:center;gap:5px;">
+                            <span style="font-size:.8rem;opacity:.7;">&#x1F4C4;</span>
+                            N&#xFA;mero de RFC
+                            <span style="color:#dc2626;font-size:.65rem;vertical-align:super;">&#x25CF;</span>
+                        </label>
+                        <input type="text" id="uatRfcNumber" class="form-control" placeholder="24269"
+                               style="font-weight:600;font-size:1rem;letter-spacing:.02em;">
+                        <div class="form-text" style="font-size:.72rem;color:#94a3b8;">Se antepone &ldquo;RFC&rdquo; autom&#xE1;ticamente</div>
+                    </div>
+                    <!-- RFC Name — destacado -->
+                    <div class="col-md-9">
+                        <label class="form-label" style="display:flex;align-items:center;gap:5px;">
+                            <span style="font-size:.8rem;opacity:.7;">&#x1F4DD;</span>
+                            Nombre del cambio
+                            <span style="color:#dc2626;font-size:.65rem;vertical-align:super;">&#x25CF;</span>
+                        </label>
+                        <input type="text" id="uatRfcName" class="form-control" placeholder="Descripci&#xF3;n clara del cambio (ej: Promociones combinen con plan 120 Mbps)"
+                               style="font-weight:500;">
+                    </div>
+                    <!-- Saludo -->
+                    <div class="col-md-4" style="margin-top:18px;">
+                        <label class="form-label" style="display:flex;align-items:center;gap:5px;">
+                            <span style="font-size:.8rem;opacity:.7;">&#x1F44B;</span>
+                            Saludo
+                        </label>
+                        <input type="text" id="uatSaludo" class="form-control" value="Buenas tardes.">
+                    </div>
+                    <!-- Adjunto -->
+                    <div class="col-md-8" style="margin-top:18px;">
+                        <label class="form-label" style="display:flex;align-items:center;gap:5px;">
+                            <span style="font-size:.8rem;opacity:.7;">&#x1F4CE;</span>
+                            Archivos adjuntos
+                            <span style="font-weight:400;color:#94a3b8;font-size:.75rem;margin-left:4px;">opcional</span>
+                        </label>
+                        <input type="text" id="uatAdjunto" class="form-control" placeholder="Ej: Adjunto documentaci&#xF3;n de pruebas y universo de datos.">
+                        <div class="form-text" style="font-size:.72rem;color:#94a3b8;">Se menciona en el cuerpo del correo como referencia</div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- REQUERIMIENTOS -->
-        <div class="section-block">
-            <div class="section-label">&#x1F4CB; Requerimientos <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button>
-                <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.7rem;margin-left:0;">(opcional)</span>
+        <div class="section-block" style="border:none;background:white;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.06);padding:0;overflow:hidden;">
+            <div style="padding:22px 28px 16px;border-bottom:1px solid #f1f5f9;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                    <span style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#7c3aed,#a78bfa);display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:white;">&#x1F4CB;</span>
+                    <h3 style="margin:0;font-size:1.05rem;font-weight:700;color:#0f172a;letter-spacing:-.02em;">Requerimientos</h3>
+                    <span style="font-size:.72rem;color:#94a3b8;font-weight:400;margin-left:4px;">opcional</span>
+                </div>
+                <p style="margin:0;font-size:.8rem;color:#64748b;padding-left:42px;">Describe las condiciones, promociones y resultado esperado que el equipo de UAT debe validar.</p>
             </div>
-            <div class="help-popover">
-                <div class="help-popover-title">Requerimientos</div>
-                <p><strong>¿Para qué sirve?</strong> Describe los requerimientos, condiciones y resultado esperado que QA debe validar.</p>
-                <p><strong>¿Cómo llenarlo?</strong> Escribe las condiciones y el resultado esperado. Puedes agregar una imagen de referencia (tabla, captura, etc.).</p>
-                <div class="help-example">Promociones:
-2315 - Doble se vuelve Triple
-
-Resultado esperado:
-✓ Que la promoción conviva con los servicios 131 y 331.</div>
-                <div class="help-tip"><span class="help-tip-icon">💡</span> Puedes pegar imágenes con Ctrl+V o arrastrarlas a la zona indicada.</div>
-            </div>
-            <textarea id="uatRequerimientos" class="form-control" rows="6"
-                      placeholder="Describe las promociones, servicios o condiciones a considerar, resultado esperado...&#10;&#10;Ej:&#10;Promociones:&#10;2315 - Doble se vuelve Triple&#10;&#10;Resultado esperado: &#x2713; Que la promoci&#xF3;n conviva con los servicios 131 y 331."></textarea>
-            <div class="d-flex align-items-center gap-2 mt-2">
-                <label class="btn-add-uat" style="cursor:pointer;">
-                    &#x1F4CE; Agregar imagen
-                    <input type="file" id="reqImageFile" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="handleReqImage(this)">
-                </label>
-                <input type="hidden" id="reqImageData" value="">
-                <span id="reqImageName" class="text-muted" style="font-size:.8rem;"></span>
-                <button type="button" id="reqImageClear" onclick="clearReqImage()" class="btn-remove-rdl" style="display:none;font-size:.75rem;">&#x2715; Quitar</button>
-            </div>
-            <div id="reqImagePreview" style="display:none;margin-top:8px;">
-                <img id="reqImageImg" style="max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:6px;display:block;">
-            </div>
-            <!-- Paste / Drop zone for Requerimientos image -->
-            <div id="reqImageDropZone" class="uat-drop-zone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleReqDrop(event)">
-                &#x1F4CB; Pega (Ctrl+V) o arrastra una imagen aqu&#xED;
+            <div style="padding:24px 28px 28px;">
+                <textarea id="uatRequerimientos" class="form-control" rows="6"
+                          placeholder="Promociones:&#10;2315 - Doble se vuelve Triple&#10;3816 - Internet 120 Mbps + TV&#10;&#10;Resultado esperado:&#10;&#x2713; Que las promociones convivan con el plan base de 120 Mbps&#10;&#x2713; Que los servicios se activen correctamente en UAT"></textarea>
+                <div class="d-flex align-items-center gap-2 mt-3">
+                    <label class="btn-add-uat" style="cursor:pointer;">
+                        &#x1F4CE; Agregar imagen de referencia
+                        <input type="file" id="reqImageFile" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="handleReqImage(this)">
+                    </label>
+                    <input type="hidden" id="reqImageData" value="">
+                    <span id="reqImageName" class="text-muted" style="font-size:.8rem;"></span>
+                    <button type="button" id="reqImageClear" onclick="clearReqImage()" class="btn-remove-rdl" style="display:none;font-size:.75rem;">&#x2715; Quitar</button>
+                </div>
+                <div id="reqImagePreview" style="display:none;margin-top:8px;">
+                    <img id="reqImageImg" style="max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:6px;display:block;">
+                </div>
+                <div id="reqImageDropZone" class="uat-drop-zone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleReqDrop(event)">
+                    &#x1F5BC;&#xFE0F; Pega (Ctrl+V) o arrastra una imagen aqu&#xED;
+                </div>
             </div>
         </div>
 
-        <!-- EDITOR RICO DE EVIDENCIAS (reemplaza bloques) -->
-        <div class="section-block">
-            <div class="section-label d-flex justify-content-between align-items-center">
-                <span>&#x1F4DD; Ejemplos / Pasos / Evidencias <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda" style="margin-left:4px;">?</button>
-                    <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.7rem;">(opcional)</span>
-                </span>
-                <label class="btn-add-uat" style="cursor:pointer;white-space:nowrap;">
+        <!-- EDITOR RICO DE EVIDENCIAS -->
+        <div class="section-block" style="border:none;background:white;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.06);padding:0;overflow:hidden;">
+            <div style="padding:22px 28px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                        <span style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#059669,#34d399);display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:white;">&#x1F4DD;</span>
+                        <h3 style="margin:0;font-size:1.05rem;font-weight:700;color:#0f172a;letter-spacing:-.02em;">Evidencias y Ejemplos</h3>
+                        <span style="font-size:.72rem;color:#94a3b8;font-weight:400;margin-left:4px;">opcional</span>
+                    </div>
+                    <p style="margin:0;font-size:.8rem;color:#64748b;padding-left:42px;">Documenta capturas, pasos ejecutados y resultados con texto enriquecido e im&#xE1;genes.</p>
+                </div>
+                <label class="btn-add-uat" style="cursor:pointer;white-space:nowrap;flex-shrink:0;">
                     &#x1F4CE; Insertar imagen
                     <input type="file" id="uatEditorFileInput" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
                 </label>
             </div>
-            <div class="help-popover">
-                <div class="help-popover-title">Ejemplos / Pasos / Evidencias</div>
-                <p><strong>¿Para qué sirve?</strong> Documenta visualmente la prueba: capturas de pantalla, pasos ejecutados y resultados obtenidos.</p>
-                <p><strong>¿Cómo llenarlo?</strong> Escribe texto con formato, pega imágenes (Ctrl+V), arrástralas o usa la barra de herramientas.</p>
-                <div class="help-tip"><span class="help-tip-icon">💡</span> Usa los atajos: Ctrl+B (negrita), Ctrl+I (cursiva), Ctrl+K (enlace). Las imágenes se comprimen automáticamente.</div>
-            </div>
-            <!-- Rich Editor Toolbar -->
-            <div class="re-toolbar">
-                <button type="button" class="re-btn" onclick="reCmd('bold')" title="Negrita (Ctrl+B)"><b>B</b></button>
-                <button type="button" class="re-btn" onclick="reCmd('italic')" title="Cursiva (Ctrl+I)"><i>I</i></button>
-                <button type="button" class="re-btn" onclick="reCmd('underline')" title="Subrayado (Ctrl+U)"><u>U</u></button>
-                <button type="button" class="re-btn" onclick="reCmd('strikeThrough')" title="Tachado"><s>S</s></button>
-                <span class="re-sep"></span>
-                <button type="button" class="re-btn" onclick="reCmd('insertUnorderedList')" title="Lista con viñetas">&#x2022;</button>
-                <button type="button" class="re-btn" onclick="reCmd('insertOrderedList')" title="Lista numerada">1.</button>
-                <span class="re-sep"></span>
-                <button type="button" class="re-btn" onclick="reInsertLink()" title="Enlace (Ctrl+K)">&#x1F517;</button>
-                <button type="button" class="re-btn" onclick="reInsertTable()" title="Tabla">&#x25A6;</button>
-                <button type="button" class="re-btn" onclick="reInsertCode()" title="Código">&lt;/&gt;</button>
-                <span class="re-sep"></span>
-                <select class="re-select" onchange="reFontSize(this.value);this.selectedIndex=0;" title="Tamaño">
-                    <option value="">Aa</option>
-                    <option value="1">Pequeño</option>
-                    <option value="3">Normal</option>
-                    <option value="5">Grande</option>
-                    <option value="7">Enorme</option>
-                </select>
-                <input type="color" class="re-color" value="#000000" onchange="reTextColor(this.value)" title="Color de texto">
-                <input type="color" class="re-color" value="#ffff00" onchange="reHighlight(this.value)" title="Resaltado" style="border-color:#fbbf24;">
-                <span class="re-sep"></span>
-                <button type="button" class="re-btn" onclick="reCmd('removeFormat')" title="Quitar formato">&#x2718;</button>
-                <label class="re-btn re-btn-img" title="Insertar imagen">
-                    &#x1F4CE;
-                    <input type="file" id="uatEditorFileInput" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
-                </label>
-            </div>
-            <div id="uatRichEditor" contenteditable="true" class="uat-rich-editor"
-                 placeholder="Escribe con formato, pega im&#xE1;genes (Ctrl+V), arrastra archivos o usa la barra de herramientas..."></div>
-            <div class="uat-editor-hints">
-                <span><b>Ctrl+B</b> Negrita</span>
-                <span><b>Ctrl+I</b> Cursiva</span>
-                <span><b>Ctrl+K</b> Enlace</span>
-                <span><b>Ctrl+V</b> Pegar imagen</span>
-                <span>&#x1F5BC;&#xFE0F; Drag &amp; Drop</span>
+            <div style="padding:20px 28px 24px;">
+                <!-- Rich Editor Toolbar -->
+                <div class="re-toolbar" style="border-radius:8px 8px 0 0;margin-bottom:0;">
+                    <button type="button" class="re-btn" onclick="reCmd('bold')" title="Negrita (Ctrl+B)"><b>B</b></button>
+                    <button type="button" class="re-btn" onclick="reCmd('italic')" title="Cursiva (Ctrl+I)"><i>I</i></button>
+                    <button type="button" class="re-btn" onclick="reCmd('underline')" title="Subrayado (Ctrl+U)"><u>U</u></button>
+                    <button type="button" class="re-btn" onclick="reCmd('strikeThrough')" title="Tachado"><s>S</s></button>
+                    <span class="re-sep"></span>
+                    <button type="button" class="re-btn" onclick="reCmd('insertUnorderedList')" title="Lista con viñetas">&#x2022;</button>
+                    <button type="button" class="re-btn" onclick="reCmd('insertOrderedList')" title="Lista numerada">1.</button>
+                    <span class="re-sep"></span>
+                    <button type="button" class="re-btn" onclick="reInsertLink()" title="Enlace (Ctrl+K)">&#x1F517;</button>
+                    <button type="button" class="re-btn" onclick="reInsertTable()" title="Tabla">&#x25A6;</button>
+                    <button type="button" class="re-btn" onclick="reInsertCode()" title="C&#xF3;digo">&lt;/&gt;</button>
+                    <span class="re-sep"></span>
+                    <select class="re-select" onchange="reFontSize(this.value);this.selectedIndex=0;" title="Tama&#xF1;o">
+                        <option value="">Aa</option>
+                        <option value="1">Peque&#xF1;o</option>
+                        <option value="3">Normal</option>
+                        <option value="5">Grande</option>
+                        <option value="7">Enorme</option>
+                    </select>
+                    <input type="color" class="re-color" value="#000000" onchange="reTextColor(this.value)" title="Color de texto">
+                    <input type="color" class="re-color" value="#ffff00" onchange="reHighlight(this.value)" title="Resaltado" style="border-color:#fbbf24;">
+                    <span class="re-sep"></span>
+                    <button type="button" class="re-btn" onclick="reCmd('removeFormat')" title="Quitar formato">&#x2718;</button>
+                    <label class="re-btn re-btn-img" title="Insertar imagen">
+                        &#x1F4CE;
+                        <input type="file" id="uatEditorFileInput" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
+                    </label>
+                </div>
+                <div id="uatRichEditor" contenteditable="true" class="uat-rich-editor" style="border-radius:0 0 8px 8px;border-top:none;min-height:200px;"
+                     placeholder="Escribe con formato, pega im&#xE1;genes (Ctrl+V), arrastra archivos o usa la barra de herramientas..."></div>
+                <div class="uat-editor-hints" style="margin-top:10px;border:none;background:transparent;padding:6px 4px;">
+                    <span><b>Ctrl+B</b> Negrita</span>
+                    <span><b>Ctrl+I</b> Cursiva</span>
+                    <span><b>Ctrl+K</b> Enlace</span>
+                    <span><b>Ctrl+V</b> Pegar imagen</span>
+                    <span>&#x1F5BC;&#xFE0F; Drag &amp; Drop</span>
+                </div>
             </div>
         </div>
 
-        <!-- NOTA -->
-        <div class="section-block">
-            <div class="section-label">&#x26A0;&#xFE0F; NOTA <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button>
-                <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.7rem;margin-left:0;">(opcional)</span>
+        <!-- NOTA & CIERRE -->
+        <div class="section-block" style="border:none;background:white;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.06);padding:0;overflow:hidden;">
+            <div style="padding:22px 28px 16px;border-bottom:1px solid #f1f5f9;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                    <span style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#d97706,#fbbf24);display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:white;">&#x26A0;&#xFE0F;</span>
+                    <h3 style="margin:0;font-size:1.05rem;font-weight:700;color:#0f172a;letter-spacing:-.02em;">Notas y Cierre</h3>
+                    <span style="font-size:.72rem;color:#94a3b8;font-weight:400;margin-left:4px;">opcional</span>
+                </div>
+                <p style="margin:0;font-size:.8rem;color:#64748b;padding-left:42px;">Aclaraciones importantes para el equipo y texto de despedida del correo.</p>
             </div>
-            <div class="help-popover">
-                <div class="help-popover-title">Nota</div>
-                <p><strong>¿Para qué sirve?</strong> Agrega aclaraciones importantes que el equipo de UAT debe tener en cuenta al validar.</p>
-                <p><strong>¿Cómo llenarlo?</strong> Escribe advertencias o condiciones especiales. Se muestra destacada en el correo.</p>
-                <div class="help-example">Para esta promoción solo se consideran servicios residenciales.
-No aplica para clientes empresariales.</div>
+            <div style="padding:24px 28px 28px;">
+                <div class="mb-3">
+                    <label class="form-label" style="display:flex;align-items:center;gap:5px;">
+                        <span style="font-size:.8rem;opacity:.7;">&#x1F4CC;</span>
+                        Nota destacada
+                        <span style="font-weight:400;color:#94a3b8;font-size:.75rem;margin-left:4px;">se resalta en el correo</span>
+                    </label>
+                    <textarea id="uatNota" class="form-control" rows="3"
+                              placeholder="Ej: Para esta promoci&#xF3;n solo se consideran servicios residenciales.&#10;No aplica para clientes empresariales."></textarea>
+                </div>
+                <div>
+                    <label class="form-label" style="display:flex;align-items:center;gap:5px;">
+                        <span style="font-size:.8rem;opacity:.7;">&#x2709;&#xFE0F;</span>
+                        Cierre del correo
+                    </label>
+                    <input type="text" id="uatCierre" class="form-control" value="Quedo pendiente por cualquier duda o comentario.">
+                    <div class="form-text" style="font-size:.72rem;color:#94a3b8;">Texto de despedida que aparece al final del correo</div>
+                </div>
             </div>
-            <textarea id="uatNota" class="form-control" rows="3"
-                      placeholder="Ej: Para esta promoci&#xF3;n solo se consideran servicios residenciales..."></textarea>
         </div>
 
-        <!-- CIERRE -->
-        <div class="section-block">
-            <div class="section-label">&#x2709;&#xFE0F; Cierre <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
-            <div class="help-popover">
-                <div class="help-popover-title">Cierre</div>
-                <p><strong>¿Para qué sirve?</strong> Texto de despedida que aparece al final del correo de VoBo UAT.</p>
-                <p><strong>¿Cómo llenarlo?</strong> Deja el texto por defecto o personaliza el cierre según el contexto.</p>
-                <div class="help-tip"><span class="help-tip-icon">💡</span> El cierre predeterminado es formal y funciona para la mayoría de los casos.</div>
+        <!-- ACTION BAR -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:24px;padding:18px 24px;background:white;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.06);">
+            <div class="d-flex gap-2">
+                <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Plantilla</button>
+                <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
+                <button type="button" class="btn-clear" onclick="clearUatForm()">&#x2715; Limpiar</button>
             </div>
-            <input type="text" id="uatCierre" class="form-control" value="Quedo pendiente por cualquier duda o comentario.">
-        </div>
-
-        <div class="form-actions d-flex gap-2 justify-content-end">
-            <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
-            <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
-            <button type="button" class="btn-clear" onclick="clearUatForm()">&#x2715; Limpiar</button>
-            <button type="button" class="btn-generate" onclick="generateUatEmail()">Generar Correo VoBo UAT &rarr;</button>
+            <button type="button" class="btn-generate" onclick="generateUatEmail()" style="padding:12px 32px;font-size:1rem;">&#x1F4E8; Generar Correo VoBo UAT</button>
         </div>
 
         <!-- PREVIEW -->
-        <div id="uatEmailSection" class="mt-5" style="display:none;">
-            <div class="section-label" style="margin-top:0;">&#x1F4E7; Vista previa &mdash; VoBo UAT</div>
-            <div class="email-wrapper">
-                <div class="email-toolbar">
-                    <div class="d-flex gap-2 align-items-center">
-                        <span class="dot" style="background:#ef4444;"></span>
-                        <span class="dot" style="background:#f59e0b;"></span>
-                        <span class="dot" style="background:#10b981;"></span>
-                        <span style="margin-left:8px; opacity:.8;">Correo VoBo UAT</span>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn-pdf"         onclick="downloadUatExport('pdf')">&#x1F4E5; PDF</button>
-                        <button class="btn-md"          onclick="downloadUatExport('markdown')">&#x1F4C4; Markdown</button>
-                        <button class="btn-html-export" onclick="downloadUatExport('html')">&#x1F310; HTML</button>
-                        <button class="btn-copy"        onclick="copyUatEmail()">&#x1F4CB; Copiar</button>
-                    </div>
+        <div id="uatEmailSection" class="mt-4" style="display:none;">
+            <div style="background:white;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.06);overflow:hidden;">
+                <div style="padding:18px 28px 14px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;">
+                    <span style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#0f766e,#14b8a6);display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:white;">&#x1F4E7;</span>
+                    <h3 style="margin:0;font-size:1.05rem;font-weight:700;color:#0f172a;letter-spacing:-.02em;">Vista Previa del Correo</h3>
                 </div>
-                <div id="uatEmailPreview" class="email-preview-body"
-                     style="padding:32px 36px; font-size:14px; line-height:1.6;"></div>
+                <div class="email-wrapper" style="border:none;border-radius:0;box-shadow:none;">
+                    <div class="email-toolbar">
+                        <div class="d-flex gap-2 align-items-center">
+                            <span class="dot" style="background:#ef4444;"></span>
+                            <span class="dot" style="background:#f59e0b;"></span>
+                            <span class="dot" style="background:#10b981;"></span>
+                            <span style="margin-left:8px; opacity:.8;">Correo VoBo UAT</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn-pdf"         onclick="downloadUatExport('pdf')">&#x1F4E5; PDF</button>
+                            <button class="btn-md"          onclick="downloadUatExport('markdown')">&#x1F4C4; Markdown</button>
+                            <button class="btn-html-export" onclick="downloadUatExport('html')">&#x1F310; HTML</button>
+                            <button class="btn-copy"        onclick="copyUatEmail()">&#x1F4CB; Copiar</button>
+                        </div>
+                    </div>
+                    <div id="uatEmailPreview" class="email-preview-body"
+                         style="padding:32px 36px; font-size:14px; line-height:1.6;"></div>
+                </div>
             </div>
         </div>
 

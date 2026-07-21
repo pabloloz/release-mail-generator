@@ -46,7 +46,13 @@
         try {
             document.querySelectorAll('iframe').forEach(function (f) {
                 if (f.contentDocument) {
+                    // Inject transition animation into iframe
+                    var iframeStyle = f.contentDocument.createElement('style');
+                    iframeStyle.id = 'theme-transition';
+                    iframeStyle.textContent = '*, *::before, *::after { transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease !important; }';
+                    f.contentDocument.head.appendChild(iframeStyle);
                     f.contentDocument.documentElement.setAttribute('data-theme', next);
+                    setTimeout(function() { iframeStyle.remove(); }, 400);
                 }
             });
         } catch (e) { /* cross-origin iframe, ignore */ }

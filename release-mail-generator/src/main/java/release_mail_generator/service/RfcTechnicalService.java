@@ -552,11 +552,11 @@ public class RfcTechnicalService {
                     if (notBlank(tc.getObservations())) addLabelAndText(doc, "Observaciones:", s(tc.getObservations()), labelFont, valueFont, mutedFont);
                 }
 
-                // Evidences
+                // Evidences — flow inline, no forced page breaks
                 List<TestEvidence> evs = tc.getEvidences() != null ? tc.getEvidences() : Collections.emptyList();
                 if (!evs.isEmpty()) {
                     Paragraph evP = new Paragraph("Evidencias (" + evs.size() + "):", subSecFont);
-                    evP.setSpacingBefore(8); evP.setSpacingAfter(6); doc.add(evP);
+                    evP.setSpacingBefore(10); evP.setSpacingAfter(6); doc.add(evP);
                     addEvidenceGrid(doc, writer, evs, mutedFont);
                 }
 
@@ -663,8 +663,7 @@ public class RfcTechnicalService {
     private void addEvidenceGrid(Document doc, PdfWriter writer, List<TestEvidence> evidences, Font captionFont)
             throws DocumentException {
         float pageWidth = doc.right() - doc.left();
-        float maxSingleHeight = 340f;
-        float gap = 10f;
+        float usablePageH = doc.top() - doc.bottom() - 40;
 
         for (int ei = 0; ei < evidences.size(); ei++) {
             TestEvidence ev = evidences.get(ei);
@@ -674,35 +673,37 @@ public class RfcTechnicalService {
                 byte[] imgBytes = decodeBase64Image(ev.getImageBase64());
                 com.lowagie.text.Image img = com.lowagie.text.Image.getInstance(imgBytes);
 
-                // Calculate scale to fit within page width and max height, preserving aspect ratio
                 float origW = img.getWidth();
                 float origH = img.getHeight();
-                float scale = Math.min(pageWidth / origW, maxSingleHeight / origH);
-                if (scale > 1f) scale = 1f; // Don't upscale
-                float finalW = origW * scale;
-                float finalH = origH * scale;
 
-                img.scaleAbsolute(finalW, finalH);
+                // Available space on this page (after label)
+                float remaining = writer.getVerticalPosition(false) - doc.bottom() - 50;
 
-                // Check if there's enough space on current page; if not, new page
-                float spaceNeeded = finalH + 40; // image + caption + spacing
-                float verticalPosition = writer.getVerticalPosition(false);
-                float bottomMargin = doc.bottom() + 30;
-                if (verticalPosition - spaceNeeded < bottomMargin) {
+                // If less than 25% of page left, start fresh
+                if (remaining < usablePageH * 0.25f) {
                     doc.newPage();
+                    remaining = usablePageH - 40;
                 }
 
+                // Scale image to fit: page width AND remaining height
+                float maxH = Math.min(remaining - 20, usablePageH * 0.8f);
+                float scale = Math.min(pageWidth / origW, maxH / origH);
+                if (scale > 1f) scale = 1f;
+                float finalW = origW * scale;
+                float finalH = origH * scale;
+                img.scaleAbsolute(finalW, finalH);
+
                 // Evidence label
-                Font evLabelFont = new Font(Font.HELVETICA, 8.5f, Font.BOLD, C_PRIMARY);
+                Font evLabelFont = new Font(Font.HELVETICA, 7.5f, Font.BOLD, C_PRIMARY);
                 Paragraph label = new Paragraph("Evidencia " + (ei + 1), evLabelFont);
-                label.setSpacingBefore(6);
+                label.setSpacingBefore(8);
                 label.setSpacingAfter(3);
                 doc.add(label);
 
-                // Image with border effect using a table cell
+                // Image in table (required by OpenPDF for proper rendering)
                 PdfPTable imgTable = new PdfPTable(1);
                 imgTable.setWidthPercentage(100);
-                imgTable.setSpacingAfter(2);
+                imgTable.setSpacingAfter(4);
                 PdfPCell imgCell = new PdfPCell(img, false);
                 imgCell.setBorderColor(C_BORDER);
                 imgCell.setBorderWidth(0.5f);
@@ -738,6 +739,23 @@ public class RfcTechnicalService {
     private byte[] decodeBase64Image(String b64) {
         if (b64.contains(",")) b64 = b64.substring(b64.indexOf(',') + 1);
         return Base64.getDecoder().decode(b64.trim());
+    }
+
+    /** Estimates the rendered height of the first evidence image for page break decisions. */
+    private float estimateFirstEvidenceHeight(List<TestEvidence> evidences, float pageWidth) {
+        for (TestEvidence ev : evidences) {
+            if (!notBlank(ev.getImageBase64())) continue;
+            try {
+                byte[] imgBytes = decodeBase64Image(ev.getImageBase64());
+                com.lowagie.text.Image img = com.lowagie.text.Image.getInstance(imgBytes);
+                float scale = Math.min(pageWidth / img.getWidth(), 450f / img.getHeight());
+                if (scale > 1f) scale = 1f;
+                return img.getHeight() * scale;
+            } catch (Exception e) {
+                return 200f; // fallback estimate
+            }
+        }
+        return 100f;
     }
 
     private void addCoverPage(Document doc, String docType, String rfcNumber, String changeName,
