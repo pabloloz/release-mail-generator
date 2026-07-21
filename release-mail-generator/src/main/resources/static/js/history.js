@@ -55,7 +55,7 @@
                 const timeStr = date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
                 const isFav = typeof window.isFavorite === 'function' && window.isFavorite(v.documentType, v.id);
 
-                return '<tr class="history-row" data-id="' + v.id + '">'
+                return '<tr class="history-row" data-id="' + v.id + '" onclick="onHistoryRowClick(event,\'' + v.id + '\')" style="cursor:pointer;">'
                     + '<td><input type="checkbox" class="compare-check" data-id="' + v.id + '" title="Seleccionar para comparar"></td>'
                     + '<td><span class="history-type-badge history-type-' + v.documentType + '">' + (TYPE_LABELS[v.documentType] || v.documentType) + '</span></td>'
                     + '<td><div class="history-title">' + esc(v.title || v.documentRef) + '</div>'
@@ -65,7 +65,6 @@
                     + '<td><div class="history-date">' + dateStr + '</div><div class="history-time">' + timeStr + '</div></td>'
                     + '<td class="history-actions-cell">'
                     + '<button class="btn-fav' + (isFav ? ' is-fav' : '') + '" onclick="toggleFavorite(\'' + v.documentType + '\',\'' + v.id + '\',\'' + esc(v.title || v.documentRef).replace(/'/g, "\\'") + '\',\'\',\'' + (TYPE_LABELS[v.documentType] || '📄').charAt(0) + '\')" title="Favorito">' + (isFav ? '★' : '☆') + '</button>'
-                    + '<button class="hbtn hbtn-view" onclick="viewVersion(\'' + v.id + '\')" title="Ver">👁</button>'
                     + '<button class="hbtn hbtn-restore" onclick="restoreVersion(\'' + v.id + '\')" title="Restaurar">↩</button>'
                     + '<button class="hbtn hbtn-delete" onclick="deleteVersion(\'' + v.id + '\')" title="Eliminar">✕</button>'
                     + '</td></tr>';
@@ -104,6 +103,13 @@
         } catch (err) {
             showToast('Error al cargar versión: ' + err.message, 'error');
         }
+    };
+
+    window.onHistoryRowClick = function (e, id) {
+        // Don't open preview if clicking on buttons, checkboxes, or action cells
+        var target = e.target;
+        if (target.closest('.history-actions-cell') || target.closest('input[type="checkbox"]') || target.tagName === 'BUTTON') return;
+        viewVersion(id);
     };
 
     window.closeHistoryModal = function () {
