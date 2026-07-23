@@ -2127,15 +2127,21 @@
         [data-theme="dark"] .uat-rich-editor code { background: #1e293b; border-color: #334155; }
         [data-theme="dark"] .uat-rich-editor a { color: #60a5fa; }
         .uat-drop-zone {
-            border: 1.5px dashed #93c5fd;
+            border: 1px solid var(--border);
             border-radius: var(--radius-xs);
-            padding: 10px;
+            padding: 12px;
             text-align: center;
             font-size: .78rem;
             color: var(--text-muted);
-            margin-top: 8px;
-            transition: background .15s, border-color .15s;
+            margin-top: 10px;
+            transition: all .15s;
             cursor: pointer;
+            background: var(--bg-section);
+        }
+        .uat-drop-zone:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
         }
         .uat-drop-zone:focus {
             outline: none;
@@ -3196,8 +3202,8 @@
         [data-theme="dark"] .uat-rich-editor { background: #0f172a; color: var(--text); border-color: var(--border); }
         [data-theme="dark"] .uat-rich-editor:focus { border-color: var(--primary); }
         [data-theme="dark"] .uat-rich-editor.dragover { background: var(--primary-light); }
-        [data-theme="dark"] .uat-drop-zone { border-color: #334155; color: var(--text-muted); }
-        [data-theme="dark"] .uat-drop-zone.dragover { background: var(--primary-light); border-color: var(--primary); }
+        [data-theme="dark"] .uat-drop-zone { border-color: var(--border); color: var(--text-muted); background: #0f172a; }
+        [data-theme="dark"] .uat-drop-zone:hover, [data-theme="dark"] .uat-drop-zone.dragover { background: var(--primary-light); border-color: var(--primary); color: #60a5fa; }
 
         /* ── Form actions border ─────────────────────────────── */
         [data-theme="dark"] .form-actions { border-top-color: var(--border); }
@@ -4186,13 +4192,13 @@ dbo.sp_reporte_facturacion.sql</div>
             <textarea id="uatRequerimientos" class="form-control" rows="6"
                       placeholder="Promociones:&#10;2315 - Doble se vuelve Triple&#10;3816 - Internet 120 Mbps + TV&#10;&#10;Resultado esperado:&#10;&#x2713; Que las promociones convivan con el plan base de 120 Mbps"></textarea>
             <div class="d-flex align-items-center gap-2 mt-3">
-                <label class="btn-add" style="cursor:pointer;width:auto;border-style:solid;padding:6px 14px;">
-                    &#x1F4CE; Agregar imagen de referencia
+                <label class="tb-btn tb-btn-ghost" style="cursor:pointer;font-size:.78rem;">
+                    &#x1F4F7; Agregar imagen
                     <input type="file" id="reqImageFile" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="handleReqImage(this)">
                 </label>
                 <input type="hidden" id="reqImageData" value="">
                 <span id="reqImageName" class="text-muted" style="font-size:.8rem;"></span>
-                <button type="button" id="reqImageClear" onclick="clearReqImage()" class="btn-remove-rdl" style="display:none;font-size:.75rem;">&#x2715; Quitar</button>
+                <button type="button" id="reqImageClear" onclick="clearReqImage()" class="tb-btn tb-btn-ghost" style="display:none;font-size:.75rem;color:var(--danger);">&#x2715; Quitar</button>
             </div>
             <div id="reqImagePreview" style="display:none;margin-top:8px;">
                 <img id="reqImageImg" style="max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:6px;display:block;">
@@ -4206,8 +4212,8 @@ dbo.sp_reporte_facturacion.sql</div>
         <div class="section-block">
             <div class="section-label d-flex justify-content-between align-items-center">
                 <span>&#x1F4DD; Evidencias y Ejemplos <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.72rem;">(opcional)</span></span>
-                <label class="btn-add" style="cursor:pointer;width:auto;border-style:solid;padding:6px 14px;white-space:nowrap;">
-                    &#x1F4CE; Insertar imagen
+                <label class="tb-btn tb-btn-ghost" style="cursor:pointer;font-size:.78rem;white-space:nowrap;">
+                    &#x1F4F7; Insertar imagen
                     <input type="file" id="uatEditorFileInput" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
                 </label>
             </div>
