@@ -41,6 +41,7 @@
                     uatSaludo: gv('uatSaludo'),
                     uatAdjunto: gv('uatAdjunto'),
                     uatRequerimientos: gv('uatRequerimientos'),
+                    reqImageData: gv('reqImageData'),
                     uatNota: gv('uatNota'),
                     uatCierre: gv('uatCierre'),
                     uatEditorHtml: (document.getElementById('uatRichEditor') || {}).innerHTML || ''
@@ -54,8 +55,147 @@
                 setv('uatRequerimientos', d.uatRequerimientos);
                 setv('uatNota', d.uatNota);
                 setv('uatCierre', d.uatCierre);
+                // Restore requirements image
+                if (d.reqImageData) {
+                    setv('reqImageData', d.reqImageData);
+                    var imgEl = document.getElementById('reqImageImg');
+                    var previewEl = document.getElementById('reqImagePreview');
+                    var nameEl = document.getElementById('reqImageName');
+                    var clearBtn = document.getElementById('reqImageClear');
+                    if (imgEl) imgEl.src = d.reqImageData;
+                    if (previewEl) previewEl.style.display = '';
+                    if (nameEl) nameEl.textContent = 'Imagen de plantilla';
+                    if (clearBtn) clearBtn.style.display = '';
+                }
+                // Restore rich editor content
                 var editor = document.getElementById('uatRichEditor');
                 if (editor && d.uatEditorHtml) editor.innerHTML = d.uatEditorHtml;
+            }
+        },
+        rdl: {
+            label: 'Correo RDL',
+            icon: '📊',
+            pane: 'rdl',
+            collect: function () {
+                return typeof collectRdlPayload === 'function' ? collectRdlPayload() : {};
+            },
+            restore: function (d) {
+                if (!d) return;
+                // Restore global fields
+                if (d.rdlReleaseDate) {
+                    // Parse "dd/MM/yyyy hh:mm a" back to date + time
+                    var parts = (d.rdlReleaseDate || '').split(' ');
+                    if (parts.length >= 1) {
+                        var dateParts = parts[0].split('/');
+                        if (dateParts.length === 3) {
+                            setv('rdlReleaseDatePicker', dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0]);
+                        }
+                        if (parts.length >= 3) {
+                            var timeStr = parts[1] + ' ' + parts[2];
+                            var timeSel = document.getElementById('rdlReleaseTimePicker');
+                            if (timeSel) {
+                                for (var i = 0; i < timeSel.options.length; i++) {
+                                    if (timeSel.options[i].value === timeStr) { timeSel.selectedIndex = i; break; }
+                                }
+                            }
+                        }
+                    }
+                }
+                setv('rdlReleaseUrl', d.rdlReleaseUrl);
+                // Restore RDL entries
+                var rdls = d.rdls || [];
+                if (rdls.length === 0) return;
+                var container = document.getElementById('rdlEntries');
+                if (!container) return;
+                // Clear existing entries
+                container.innerHTML = '';
+                // Add entries
+                for (var ri = 0; ri < rdls.length; ri++) {
+                    if (typeof addRdlEntry === 'function') addRdlEntry();
+                }
+                // Fill values after DOM is ready
+                setTimeout(function () {
+                    var entries = container.querySelectorAll('.rdl-entry');
+                    rdls.forEach(function (rdl, idx) {
+                        var entry = entries[idx];
+                        if (!entry) return;
+                        var sv = function (name, val) {
+                            var el = entry.querySelector('[name="rdls[' + idx + '].' + name + '"]');
+                            if (el && val != null) {
+                                if (el.type === 'checkbox') { el.checked = !!val; if (el.onchange) el.onchange(); }
+                                else el.value = val;
+                            }
+                        };
+                        sv('rdlReportName', rdl.rdlReportName);
+                        sv('rdlReportFolder', rdl.rdlReportFolder);
+                        sv('rdlUrlMegang', rdl.rdlUrlMegang);
+                        sv('rdlUrlNtrs02', rdl.rdlUrlNtrs02);
+                        sv('rdlPathMegang', rdl.rdlPathMegang);
+                        sv('rdlPathNtrs02', rdl.rdlPathNtrs02);
+                        sv('rdlProject', rdl.rdlProject);
+                        // SPs and Scripts — toggle visibility
+                        if (rdl.hasRdlSp) {
+                            sv('hasRdlSp', true);
+                            var spGrp = entry.querySelector('.rdl-sp-group');
+                            if (spGrp) spGrp.style.display = 'block';
+                            sv('rdlSpName', rdl.rdlSpName);
+                            sv('rdlSpTicket', rdl.rdlSpTicket);
+                        }
+                        if (rdl.hasRdlScript) {
+                            sv('hasRdlScript', true);
+                            var scriptGrp = entry.querySelector('.rdl-script-group');
+                            if (scriptGrp) scriptGrp.style.display = 'block';
+                            sv('rdlScriptName', rdl.rdlScriptName);
+                            sv('rdlScriptPath', rdl.rdlScriptPath);
+                        }
+                    });
+                    if (typeof updateRdlPaths === 'function') updateRdlPaths();
+                }, 100);
+            }
+        },
+        'rdl-telegram': {
+            label: 'Telegram RDL',
+            icon: '✈️',
+            pane: 'rdl-telegram',
+            collect: function () {
+                return typeof collectRdlTelegramPayload === 'function' ? collectRdlTelegramPayload() : {};
+            },
+            restore: function (d) {
+                if (!d) return;
+                setv('rdlTgAction', d.rdlAction || '');
+                if (d.rdlReleaseDate) {
+                    var parts = (d.rdlReleaseDate || '').split(' ');
+                    if (parts.length >= 1) {
+                        var dp = parts[0].split('/');
+                        if (dp.length === 3) setv('rdlTgDate', dp[2] + '-' + dp[1] + '-' + dp[0]);
+                        if (parts.length >= 3) {
+                            var ts = parts[1] + ' ' + parts[2];
+                            var sel = document.getElementById('rdlTgTime');
+                            if (sel) for (var i = 0; i < sel.options.length; i++) { if (sel.options[i].value === ts) { sel.selectedIndex = i; break; } }
+                        }
+                    }
+                }
+                var rdls = d.rdls || [];
+                ['rdlTgRdlsContainer','rdlTgSpsContainer','rdlTgProjectsContainer'].forEach(function(id) {
+                    var c = document.getElementById(id); if (c) c.innerHTML = '';
+                });
+                rdls.forEach(function (r) {
+                    if (r.rdlReportName && typeof addRdlTgRdlRow === 'function') {
+                        addRdlTgRdlRow();
+                        var last = document.querySelector('#rdlTgRdlsContainer .dynamic-item:last-child input');
+                        if (last) last.value = r.rdlReportName;
+                    }
+                    if (r.rdlSpName && typeof addRdlTgSpRow === 'function') {
+                        addRdlTgSpRow();
+                        var lastSp = document.querySelector('#rdlTgSpsContainer .dynamic-item:last-child input');
+                        if (lastSp) lastSp.value = r.rdlSpName;
+                    }
+                    if (r.rdlProject && typeof addRdlTgProjectRow === 'function') {
+                        addRdlTgProjectRow();
+                        var lastPr = document.querySelector('#rdlTgProjectsContainer .dynamic-item:last-child input');
+                        if (lastPr) lastPr.value = r.rdlProject;
+                    }
+                });
             }
         }
     };
@@ -162,7 +302,15 @@
     // ── Panel UI ───────────────────────────────────────────────
     window.openTemplatesPanel = function () {
         var panel = document.getElementById('templatesPanel');
-        if (panel) { panel.classList.add('open'); renderTemplatesList(); }
+        if (!panel) return;
+        // Auto-select filter to current module
+        var modKey = getCurrentModuleKey();
+        var filterEl = document.getElementById('templatesFilter');
+        if (filterEl && modKey && MODULES[modKey]) {
+            filterEl.value = modKey;
+        }
+        panel.classList.add('open');
+        renderTemplatesList();
     };
     window.closeTemplatesPanel = function () {
         var panel = document.getElementById('templatesPanel');
@@ -179,13 +327,15 @@
         var filter = (document.getElementById('templatesFilter') || {}).value || 'ALL';
 
         var filtered = filter === 'ALL' ? templates : templates.filter(function (t) { return t.module === filter; });
+        var filterMod = MODULES[filter];
+        var filterLabel = filterMod ? filterMod.label : '';
 
         if (filtered.length === 0) {
             container.innerHTML = '<div class="tpl-empty">'
                 + '<div style="font-size:1.8rem;opacity:.3;margin-bottom:8px;">📑</div>'
                 + (templates.length === 0
                     ? 'No hay plantillas guardadas.<br><span style="font-size:.72rem;">Navega a un formulario, llena los datos y haz clic en <strong>Guardar como plantilla</strong>.</span>'
-                    : 'No hay plantillas para este filtro.')
+                    : 'No hay plantillas de <strong>' + esc(filterLabel || filter) + '</strong>.<br><span style="font-size:.72rem;">Guarda una desde el formulario correspondiente.</span>')
                 + '</div>';
             return;
         }

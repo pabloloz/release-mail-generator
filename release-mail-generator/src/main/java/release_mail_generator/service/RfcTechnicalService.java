@@ -351,7 +351,7 @@ public class RfcTechnicalService {
         md.append(mdBlock(r.getMainObjective())).append("\n\n");
         if (notBlank(r.getSpecificObjectives())) {
             md.append("**Objetivos específicos:**\n\n");
-            md.append(r.getSpecificObjectives().trim()).append("\n\n");
+            md.append(htmlToMarkdown(r.getSpecificObjectives())).append("\n\n");
         }
         md.append("---\n\n");
 
@@ -465,30 +465,41 @@ public class RfcTechnicalService {
 
     public byte[] generateTestCasesPdf(RfcTechnicalRecord r) throws Exception {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        Document doc = new Document(PageSize.A4, 50, 50, 72, 62);
+        Document doc = new Document(PageSize.A4, 50, 50, 80, 65);
         PdfWriter writer = PdfWriter.getInstance(doc, bos);
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
 
-        final String rfcLabel = "Casos de Prueba  —  " + s(r.getRfcNumber());
+        final String rfcLabel = "Casos de Prueba  —  RFC " + s(r.getRfcNumber());
         writer.setPageEvent(new PdfPageEventHelper() {
             @Override
             public void onEndPage(PdfWriter w, Document d) {
+                if (w.getPageNumber() == 1) return; // Skip on cover page
                 try {
                     PdfContentByte cb = w.getDirectContent();
-                    Font footerFont = new Font(Font.HELVETICA, 8, Font.NORMAL, C_MUTED);
-                    cb.setLineWidth(0.5f); cb.setColorStroke(C_BORDER);
-                    cb.moveTo(d.left(), d.bottom() - 4); cb.lineTo(d.right(), d.bottom() - 4); cb.stroke();
-                    Phrase pageNum = new Phrase("Página " + w.getPageNumber(), footerFont);
-                    ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT, pageNum, d.right(), d.bottom() - 16, 0);
-                    Phrase label = new Phrase(rfcLabel, footerFont);
-                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT, label, d.left(), d.bottom() - 16, 0);
-                    cb.setColorStroke(C_PRIMARY);
-                    cb.moveTo(d.left(), d.top() + 8); cb.lineTo(d.right(), d.top() + 8); cb.stroke();
+                    Font footerFont = new Font(Font.HELVETICA, 7.5f, Font.NORMAL, C_MUTED);
+                    // Footer line
+                    cb.setLineWidth(0.4f); cb.setColorStroke(C_BORDER);
+                    cb.moveTo(d.left(), d.bottom() - 8); cb.lineTo(d.right(), d.bottom() - 8); cb.stroke();
+                    // Footer left: system name
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,
+                            new Phrase("Release Notifier QA", footerFont), d.left(), d.bottom() - 20, 0);
+                    // Footer center: RFC label
+                    ColumnText.showTextAligned(cb, Element.ALIGN_CENTER,
+                            new Phrase(rfcLabel, footerFont), (d.left() + d.right()) / 2, d.bottom() - 20, 0);
+                    // Footer right: page
+                    ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT,
+                            new Phrase("Página " + (w.getPageNumber() - 1), footerFont), d.right(), d.bottom() - 20, 0);
+                    // Header line
+                    cb.setLineWidth(0.6f); cb.setColorStroke(C_PRIMARY);
+                    cb.moveTo(d.left(), d.top() + 10); cb.lineTo(d.right(), d.top() + 10); cb.stroke();
+                    // Header right: date
+                    ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT,
+                            new Phrase(now, new Font(Font.HELVETICA, 7, Font.NORMAL, C_MUTED)), d.right(), d.top() + 14, 0);
                 } catch (Exception ignored) {}
             }
         });
         doc.open();
 
-        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
         Font sectionFont = new Font(Font.HELVETICA, 13, Font.BOLD, C_PRIMARY);
         Font subSecFont  = new Font(Font.HELVETICA, 10, Font.BOLD, new Color(55, 65, 81));
         Font labelFont   = new Font(Font.HELVETICA, 8.5f, Font.BOLD, new Color(55, 65, 81));
@@ -1025,11 +1036,39 @@ public class RfcTechnicalService {
         doc.add(section);
     }
 
+    /** Converts HTML-rich content to clean plain text for PDF rendering. */
+    private String htmlToPlainText(String html) {
+        if (html == null || html.isBlank()) return "";
+        return html
+                .replaceAll("(?i)<br\\s*/?>", "\n")
+                .replaceAll("(?i)</p>|</div>|</li>|</tr>", "\n")
+                .replaceAll("(?i)<li[^>]*>", "• ")
+                .replaceAll("(?i)<strong[^>]*>|<b[^>]*>", "")      // bold tags — font handling is uniform in PDF
+                .replaceAll("(?i)</strong>|</b>", "")
+                .replaceAll("(?i)<em[^>]*>|<i[^>]*>", "")
+                .replaceAll("(?i)</em>|</i>", "")
+                .replaceAll("<[^>]+>", "")                           // strip remaining tags
+                .replaceAll("&nbsp;", " ")
+                .replaceAll("&amp;", "&")
+                .replaceAll("&lt;", "<")
+                .replaceAll("&gt;", ">")
+                .replaceAll("&quot;", "\"")
+                .replaceAll("&#39;", "'")
+                .replaceAll("&apos;", "'")
+                .replaceAll("\n{3,}", "\n\n")                       // collapse excessive newlines
+                .strip();
+    }
+
     private void addBodyText(Document doc, String text, Font valueFont, Font mutedFont) throws DocumentException {
-        boolean empty = text == null || text.isBlank();
-        Paragraph p = new Paragraph(empty ? "—" : text, empty ? mutedFont : valueFont);
-        p.setSpacingBefore(2);
-        p.setSpacingAfter(8);
+        String clean = htmlToPlainText(text);
+        if (clean.isEmpty()) {
+            Paragraph p = new Paragraph("—", mutedFont);
+            p.setSpacingBefore(2); p.setSpacingAfter(8);
+            doc.add(p);
+            return;
+        }
+        Paragraph p = new Paragraph(clean, valueFont);
+        p.setSpacingBefore(2); p.setSpacingAfter(8);
         doc.add(p);
     }
 
@@ -1038,8 +1077,9 @@ public class RfcTechnicalService {
         Paragraph lp = new Paragraph(label, lf);
         lp.setSpacingBefore(4);
         doc.add(lp);
-        boolean empty = text == null || text.isBlank();
-        Paragraph vp = new Paragraph(empty ? "—" : text, empty ? mf : vf);
+        String clean = htmlToPlainText(text);
+        boolean empty = clean.isEmpty();
+        Paragraph vp = new Paragraph(empty ? "—" : clean, empty ? mf : vf);
         vp.setIndentationLeft(10);
         vp.setSpacingAfter(6);
         doc.add(vp);
@@ -1126,7 +1166,47 @@ public class RfcTechnicalService {
 
     /** Returns text or an italic placeholder if blank. */
     private String mdBlock(String v) {
-        return (v == null || v.isBlank()) ? "*Sin información registrada.*" : v.trim();
+        if (v == null || v.isBlank()) return "*Sin información registrada.*";
+        return htmlToMarkdown(v);
+    }
+
+    /** Converts HTML-rich content to Markdown. */
+    private String htmlToMarkdown(String html) {
+        if (html == null || html.isBlank()) return "";
+        String md = html
+                // Bold
+                .replaceAll("(?i)<strong[^>]*>(.*?)</strong>", "**$1**")
+                .replaceAll("(?i)<b[^>]*>(.*?)</b>", "**$1**")
+                // Italic
+                .replaceAll("(?i)<em[^>]*>(.*?)</em>", "*$1*")
+                .replaceAll("(?i)<i[^>]*>(.*?)</i>", "*$1*")
+                // Underline — no native Markdown, just keep text
+                .replaceAll("(?i)<u[^>]*>(.*?)</u>", "$1")
+                // Links
+                .replaceAll("(?i)<a[^>]*href=\"([^\"]*)\"[^>]*>(.*?)</a>", "[$2]($1)")
+                // List items
+                .replaceAll("(?i)<li[^>]*>", "- ")
+                .replaceAll("(?i)</li>", "\n")
+                // List wrappers
+                .replaceAll("(?i)</?ul[^>]*>", "\n")
+                .replaceAll("(?i)</?ol[^>]*>", "\n")
+                // Line breaks and blocks
+                .replaceAll("(?i)<br\\s*/?>", "\n")
+                .replaceAll("(?i)</p>|</div>", "\n")
+                .replaceAll("(?i)<p[^>]*>|<div[^>]*>", "")
+                // Strip remaining tags
+                .replaceAll("<[^>]+>", "")
+                // HTML entities
+                .replaceAll("&nbsp;", " ")
+                .replaceAll("&amp;", "&")
+                .replaceAll("&lt;", "<")
+                .replaceAll("&gt;", ">")
+                .replaceAll("&quot;", "\"")
+                .replaceAll("&#39;|&apos;", "'")
+                // Collapse excessive newlines
+                .replaceAll("\n{3,}", "\n\n")
+                .strip();
+        return md;
     }
 
     private String ruleEmoji(String status) {

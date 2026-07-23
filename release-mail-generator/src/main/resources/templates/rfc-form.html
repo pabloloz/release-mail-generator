@@ -133,13 +133,99 @@
 
         /* ── Micro-animations ─────────────────────────────────── */
         @keyframes scaleIn { from { opacity:0; transform:scale(.97); } to { opacity:1; transform:scale(1); } }
+        @keyframes slideDown { from { opacity:0; transform:translateY(-8px); max-height:0; } to { opacity:1; transform:translateY(0); max-height:2000px; } }
+        @keyframes slideUp { from { opacity:1; transform:translateY(0); } to { opacity:0; transform:translateY(-6px); max-height:0; margin:0; padding:0; } }
+        @keyframes imgPop { from { opacity:0; transform:scale(.9); } to { opacity:1; transform:scale(1); } }
         @keyframes checkPop { 0% { transform:scale(1); } 40% { transform:scale(1.12); } 100% { transform:scale(1); } }
         @keyframes subtleShake { 0%,100% { transform:translateX(0); } 20% { transform:translateX(-3px); } 40% { transform:translateX(3px); } 60% { transform:translateX(-2px); } 80% { transform:translateX(2px); } }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.6; } }
+        @keyframes staggerIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
         .tab-panel.active { animation: scaleIn .18s ease-out; }
-        .dynamic-item { animation: scaleIn .15s ease-out; }
+        .dynamic-item { animation: slideDown .2s ease both; }
+        .dynamic-item.removing { animation: slideUp .18s ease forwards; pointer-events: none; }
         .tb-btn:active { transform: scale(.96); }
         .btn-add:active { transform: scale(.97); }
         .anim-shake { animation: subtleShake .35s ease; }
+
+        /* ── RFC Rich Editors (Contexto/Objetivos) ─────────── */
+        .rfc-re-toolbar {
+            display: flex; align-items: center; gap: 2px; padding: 6px 10px;
+            background: var(--bg-section); border: 1.5px solid var(--border);
+            border-bottom: none; border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+            flex-wrap: wrap;
+        }
+        .rfc-re-toolbar button {
+            border: none; background: transparent; padding: 5px 8px; border-radius: 4px;
+            font-size: .8rem; font-weight: 600; cursor: pointer; color: var(--text-muted);
+            font-family: inherit; transition: all .12s; min-width: 28px; text-align: center;
+        }
+        .rfc-re-toolbar button:hover { background: white; color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+        .rfc-re-toolbar button:active { transform: scale(.93); }
+        .re-divider { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+        .rfc-rich-editor {
+            border: 1.5px solid var(--border); border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+            padding: 12px 14px; min-height: 100px; font-size: .88rem; line-height: 1.7;
+            color: var(--text); font-family: inherit; outline: none;
+            transition: border-color .15s, box-shadow .15s;
+            overflow-y: auto; max-height: 300px;
+        }
+        .rfc-rich-editor:focus {
+            border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring);
+        }
+        .rfc-rich-editor:empty::before {
+            content: attr(data-placeholder); color: var(--text-muted); pointer-events: none;
+            font-style: italic;
+        }
+        .rfc-rich-editor ul, .rfc-rich-editor ol { padding-left: 20px; margin: 4px 0; }
+        .rfc-rich-editor a { color: var(--primary); text-decoration: underline; }
+        [data-theme="dark"] .rfc-re-toolbar { background: #0f172a; border-color: var(--border); }
+        [data-theme="dark"] .rfc-re-toolbar button:hover { background: #1e293b; color: var(--text); }
+        [data-theme="dark"] .rfc-rich-editor { background: #0f172a; border-color: var(--border); color: var(--text); }
+
+        /* Staggered entrance for sections on page load */
+        .form-section { animation: staggerIn .25s ease both; }
+        .form-section:nth-child(1) { animation-delay: 0ms; }
+        .form-section:nth-child(2) { animation-delay: 40ms; }
+        .form-section:nth-child(3) { animation-delay: 80ms; }
+        .form-section:nth-child(4) { animation-delay: 120ms; }
+        .form-section:nth-child(5) { animation-delay: 160ms; }
+
+        /* Enhanced focus states */
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px var(--primary-ring) !important;
+            transform: translateY(-0.5px);
+        }
+        .form-label { transition: color .15s; }
+        .form-control:focus ~ .form-label,
+        .form-group:focus-within .form-label { color: var(--primary); }
+
+        /* Evidence thumbnails */
+        .tc-ev-thumb { animation: imgPop .2s ease both; }
+        .tc-ev-thumb:hover { transform: scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+
+        /* Buttons — enhanced hover */
+        .tb-btn { position: relative; overflow: hidden; }
+        .tb-btn::after {
+            content: ''; position: absolute; inset: 0; background: rgba(255,255,255,.1);
+            opacity: 0; transition: opacity .15s;
+        }
+        .tb-btn:hover::after { opacity: 1; }
+        .tb-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37,99,235,.25); }
+        .tb-btn-pdf:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,58,237,.25); }
+        .tb-btn-md:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,118,110,.25); }
+
+        /* Export progress indicator */
+        .tb-btn.loading { pointer-events: none; opacity: .8; }
+        .tb-btn.loading .spinner { animation: spin .6s linear infinite, pulse 1.2s ease infinite; }
+
+        /* Dynamic item add/remove fluidity */
+        .dynamic-item + .dynamic-item { margin-top: 0; }
+
+        /* Toast enhancement */
+        .toast-msg { backdrop-filter: blur(8px); }
+
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
 
         @media (max-width: 768px) {
@@ -314,23 +400,65 @@
 <div class="tab-panel" id="tab-contexto">
     <div class="form-section">
         <div class="form-section-title">🔍 Contexto y Objetivos</div>
+
+        <!-- Rich Editor: Contexto del Cambio -->
         <div class="mb-3">
             <label class="form-label">Contexto del Cambio <span class="required-star">*</span></label>
-            <textarea id="changeContext" class="form-control" rows="4"
-                      placeholder="Descripción del contexto y antecedentes del cambio..."
-                      oninput="scheduleAutosave()" th:text="${record.changeContext}"></textarea>
+            <div class="rfc-re-toolbar" data-target="editorChangeContext">
+                <button type="button" onclick="rfcRe(this,'bold')" title="Negrita (Ctrl+B)"><b>B</b></button>
+                <button type="button" onclick="rfcRe(this,'italic')" title="Cursiva (Ctrl+I)"><i>I</i></button>
+                <button type="button" onclick="rfcRe(this,'underline')" title="Subrayado (Ctrl+U)"><u>U</u></button>
+                <span class="re-divider"></span>
+                <button type="button" onclick="rfcRe(this,'insertUnorderedList')" title="Viñetas">•</button>
+                <button type="button" onclick="rfcRe(this,'insertOrderedList')" title="Numerada">1.</button>
+                <button type="button" onclick="rfcRe(this,'indent')" title="Sangría →">→</button>
+                <button type="button" onclick="rfcRe(this,'outdent')" title="Sangría ←">←</button>
+                <span class="re-divider"></span>
+                <button type="button" onclick="rfcReLink(this)" title="Enlace (Ctrl+K)">🔗</button>
+                <button type="button" onclick="rfcRe(this,'removeFormat')" title="Limpiar formato">✕</button>
+            </div>
+            <div id="editorChangeContext" class="rfc-rich-editor" contenteditable="true"
+                 data-placeholder="Descripción del contexto y antecedentes del cambio..."
+                 oninput="scheduleAutosave()" th:utext="${record.changeContext}"></div>
+            <input type="hidden" id="changeContext">
         </div>
+
+        <!-- Rich Editor: Objetivo Principal -->
         <div class="mb-3">
             <label class="form-label">Objetivo Principal <span class="required-star">*</span></label>
-            <textarea id="mainObjective" class="form-control" rows="3"
-                      placeholder="¿Qué se busca validar con este RFC?"
-                      oninput="scheduleAutosave()" th:text="${record.mainObjective}"></textarea>
+            <div class="rfc-re-toolbar" data-target="editorMainObjective">
+                <button type="button" onclick="rfcRe(this,'bold')" title="Negrita (Ctrl+B)"><b>B</b></button>
+                <button type="button" onclick="rfcRe(this,'italic')" title="Cursiva (Ctrl+I)"><i>I</i></button>
+                <button type="button" onclick="rfcRe(this,'underline')" title="Subrayado (Ctrl+U)"><u>U</u></button>
+                <span class="re-divider"></span>
+                <button type="button" onclick="rfcRe(this,'insertUnorderedList')" title="Viñetas">•</button>
+                <button type="button" onclick="rfcRe(this,'insertOrderedList')" title="Numerada">1.</button>
+                <span class="re-divider"></span>
+                <button type="button" onclick="rfcRe(this,'removeFormat')" title="Limpiar formato">✕</button>
+            </div>
+            <div id="editorMainObjective" class="rfc-rich-editor" contenteditable="true"
+                 data-placeholder="¿Qué se busca validar con este RFC?"
+                 oninput="scheduleAutosave()" th:utext="${record.mainObjective}"></div>
+            <input type="hidden" id="mainObjective">
         </div>
+
+        <!-- Rich Editor: Objetivos Específicos -->
         <div>
             <label class="form-label">Objetivos Específicos <span style="font-weight:400;color:var(--text-muted);">(opcionales)</span></label>
-            <textarea id="specificObjectives" class="form-control" rows="2"
-                      placeholder="Objetivos adicionales (uno por línea)..."
-                      oninput="scheduleAutosave()" th:text="${record.specificObjectives}"></textarea>
+            <div class="rfc-re-toolbar" data-target="editorSpecificObjectives">
+                <button type="button" onclick="rfcRe(this,'bold')" title="Negrita (Ctrl+B)"><b>B</b></button>
+                <button type="button" onclick="rfcRe(this,'italic')" title="Cursiva (Ctrl+I)"><i>I</i></button>
+                <button type="button" onclick="rfcRe(this,'underline')" title="Subrayado (Ctrl+U)"><u>U</u></button>
+                <span class="re-divider"></span>
+                <button type="button" onclick="rfcRe(this,'insertUnorderedList')" title="Viñetas">•</button>
+                <button type="button" onclick="rfcRe(this,'insertOrderedList')" title="Numerada">1.</button>
+                <span class="re-divider"></span>
+                <button type="button" onclick="rfcRe(this,'removeFormat')" title="Limpiar formato">✕</button>
+            </div>
+            <div id="editorSpecificObjectives" class="rfc-rich-editor" contenteditable="true"
+                 data-placeholder="Objetivos adicionales..."
+                 oninput="scheduleAutosave()" th:utext="${record.specificObjectives}"></div>
+            <input type="hidden" id="specificObjectives">
         </div>
     </div>
 </div>
@@ -643,6 +771,67 @@
 </div><!-- /rfc-content -->
 
 <script>
+// ── Rich Editor Commands (Contexto/Objetivos) ────────────────────────────
+function rfcRe(btn, cmd) {
+    var toolbar = btn.closest('.rfc-re-toolbar');
+    var editorId = toolbar.dataset.target;
+    var editor = document.getElementById(editorId);
+    if (editor) editor.focus();
+    document.execCommand(cmd, false, null);
+}
+function rfcReLink(btn) {
+    var url = prompt('URL:', 'https://');
+    if (!url) return;
+    var toolbar = btn.closest('.rfc-re-toolbar');
+    var editor = document.getElementById(toolbar.dataset.target);
+    if (editor) editor.focus();
+    document.execCommand('createLink', false, url);
+}
+// Sync editor content to hidden inputs before form collection
+function syncRichEditors() {
+    var map = {editorChangeContext:'changeContext', editorMainObjective:'mainObjective', editorSpecificObjectives:'specificObjectives'};
+    for (var eid in map) {
+        var editor = document.getElementById(eid);
+        var hidden = document.getElementById(map[eid]);
+        if (editor && hidden) hidden.value = editor.innerHTML.trim() || '';
+    }
+}
+// Override gv for these fields to read from editor
+var _origGv = null;
+document.addEventListener('DOMContentLoaded', function() {
+    // Keyboard shortcuts inside editors
+    document.querySelectorAll('.rfc-rich-editor').forEach(function(editor) {
+        editor.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key.toLowerCase()) {
+                    case 'b': e.preventDefault(); document.execCommand('bold'); break;
+                    case 'i': e.preventDefault(); document.execCommand('italic'); break;
+                    case 'u': e.preventDefault(); document.execCommand('underline'); break;
+                    case 'k': e.preventDefault(); rfcReLink({closest:function(){return{dataset:{target:editor.id}};}}); break;
+                }
+            }
+        });
+        // Handle paste — clean up Word/Outlook formatting
+        editor.addEventListener('paste', function(e) {
+            var html = e.clipboardData.getData('text/html');
+            if (html) {
+                e.preventDefault();
+                // Strip Office-specific markup but keep basic formatting
+                html = html.replace(/<meta[^>]*>/gi, '')
+                           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                           .replace(/class="[^"]*"/gi, '')
+                           .replace(/style="[^"]*"/gi, '')
+                           .replace(/<o:p>[\s\S]*?<\/o:p>/gi, '')
+                           .replace(/<\/?span[^>]*>/gi, '')
+                           .replace(/<\/?font[^>]*>/gi, '')
+                           .replace(/<\/?div[^>]*>/gi, '')
+                           .replace(/<!--[\s\S]*?-->/g, '');
+                document.execCommand('insertHTML', false, html.trim());
+            }
+        });
+    });
+});
+
 // ── Tab Navigation ───────────────────────────────────────────────────────
 function switchTab(name, el) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -720,9 +909,14 @@ function scheduleAutosave() {
 
 // ── Dynamic Items ────────────────────────────────────────────────────────
 function removeItem(btn, containerId) {
-    btn.closest('.dynamic-item').remove();
-    renumber(containerId);
-    scheduleAutosave();
+    const item = btn.closest('.dynamic-item');
+    item.classList.add('removing');
+    item.style.overflow = 'hidden';
+    setTimeout(() => {
+        item.remove();
+        renumber(containerId);
+        scheduleAutosave();
+    }, 180);
 }
 function renumber(containerId) {
     document.querySelectorAll('#' + containerId + ' .dynamic-item').forEach((item, idx) => {
@@ -892,11 +1086,19 @@ function compressTcImage(file) {
 }
 function addEvidenceToContainer(container, dataUri, desc) {
     const item = document.createElement('div'); item.className = 'tc-evidence-item';
+    item.style.animation = 'imgPop .2s ease both';
     item.innerHTML = `<img class="tc-ev-thumb" src="${dataUri}" onclick="this.classList.toggle('expanded')">
         <input type="text" class="form-control" name="ev-description" placeholder="Descripción..." value="${desc||''}">
         <input type="hidden" name="ev-imageBase64" value="${dataUri}">
-        <button type="button" class="btn-remove" onclick="this.closest('.tc-evidence-item').remove()">✕</button>`;
+        <button type="button" class="btn-remove" onclick="removeEvidence(this)">✕</button>`;
     container.appendChild(item);
+}
+function removeEvidence(btn) {
+    const item = btn.closest('.tc-evidence-item');
+    item.style.transition = 'opacity .15s, transform .15s';
+    item.style.opacity = '0';
+    item.style.transform = 'scale(.9)';
+    setTimeout(() => { item.remove(); scheduleAutosave(); }, 150);
 }
 async function handleEvidenceFiles(input) {
     const container = input.closest('.tc-sub-body').querySelector('.tc-evidences-container');
@@ -939,6 +1141,9 @@ document.addEventListener('paste', async (e) => {
 function gv(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
 
 function collectFormData() {
+    // Sync rich editors to hidden inputs
+    syncRichEditors();
+
     const businessRules = [...document.querySelectorAll('#businessRulesContainer .dynamic-item')].map(item => ({
         description:      (item.querySelector('[name="rule-description"]')||{}).value||'',
         validationStatus: (item.querySelector('[name="rule-status"]')||{}).value||'Pendiente'
@@ -1016,6 +1221,7 @@ async function saveRfc() {
     const btn = document.getElementById('saveBtn');
     const orig = btn.innerHTML;
     btn.disabled = true;
+    btn.classList.add('loading');
     btn.innerHTML = '<span class="spinner"></span> Guardando...';
     try {
         const resp = await fetch('/rfc/save', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
@@ -1026,7 +1232,7 @@ async function saveRfc() {
         window.location.href = result.redirect;
     } catch (err) {
         showToast('Error al guardar: ' + err.message, 'error');
-        btn.disabled = false; btn.innerHTML = orig;
+        btn.disabled = false; btn.classList.remove('loading'); btn.innerHTML = orig;
     }
 }
 

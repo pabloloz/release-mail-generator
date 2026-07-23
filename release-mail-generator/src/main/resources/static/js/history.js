@@ -17,45 +17,61 @@
         RESTORED: 'Restaurado'
     };
 
-    let allVersions = [];
-    let selectedForCompare = [];
+    let _currentPage = 1;
+    let _totalPages = 1;
+    let _total = 0;
 
-    window.loadHistory = async function (typeFilter) {
+    window.loadHistory = async function (typeFilter, page) {
         const container = document.getElementById('historyTableBody');
+        const wrapper = document.querySelector('.history-table-wrapper');
         const statsEl = document.getElementById('historyStats');
         if (!container) return;
 
-        container.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Cargando...</td></tr>';
+        if (!page) page = _currentPage || 1;
+        const size = parseInt((document.getElementById('historyPageSize') || {}).value) || 10;
+        const sort = (document.getElementById('historySortBy') || {}).value || 'newest';
+        const q = (document.getElementById('historySearch') || {}).value || '';
+
+        // Fade out current content
+        if (wrapper) wrapper.classList.add('fading');
+        await new Promise(function (r) { setTimeout(r, 150); });
 
         try {
-            const q = document.getElementById('historySearch')?.value || '';
-            let url = '/history/api';
-            const params = [];
+            const params = ['page=' + page, 'size=' + size, 'sort=' + sort];
             if (typeFilter && typeFilter !== 'ALL') params.push('type=' + typeFilter);
             if (q.trim()) params.push('q=' + encodeURIComponent(q.trim()));
-            if (params.length) url += '?' + params.join('&');
+            const url = '/history/api?' + params.join('&');
 
             const resp = await fetch(url);
             if (!resp.ok) throw new Error('Error ' + resp.status);
-            allVersions = await resp.json();
+            const data = await resp.json();
 
-            if (allVersions.length === 0) {
-                container.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">'
-                    + '<div style="font-size:2rem;opacity:.4;margin-bottom:8px;">📂</div>'
-                    + 'No hay documentos en el historial.</td></tr>';
-                if (statsEl) statsEl.textContent = '0 documentos';
+            const items = data.items || [];
+            _currentPage = data.page || 1;
+            _totalPages = data.totalPages || 1;
+            _total = data.total || 0;
+
+            if (statsEl) statsEl.textContent = _total + ' documento' + (_total !== 1 ? 's' : '');
+
+            if (items.length === 0) {
+                container.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:48px;color:var(--text-muted);">'
+                    + '<div style="font-size:2.5rem;opacity:.3;margin-bottom:12px;">📄</div>'
+                    + '<div style="font-size:1rem;font-weight:600;margin-bottom:6px;">Aún no has generado ningún documento</div>'
+                    + '<div style="font-size:.84rem;">Los documentos que generes aparecerán aquí automáticamente.</div>'
+                    + '</td></tr>';
+                renderPagination(0, 0, 0, size);
+                if (wrapper) wrapper.classList.remove('fading');
                 return;
             }
 
-            if (statsEl) statsEl.textContent = allVersions.length + ' documento' + (allVersions.length !== 1 ? 's' : '');
+            container.innerHTML = items.map(function (v, idx) {
+                var date = new Date(v.createdAt);
+                var dateStr = date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                var timeStr = date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+                var isFav = typeof window.isFavorite === 'function' && window.isFavorite(v.documentType, v.id);
+                var delay = Math.min(idx * 25, 200); // stagger animation, cap at 200ms
 
-            container.innerHTML = allVersions.map(v => {
-                const date = new Date(v.createdAt);
-                const dateStr = date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                const timeStr = date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-                const isFav = typeof window.isFavorite === 'function' && window.isFavorite(v.documentType, v.id);
-
-                return '<tr class="history-row" data-id="' + v.id + '" onclick="onHistoryRowClick(event,\'' + v.id + '\')" style="cursor:pointer;">'
+                return '<tr class="history-row anim-in" data-id="' + v.id + '" onclick="onHistoryRowClick(event,\'' + v.id + '\')" style="cursor:pointer;animation-delay:' + delay + 'ms;">'
                     + '<td><input type="checkbox" class="compare-check" data-id="' + v.id + '" title="Seleccionar para comparar"></td>'
                     + '<td><span class="history-type-badge history-type-' + v.documentType + '">' + (TYPE_LABELS[v.documentType] || v.documentType) + '</span></td>'
                     + '<td><div class="history-title">' + esc(v.title || v.documentRef) + '</div>'
@@ -64,15 +80,85 @@
                     + '<td class="history-author">' + esc(v.author || '—') + '</td>'
                     + '<td><div class="history-date">' + dateStr + '</div><div class="history-time">' + timeStr + '</div></td>'
                     + '<td class="history-actions-cell">'
-                    + '<button class="btn-fav' + (isFav ? ' is-fav' : '') + '" onclick="toggleFavorite(\'' + v.documentType + '\',\'' + v.id + '\',\'' + esc(v.title || v.documentRef).replace(/'/g, "\\'") + '\',\'\',\'' + (TYPE_LABELS[v.documentType] || '📄').charAt(0) + '\')" title="Favorito">' + (isFav ? '★' : '☆') + '</button>'
+                    + '<button class="btn-fav' + (isFav ? ' is-fav' : '') + '" onclick="toggleHistoryFav(this,\'' + v.documentType + '\',\'' + v.id + '\',\'' + esc(v.title || v.documentRef).replace(/'/g, "\\'") + '\',\'' + (TYPE_LABELS[v.documentType] || '📄').charAt(0) + '\')" title="Favorito">' + (isFav ? '★' : '☆') + '</button>'
                     + '<button class="hbtn hbtn-restore" onclick="restoreVersion(\'' + v.id + '\')" title="Restaurar">↩</button>'
                     + '<button class="hbtn hbtn-delete" onclick="deleteVersion(\'' + v.id + '\')" title="Eliminar">✕</button>'
                     + '</td></tr>';
             }).join('');
 
+            renderPagination(_currentPage, _totalPages, _total, size);
+
         } catch (err) {
             container.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--danger);">Error: ' + esc(err.message) + '</td></tr>';
         }
+
+        // Fade in new content
+        if (wrapper) wrapper.classList.remove('fading');
+    };
+
+    function renderPagination(page, totalPages, total, size) {
+        var pag = document.getElementById('historyPagination');
+        if (!pag) return;
+        if (total <= size && page <= 1) { pag.style.display = 'none'; return; }
+        pag.style.display = '';
+
+        var info = document.getElementById('historyPaginationInfo');
+        var from = (page - 1) * size + 1;
+        var to = Math.min(page * size, total);
+        if (info) info.textContent = 'Mostrando ' + from + '–' + to + ' de ' + total;
+
+        var btns = document.getElementById('historyPaginationBtns');
+        if (!btns) return;
+        var html = '';
+
+        // First + Prev
+        html += '<button class="hist-pg-btn" ' + (page <= 1 ? 'disabled' : 'onclick="goHistoryPage(1)"') + ' title="Primera">⏮</button>';
+        html += '<button class="hist-pg-btn" ' + (page <= 1 ? 'disabled' : 'onclick="goHistoryPage(' + (page - 1) + ')"') + '>◀ Anterior</button>';
+
+        // Page numbers
+        var pages = buildPageNumbers(page, totalPages);
+        for (var i = 0; i < pages.length; i++) {
+            var p = pages[i];
+            if (p === '...') {
+                html += '<span class="hist-pg-ellipsis">…</span>';
+            } else {
+                html += '<button class="hist-pg-btn' + (p === page ? ' active' : '') + '" onclick="goHistoryPage(' + p + ')">' + p + '</button>';
+            }
+        }
+
+        // Next + Last
+        html += '<button class="hist-pg-btn" ' + (page >= totalPages ? 'disabled' : 'onclick="goHistoryPage(' + (page + 1) + ')"') + '>Siguiente ▶</button>';
+        html += '<button class="hist-pg-btn" ' + (page >= totalPages ? 'disabled' : 'onclick="goHistoryPage(' + totalPages + ')"') + ' title="Última">⏭</button>';
+
+        btns.innerHTML = html;
+    }
+
+    function buildPageNumbers(current, total) {
+        if (total <= 7) {
+            var arr = [];
+            for (var i = 1; i <= total; i++) arr.push(i);
+            return arr;
+        }
+        var pages = [1];
+        if (current > 3) pages.push('...');
+        for (var j = Math.max(2, current - 1); j <= Math.min(total - 1, current + 1); j++) pages.push(j);
+        if (current < total - 2) pages.push('...');
+        pages.push(total);
+        return pages;
+    }
+
+    window.goHistoryPage = function (page) {
+        _currentPage = page;
+        var type = (document.getElementById('historyTypeFilter') || {}).value || 'ALL';
+        loadHistory(type, page);
+        // Scroll table to top
+        var wrapper = document.querySelector('.history-table-wrapper');
+        if (wrapper) wrapper.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.changePageSize = function () {
+        _currentPage = 1;
+        filterHistory();
     };
 
     window.viewVersion = async function (id) {
@@ -112,6 +198,13 @@
         viewVersion(id);
     };
 
+    window.toggleHistoryFav = function (btn, type, id, title, icon) {
+        toggleFavorite(type, id, title, '', icon);
+        var fav = isFavorite(type, id);
+        btn.textContent = fav ? '★' : '☆';
+        btn.classList.toggle('is-fav', fav);
+    };
+
     window.closeHistoryModal = function () {
         var modals = [document.getElementById('historyViewModal'), document.getElementById('historyCompareModal')];
         modals.forEach(function(m) {
@@ -133,7 +226,7 @@
             });
             if (!resp.ok) throw new Error('Error ' + resp.status);
             showToast('Versión restaurada correctamente', 'success');
-            loadHistory(document.getElementById('historyTypeFilter')?.value || 'ALL');
+            filterHistory();
         } catch (err) {
             showToast('Error al restaurar: ' + err.message, 'error');
         }
@@ -144,7 +237,7 @@
         try {
             await fetch('/history/api/' + id, { method: 'DELETE' });
             showToast('Versión eliminada', 'success');
-            loadHistory(document.getElementById('historyTypeFilter')?.value || 'ALL');
+            filterHistory();
         } catch (err) {
             showToast('Error al eliminar: ' + err.message, 'error');
         }
@@ -187,13 +280,14 @@
     };
 
     window.filterHistory = function () {
+        _currentPage = 1;
         const type = document.getElementById('historyTypeFilter')?.value || 'ALL';
-        loadHistory(type);
+        loadHistory(type, 1);
     };
 
     window.searchHistory = function () {
         clearTimeout(window._histSearchTimer);
-        window._histSearchTimer = setTimeout(() => filterHistory(), 300);
+        window._histSearchTimer = setTimeout(() => { _currentPage = 1; filterHistory(); }, 300);
     };
 
     function renderCompareContent(el, content, format) {

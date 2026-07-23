@@ -201,7 +201,7 @@
     <div class="app-header">
         <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
             <div>
-                <div style="font-size:1.1rem; font-weight:700; line-height:1.3;" th:text="${record.rfcNumber + ' — ' + record.changeName}"></div>
+                <div style="font-size:1.1rem; font-weight:700; line-height:1.3;" th:text="${'RFC ' + record.rfcNumber + ' — ' + record.changeName}"></div>
                 <div style="margin-top:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                     <span class="status-badge"
                           style="border:1px solid rgba(255,255,255,.3);"
@@ -283,7 +283,7 @@
     <div class="section-block">
         <div class="section-title">🔍 2. Contexto del Cambio</div>
         <p class="body-text" th:if="${record.changeContext != null and !record.changeContext.isBlank()}"
-           th:text="${record.changeContext}"></p>
+           th:utext="${record.changeContext}"></p>
         <p class="body-empty" th:if="${record.changeContext == null or record.changeContext.isBlank()}">Sin información registrada</p>
     </div>
 
@@ -293,12 +293,12 @@
         <div class="mb-3">
             <div class="info-label mb-1">Objetivo Principal</div>
             <p class="body-text" th:if="${record.mainObjective != null and !record.mainObjective.isBlank()}"
-               th:text="${record.mainObjective}"></p>
+               th:utext="${record.mainObjective}"></p>
             <p class="body-empty" th:if="${record.mainObjective == null or record.mainObjective.isBlank()}">Sin información registrada</p>
         </div>
         <div th:if="${record.specificObjectives != null and !record.specificObjectives.isBlank()}">
             <div class="info-label mb-1">Objetivos Específicos</div>
-            <p class="body-text" th:text="${record.specificObjectives}"></p>
+            <div class="body-text" th:utext="${record.specificObjectives}"></div>
         </div>
     </div>
 

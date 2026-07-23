@@ -64,7 +64,33 @@ public class UatEmailService {
         return null;
     }
 
-    // â”€â”€ Correo HTML â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    /** Max image width in email (px). Images wider are scaled down; smaller are left as-is. */
+    private static final int EMAIL_IMG_MAX_WIDTH = 580;
+
+    /** Builds an Outlook-compatible img tag with explicit width/height, left-aligned with margins. */
+    private String emailImgTag(String dataUri, int maxW) {
+        if (dataUri == null || dataUri.isBlank() || !dataUri.startsWith("data:image/")) return "";
+        try {
+            int commaIdx = dataUri.indexOf(',');
+            if (commaIdx < 0) return "";
+            byte[] bytes = java.util.Base64.getDecoder().decode(dataUri.substring(commaIdx + 1));
+            java.awt.image.BufferedImage bi = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(bytes));
+            if (bi != null) {
+                int w = bi.getWidth(), h = bi.getHeight();
+                // Scale down if wider than max, never scale up
+                if (w > maxW) {
+                    h = Math.round((float) h * maxW / w);
+                    w = maxW;
+                }
+                return "<img src=\"" + dataUri + "\" width=\"" + w + "\" height=\"" + h
+                     + "\" style=\"display:block;margin:12px 0;border:1px solid #d1d5db;"
+                     + "border-radius:4px;\">";
+            }
+        } catch (Exception ignored) {}
+        // Fallback: no decoded dimensions, use style only
+        return "<img src=\"" + dataUri + "\" style=\"display:block;margin:12px 0;"
+             + "max-width:" + maxW + "px;height:auto;border:1px solid #d1d5db;border-radius:4px;\">";
+    }
 
     public String generateEmail(UatRequest r) {
         StringBuilder html = new StringBuilder();
@@ -89,16 +115,13 @@ public class UatEmailService {
             if (notBlank(r.getRequerimientos())) {
                 html.append("<div style=\"border:1px solid #c7d2fe;border-radius:6px;padding:12px 16px;"
                           + "background:#f0f4ff;margin-bottom:" + (notBlank(r.getRequerimientosImagen()) ? "10px" : "16px") + ";font-size:10.5pt;\">")
-                    .append(esc(r.getRequerimientos()).replace("\n", "<br>"))
+                    .append(textToHtml(r.getRequerimientos()))
                     .append("</div>");
             }
             if (notBlank(r.getRequerimientosImagen())) {
                 String safeSrc = safeImgSrc(r.getRequerimientosImagen());
                 if (!safeSrc.isEmpty()) {
-                html.append("<p style=\"margin:0 0 16px 0;\">")
-                    .append("<img src=\"").append(safeSrc)
-                    .append("\" style=\"max-width:420px;height:auto;display:block;\">")
-                    .append("</p>");
+                    html.append("<p style=\"margin:0 0 16px 0;\">").append(emailImgTag(safeSrc, EMAIL_IMG_MAX_WIDTH)).append("</p>");
                 }
             }
         }
@@ -113,16 +136,13 @@ public class UatEmailService {
         for (UatBlock block : blocks) {
             if (notBlank(block.getTexto())) {
                 html.append("<p style=\"margin:0 0 10px 0;\">")
-                    .append(esc(block.getTexto()).replace("\n", "<br>"))
+                    .append(textToHtml(block.getTexto()))
                     .append("</p>");
             }
             if (notBlank(block.getImagenBase64())) {
                 String safeSrc = safeImgSrc(block.getImagenBase64());
                 if (!safeSrc.isEmpty()) {
-                html.append("<p style=\"margin:0 0 16px 0;\">")
-                    .append("<img src=\"").append(safeSrc)
-                    .append("\" style=\"max-width:420px;height:auto;display:block;\">")
-                    .append("</p>");
+                    html.append("<p style=\"margin:0 0 16px 0;\">").append(emailImgTag(safeSrc, EMAIL_IMG_MAX_WIDTH)).append("</p>");
                 }
             }
         }
@@ -131,7 +151,7 @@ public class UatEmailService {
         if (notBlank(r.getNota())) {
             html.append("<p style=\"margin:16px 0 6px 0;\"><b>NOTA:</b></p>")
                 .append("<p style=\"margin:0 0 14px 0;\">")
-                .append(esc(r.getNota()).replace("\n", "<br>"))
+                .append(textToHtml(r.getNota()))
                 .append("</p>");
         }
 
@@ -330,6 +350,39 @@ public class UatEmailService {
     private String esc(String v) {
         if (v == null || v.isBlank()) return "";
         return v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;");
+    }
+    /**
+     * Converts text to email-safe HTML.
+     * If the input already contains HTML tags (from a rich editor), it passes through
+     * with only dangerous tags stripped. Otherwise, escapes and converts newlines.
+     */
+    private String textToHtml(String text) {
+        if (text == null || text.isBlank()) return "";
+        String t = text.strip();
+        // Detect if content is already HTML (contains common formatting tags)
+        if (t.contains("<ul>") || t.contains("<ol>") || t.contains("<li>")
+                || t.contains("<b>") || t.contains("<strong>") || t.contains("<em>")
+                || t.contains("<br>") || t.contains("<p>") || t.contains("<br/>")) {
+            // Already HTML — sanitize dangerous elements but keep formatting
+            return sanitizeHtml(t);
+        }
+        // Plain text — escape and convert newlines
+        t = t.replace("\r\n", "\n").replace("\r", "\n");
+        t = t.replaceAll("\n{3,}", "\n\n");
+        t = esc(t);
+        return t.replace("\n", "<br>");
+    }
+
+    /** Strips dangerous HTML elements (script, iframe, etc.) while keeping formatting tags. */
+    private String sanitizeHtml(String html) {
+        return html
+                .replaceAll("(?i)<script[^>]*>[\\s\\S]*?</script>", "")
+                .replaceAll("(?i)<iframe[^>]*>[\\s\\S]*?</iframe>", "")
+                .replaceAll("(?i)<object[^>]*>[\\s\\S]*?</object>", "")
+                .replaceAll("(?i)<embed[^>]*>", "")
+                .replaceAll("(?i)<form[^>]*>[\\s\\S]*?</form>", "")
+                .replaceAll("(?i)\\son\\w+\\s*=\\s*\"[^\"]*\"", "")  // Strip event handlers
+                .replaceAll("(?i)\\son\\w+\\s*=\\s*'[^']*'", "");
     }
     /** Only allow data:image/ URIs to prevent XSS via img src. */
     private String safeImgSrc(String v) {

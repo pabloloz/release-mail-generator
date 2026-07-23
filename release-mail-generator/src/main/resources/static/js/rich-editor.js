@@ -126,9 +126,18 @@
             for (var i = 0; i < items.length; i++) {
                 if (items[i].type.startsWith('image/')) {
                     e.preventDefault();
+                    e.stopPropagation();
                     insertImageFile(items[i].getAsFile());
                     return;
                 }
+            }
+        });
+
+        // Enter creates paragraphs
+        editor.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.execCommand('insertParagraph', false);
             }
         });
     });
@@ -153,7 +162,7 @@
         img.onload = function () {
             URL.revokeObjectURL(url);
             var w = img.naturalWidth, h = img.naturalHeight;
-            var MAX = 1200;
+            var MAX = 800;
             if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
             var canvas = document.createElement('canvas');
             canvas.width = w; canvas.height = h;
@@ -167,9 +176,28 @@
     }
 
     function insertImageHtml(dataUrl) {
-        var html = '<img src="' + dataUrl + '" style="max-width:100%;height:auto;"><br>';
-        focusEditor();
-        document.execCommand('insertHTML', false, html);
+        var editor = document.getElementById('uatRichEditor');
+        if (!editor) return;
+        editor.focus();
+        var img = document.createElement('img');
+        img.src = dataUrl;
+        img.style.cssText = 'max-width:100%;height:auto;display:block;margin:8px 0;border-radius:6px;border:1px solid var(--border);';
+        img.setAttribute('data-uat-image', 'true');
+        var sel = window.getSelection();
+        if (sel.rangeCount) {
+            var range = sel.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(img);
+            range.setStartAfter(img);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } else {
+            editor.appendChild(img);
+        }
+        var p = document.createElement('p');
+        p.innerHTML = '<br>';
+        img.after(p);
     }
 
     function focusEditor() {

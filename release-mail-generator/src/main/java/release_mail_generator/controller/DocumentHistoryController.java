@@ -15,22 +15,48 @@ public class DocumentHistoryController {
 
     private final DocumentHistoryService historyService;
 
-    /** Lista todas las versiones (opcionalmente filtradas por tipo). */
+    /** Lista versiones con paginación, filtro y ordenamiento. */
     @GetMapping("/api")
-    public ResponseEntity<List<Map<String, Object>>> list(
+    public ResponseEntity<Map<String, Object>> list(
             @RequestParam(required = false) String type,
-            @RequestParam(required = false) String q) {
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "newest") String sort) {
 
-        List<DocumentVersion> versions;
+        List<DocumentVersion> all;
         if (q != null && !q.isBlank()) {
-            versions = historyService.search(q);
-        } else if (type != null && !type.isBlank()) {
-            versions = historyService.listByType(type);
+            all = historyService.search(q);
+        } else if (type != null && !type.isBlank() && !"ALL".equals(type)) {
+            all = historyService.listByType(type);
         } else {
-            versions = historyService.listAll();
+            all = historyService.listAll();
         }
 
-        List<Map<String, Object>> result = versions.stream().map(this::toSummary).toList();
+        // Sort
+        Comparator<DocumentVersion> cmp = switch (sort) {
+            case "oldest" -> Comparator.comparing(DocumentVersion::getCreatedAt);
+            case "title"  -> Comparator.comparing(v -> v.getTitle() != null ? v.getTitle().toLowerCase() : "", Comparator.naturalOrder());
+            case "type"   -> Comparator.comparing(DocumentVersion::getDocumentType);
+            default       -> Comparator.comparing(DocumentVersion::getCreatedAt).reversed();
+        };
+        all = all.stream().sorted(cmp).toList();
+
+        int total = all.size();
+        size = Math.max(1, Math.min(size, 100));
+        int totalPages = (int) Math.ceil((double) total / size);
+        page = Math.max(1, Math.min(page, Math.max(1, totalPages)));
+
+        int from = (page - 1) * size;
+        int to = Math.min(from + size, total);
+        List<Map<String, Object>> items = all.subList(from, to).stream().map(this::toSummary).toList();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("items", items);
+        result.put("page", page);
+        result.put("size", size);
+        result.put("total", total);
+        result.put("totalPages", totalPages);
         return ResponseEntity.ok(result);
     }
 

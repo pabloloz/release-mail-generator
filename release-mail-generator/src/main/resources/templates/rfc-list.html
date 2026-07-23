@@ -115,7 +115,7 @@
                     th:data-fav-url="${'/rfc/' + rfc.id}"
                     onclick="event.preventDefault();event.stopPropagation();handleRfcFav(this);"
                     title="Favorito">☆</button>
-            <span class="rfc-number" th:text="${rfc.rfcNumber ?: '—'}"></span>
+            <span class="rfc-number" th:text="${'RFC ' + (rfc.rfcNumber ?: '—')}"></span>
             <span class="rfc-name" th:text="${rfc.changeName ?: '(sin nombre)'}"></span>
             <div class="rfc-meta">
                 <span th:text="${rfc.validationDate ?: ''}"></span>
