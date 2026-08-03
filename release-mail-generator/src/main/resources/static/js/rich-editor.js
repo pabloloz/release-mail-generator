@@ -201,6 +201,9 @@
     }
 
     function focusEditor() {
+        // Focus the last-active contenteditable editor
+        var active = document.activeElement;
+        if (active && active.getAttribute('contenteditable') === 'true') return;
         var editor = document.getElementById('uatRichEditor');
         if (editor) editor.focus();
     }

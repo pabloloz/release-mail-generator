@@ -93,15 +93,21 @@ public class RfcTechnicalController {
     }
 
     @GetMapping("/{id}/pdf")
-    public ResponseEntity<byte[]> downloadPdf(@PathVariable String id) {
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable String id,
+                                              @RequestParam(defaultValue = "false") boolean download) {
         return rfcService.findById(id)
                 .map(r -> {
                     try {
                         byte[] pdf = rfcService.generatePdf(r);
                         String filename = "RFC_" + sanitize(r.getRfcNumber()) + ".pdf";
+                        if (download) {
+                            historyService.saveVersion("RFC", r.getRfcNumber(),
+                                    "RFC " + r.getRfcNumber() + " — " + r.getChangeName(),
+                                    null, "[PDF exportado]", "EXPORTED", "PDF");
+                        }
                         return ResponseEntity.ok()
                                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                                        "attachment; filename=\"" + filename + "\"")
+                                        (download ? "attachment" : "inline") + "; filename=\"" + filename + "\"")
                                 .contentType(MediaType.APPLICATION_PDF)
                                 .body(pdf);
                     } catch (Exception e) {
@@ -117,6 +123,9 @@ public class RfcTechnicalController {
                 .map(r -> {
                     byte[] md = rfcService.generateMarkdown(r);
                     String filename = "RFC_" + sanitize(r.getRfcNumber()) + ".md";
+                    historyService.saveVersion("RFC", r.getRfcNumber(),
+                            "RFC " + r.getRfcNumber() + " — " + r.getChangeName(),
+                            null, "[Markdown exportado]", "EXPORTED", "MARKDOWN");
                     return ResponseEntity.ok()
                             .header(HttpHeaders.CONTENT_DISPOSITION,
                                     "attachment; filename=\"" + filename + "\"")
@@ -127,15 +136,21 @@ public class RfcTechnicalController {
     }
 
     @GetMapping("/{id}/testcases-pdf")
-    public ResponseEntity<byte[]> downloadTestCasesPdf(@PathVariable String id) {
+    public ResponseEntity<byte[]> downloadTestCasesPdf(@PathVariable String id,
+                                                       @RequestParam(defaultValue = "false") boolean download) {
         return rfcService.findById(id)
                 .map(r -> {
                     try {
                         byte[] pdf = rfcService.generateTestCasesPdf(r);
                         String filename = "CasosPrueba_" + sanitize(r.getRfcNumber()) + ".pdf";
+                        if (download) {
+                            historyService.saveVersion("RFC", r.getRfcNumber(),
+                                    "Casos de Prueba " + r.getRfcNumber(),
+                                    null, "[PDF exportado]", "EXPORTED", "PDF");
+                        }
                         return ResponseEntity.ok()
                                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                                        "attachment; filename=\"" + filename + "\"")
+                                        (download ? "attachment" : "inline") + "; filename=\"" + filename + "\"")
                                 .contentType(MediaType.APPLICATION_PDF)
                                 .body(pdf);
                     } catch (Exception e) {
@@ -151,6 +166,9 @@ public class RfcTechnicalController {
                 .map(r -> {
                     byte[] md = rfcService.generateTestCasesMarkdown(r);
                     String filename = "CasosPrueba_" + sanitize(r.getRfcNumber()) + ".md";
+                    historyService.saveVersion("RFC", r.getRfcNumber(),
+                            "Casos de Prueba " + r.getRfcNumber(),
+                            null, "[Markdown exportado]", "EXPORTED", "MARKDOWN");
                     return ResponseEntity.ok()
                             .header(HttpHeaders.CONTENT_DISPOSITION,
                                     "attachment; filename=\"" + filename + "\"")

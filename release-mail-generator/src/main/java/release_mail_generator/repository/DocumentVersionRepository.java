@@ -35,7 +35,7 @@ public interface DocumentVersionRepository extends JpaRepository<DocumentVersion
 
     List<DocumentVersion> findTop10ByOrderByCreatedAtDesc();
 
-    @Query("SELECT d.documentType, COUNT(d) FROM DocumentVersion d GROUP BY d.documentType")
+    @Query("SELECT d.documentType, COUNT(d) FROM DocumentVersion d WHERE d.action <> 'EXPORTED' GROUP BY d.documentType")
     List<Object[]> countByTypeGrouped();
 
     @Query("SELECT FUNCTION('FORMATDATETIME', d.createdAt, 'yyyy-MM-dd') as day, COUNT(d) FROM DocumentVersion d WHERE d.createdAt >= :since GROUP BY FUNCTION('FORMATDATETIME', d.createdAt, 'yyyy-MM-dd') ORDER BY day")

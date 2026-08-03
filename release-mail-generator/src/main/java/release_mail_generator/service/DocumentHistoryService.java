@@ -25,10 +25,12 @@ public class DocumentHistoryService {
                                         String action, String format) {
         String hash = sha256(content);
 
-        // Evitar duplicados consecutivos del mismo contenido
-        List<DocumentVersion> existing = repo.findVersions(type, ref);
-        if (!existing.isEmpty() && hash.equals(existing.get(0).getContentHash())) {
-            return existing.get(0);
+        // Evitar duplicados consecutivos del mismo contenido (skip for EXPORTED actions — each export counts)
+        if (!"EXPORTED".equals(action)) {
+            List<DocumentVersion> existing = repo.findVersions(type, ref);
+            if (!existing.isEmpty() && hash.equals(existing.get(0).getContentHash())) {
+                return existing.get(0);
+            }
         }
 
         int nextVersion = repo.findMaxVersion(type, ref) + 1;

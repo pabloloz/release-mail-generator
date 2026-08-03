@@ -1326,8 +1326,6 @@
             return blocks;
         }
 
-        // ── Legacy functions kept for backward compat ────────────────────
-        function addUatBlock() { /* no-op: replaced by rich editor */ }
 
         function formatUatRfcNumber(value) {
             const raw = (value || '').trim();
@@ -1761,6 +1759,13 @@
         }
         .btn-remove-rdl:hover { background: #fee2e2; }
 
+        /* ── Telegram Preview ────────────────────────────────────────── */
+        .telegram-preview {
+            margin: 0; background: #0f172a; color: #e2e8f0; padding: 24px;
+            white-space: pre-wrap; font-family: 'Cascadia Code', Consolas, monospace;
+            font-size: 13.5px; line-height: 1.55; border-radius: 0 0 10px 10px;
+        }
+
         /* ── Form Actions ───────────────────────────────────────────── */
         .form-actions {
             margin-top: 12px;
@@ -1969,11 +1974,6 @@
         }
 
         /* ── Form action row ─────────────────────────────────────────── */
-        .form-actions {
-            border-top: 1px solid var(--border);
-            padding-top: 20px;
-            margin-top: 8px;
-        }
         /* ── VoBo UAT ────────────────────────────────────────────────── */
         .btn-md {
             background: var(--primary-dark); color: white; border: none;
@@ -3702,7 +3702,7 @@ No publicar en Citrix hasta confirmación de QA.</div>
     </form>
 
     <!-- PREVIEW MÓDULOS / ARTEFACTOS -->
-    <div id="emailSection" class="mt-5" th:if="${generatedEmail}">
+    <div id="emailSection" class="mt-4" th:if="${generatedEmail}">
         <div class="section-label" style="margin-top:0;">&#x1F4E7; Vista previa del correo</div>
         <div class="email-wrapper">
             <div class="email-toolbar">
@@ -3754,7 +3754,7 @@ No publicar en Citrix hasta confirmación de QA.</div>
                     </select>
                 </div>
                 <div class="col-md-8 d-flex align-items-end">
-                    <button type="button" class="btn-generate" style="background:var(--primary-dark);font-size:.82rem;padding:8px 16px;" onclick="importReleaseDataToMessage()">&#x1F4E5; Importar datos desde Correo de Liberación</button>
+                    <button type="button" class="btn-generate" style="font-size:.82rem;padding:8px 18px;" onclick="importReleaseDataToMessage()">&#x1F4E5; Importar datos</button>
                 </div>
             </div>
         </div>
@@ -3879,7 +3879,7 @@ Problema 33520 → Error en cálculo de tarifas</div>
                 </div>
                 <button class="btn-copy" type="button" onclick="copyTelegramMessage()">&#x1F4CB; Copiar</button>
             </div>
-            <pre id="telegramMessageText" style="margin:0; background:#0f172a; color:#e2e8f0; padding:24px; white-space:pre-wrap; font-family:'Cascadia Code', Consolas, monospace; font-size:13.5px; line-height:1.55; border-radius:0 0 10px 10px;"></pre>
+            <pre id="telegramMessageText" class="telegram-preview"></pre>
         </div>
     </div>
 
@@ -3985,7 +3985,7 @@ Problema 33520 → Error en cálculo de tarifas</div>
     </form>
 
     <!-- PREVIEW RDL -->
-    <div id="rdlEmailSection" class="mt-5" style="display:none;">
+    <div id="rdlEmailSection" class="mt-4" style="display:none;">
         <div class="section-label" style="margin-top:0;">&#x1F4E7; Vista previa &mdash; Reporte RDL</div>
         <div class="email-wrapper">
             <div class="email-toolbar">
@@ -4035,7 +4035,7 @@ Problema 33520 → Error en cálculo de tarifas</div>
                            placeholder="Ej: Deployment de RDLs y Stored Procedures">
                 </div>
                 <div class="col-md-4 d-flex align-items-end">
-                    <button type="button" class="btn-generate" style="background:var(--primary-dark);font-size:.82rem;padding:8px 16px;" onclick="importRdlDataToTelegram()">&#x1F4E5; Importar desde Correo RDL</button>
+                    <button type="button" class="btn-generate" style="font-size:.82rem;padding:8px 18px;" onclick="importRdlDataToTelegram()">&#x1F4E5; Importar datos</button>
                 </div>
             </div>
         </div>
@@ -4129,7 +4129,7 @@ dbo.sp_reporte_facturacion.sql</div>
             <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
             <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearRdlTelegramForm()">&#x2715; Limpiar</button>
-            <button type="button" id="btnGenerateRdlTelegram" class="btn-generate" style="background:var(--primary-dark);" onclick="generateRdlTelegramMessage()">Generar Telegram RDL &rarr;</button>
+            <button type="button" id="btnGenerateRdlTelegram" class="btn-generate" onclick="generateRdlTelegramMessage()">Generar Telegram RDL &rarr;</button>
         </div>
     </form>
 
@@ -4145,7 +4145,7 @@ dbo.sp_reporte_facturacion.sql</div>
                 </div>
                 <button class="btn-copy" type="button" onclick="copyRdlTelegramMessage()">&#x1F4CB; Copiar</button>
             </div>
-            <pre id="rdlTelegramMessageText" style="margin:0; background:#0f172a; color:#e2e8f0; padding:24px; white-space:pre-wrap; font-family:'Cascadia Code', Consolas, monospace; font-size:13.5px; line-height:1.55; border-radius:0 0 10px 10px;"></pre>
+            <pre id="rdlTelegramMessageText" class="telegram-preview"></pre>
         </div>
     </div>
 
@@ -4243,7 +4243,7 @@ dbo.sp_reporte_facturacion.sql</div>
                 <button type="button" class="re-btn" onclick="reCmd('removeFormat')" title="Quitar formato">&#x2718;</button>
                 <label class="re-btn re-btn-img" title="Insertar imagen">
                     &#x1F4CE;
-                    <input type="file" id="uatEditorFileInput" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
+                    <input type="file" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
                 </label>
             </div>
             <div id="uatRichEditor" contenteditable="true" class="uat-rich-editor"
@@ -4277,7 +4277,7 @@ dbo.sp_reporte_facturacion.sql</div>
             <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
             <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearUatForm()">&#x2715; Limpiar</button>
-            <button type="button" class="btn-generate" onclick="generateUatEmail()">&#x1F4E8; Generar Correo VoBo UAT</button>
+            <button type="button" class="btn-generate" onclick="generateUatEmail()">Generar Correo VoBo UAT &rarr;</button>
         </div>
 
         <!-- PREVIEW -->

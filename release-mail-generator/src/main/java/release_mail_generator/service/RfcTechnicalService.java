@@ -317,146 +317,158 @@ public class RfcTechnicalService {
         String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
         StringBuilder md = new StringBuilder();
 
-        // ── Front matter / header ────────────────────────────────────────
-        md.append("# RFC Técnico Final\n\n");
-        md.append("> **Propósito del documento:** Dejar evidencia clara, trazable y defendible de que un cambio fue "
-                + "validado y **cumple o no cumple** con lo solicitado.\n\n");
-        md.append("**Generado el:** ").append(now).append("  \n");
-        md.append("**RFC:** ").append(s(r.getRfcNumber())).append("  \n");
-        md.append("**Nombre del cambio:** ").append(s(r.getChangeName())).append("  \n");
-        md.append("**Tester responsable:** ").append(s(r.getTesterName())).append("  \n");
-        md.append("**Estado:** ").append(s(r.getStatus())).append("\n\n");
+        // ── Header ───────────────────────────────────────────────────────
+        md.append("# 📋 RFC ").append(s(r.getRfcNumber())).append(" — ").append(s(r.getChangeName())).append("\n\n");
+        md.append("> Documento de validación técnica del cambio solicitado.  \n");
+        md.append("> Generado el **").append(now).append("** por el sistema Release Notifier QA.\n\n");
+
+        // Status badge
+        String status = s(r.getStatus());
+        String result = s(r.getFinalResult());
+        if (!status.isEmpty()) {
+            md.append("**Estado:** `").append(status).append("`");
+            if (!result.isEmpty()) md.append("  •  **Resultado:** `").append(result).append("`");
+            md.append("\n\n");
+        }
         md.append("---\n\n");
 
-        // ── 1. Información General ───────────────────────────────────────
-        md.append("## 1. Información General\n\n");
-        md.append("| Campo | Valor |\n");
-        md.append("|-------|-------|\n");
-        mdRow(md, "RFC",                 s(r.getRfcNumber()));
-        mdRow(md, "Nombre del cambio",   s(r.getChangeName()));
-        mdRow(md, "Fecha de validación", s(r.getValidationDate()));
-        mdRow(md, "Tester responsable",  s(r.getTesterName()));
-        mdRow(md, "Solicitante / Área",  s(r.getRequester()));
-        mdRow(md, "Ambiente",            s(r.getEnvironment()));
-        mdRow(md, "Estado",              s(r.getStatus()));
+        // ── Información General ──────────────────────────────────────────
+        md.append("## 📝 Información General\n\n");
+        md.append("| | |\n");
+        md.append("|---|---|\n");
+        md.append("| **RFC** | ").append(s(r.getRfcNumber())).append(" |\n");
+        md.append("| **Nombre del cambio** | ").append(s(r.getChangeName())).append(" |\n");
+        md.append("| **Fecha de validación** | ").append(s(r.getValidationDate())).append(" |\n");
+        md.append("| **Tester responsable** | ").append(s(r.getTesterName())).append(" |\n");
+        md.append("| **Solicitante / Área** | ").append(s(r.getRequester())).append(" |\n");
+        md.append("| **Ambiente** | ").append(s(r.getEnvironment())).append(" |\n");
         md.append("\n---\n\n");
 
-        // ── 2. Contexto del Cambio ───────────────────────────────────────
-        md.append("## 2. Contexto del Cambio\n\n");
+        // ── Contexto ─────────────────────────────────────────────────────
+        md.append("## 🔍 Contexto del Cambio\n\n");
         md.append(mdBlock(r.getChangeContext())).append("\n\n---\n\n");
 
-        // ── 3. Objetivo de la Validación ─────────────────────────────────
-        md.append("## 3. Objetivo de la Validación\n\n");
-        md.append("**Objetivo principal:**\n\n");
+        // ── Objetivos ────────────────────────────────────────────────────
+        md.append("## 🎯 Objetivo de la Validación\n\n");
+        md.append("### Objetivo principal\n\n");
         md.append(mdBlock(r.getMainObjective())).append("\n\n");
         if (notBlank(r.getSpecificObjectives())) {
-            md.append("**Objetivos específicos:**\n\n");
+            md.append("### Objetivos específicos\n\n");
             md.append(htmlToMarkdown(r.getSpecificObjectives())).append("\n\n");
         }
         md.append("---\n\n");
 
-        // ── 4. Componentes Técnicos Impactados ───────────────────────────
-        md.append("## 4. Componentes Técnicos Impactados\n\n");
-        md.append("| Componente | Detalle |\n");
-        md.append("|------------|---------|\n");
-        mdRow(md, "Módulos",             s(r.getModules()));
-        mdRow(md, "Stored Procedures",   s(r.getStoredProcedures()));
-        mdRow(md, "Jobs",                s(r.getJobs()));
-        mdRow(md, "Tablas",              s(r.getTables()));
-        mdRow(md, "Reportes",            s(r.getReports()));
-        mdRow(md, "Otros",               s(r.getOtherComponents()));
-        md.append("\n---\n\n");
+        // ── Componentes Técnicos ─────────────────────────────────────────
+        md.append("## ⚙️ Componentes Técnicos Impactados\n\n");
+        boolean hasComps = notBlank(r.getModules()) || notBlank(r.getStoredProcedures())
+                || notBlank(r.getJobs()) || notBlank(r.getTables())
+                || notBlank(r.getReports()) || notBlank(r.getOtherComponents());
+        if (hasComps) {
+            if (notBlank(r.getModules())) md.append("- **Módulos:** ").append(s(r.getModules())).append("\n");
+            if (notBlank(r.getStoredProcedures())) md.append("- **Stored Procedures:** ").append(s(r.getStoredProcedures())).append("\n");
+            if (notBlank(r.getJobs())) md.append("- **Jobs:** ").append(s(r.getJobs())).append("\n");
+            if (notBlank(r.getTables())) md.append("- **Tablas:** ").append(s(r.getTables())).append("\n");
+            if (notBlank(r.getReports())) md.append("- **Reportes:** ").append(s(r.getReports())).append("\n");
+            if (notBlank(r.getOtherComponents())) md.append("- **Otros:** ").append(s(r.getOtherComponents())).append("\n");
+            md.append("\n");
+        } else {
+            md.append("*Sin componentes técnicos registrados.*\n\n");
+        }
+        md.append("---\n\n");
 
-        // ── 5. Reglas de Negocio Validadas ───────────────────────────────
-        md.append("## 5. Reglas de Negocio Validadas\n\n");
+        // ── Reglas de Negocio ────────────────────────────────────────────
+        md.append("## 📐 Reglas de Negocio\n\n");
         List<BusinessRule> rules = orEmpty(r.getBusinessRules());
         if (rules.isEmpty()) {
             md.append("*Sin reglas de negocio registradas.*\n\n");
         } else {
-            md.append("| # | Descripción | Estado |\n");
-            md.append("|---|-------------|--------|\n");
             for (int i = 0; i < rules.size(); i++) {
                 BusinessRule rule = rules.get(i);
-                md.append("| ").append(i + 1)
-                  .append(" | ").append(mdCell(s(rule.getDescription())))
-                  .append(" | ").append(ruleEmoji(rule.getValidationStatus()))
-                  .append(" ").append(mdCell(s(rule.getValidationStatus())))
-                  .append(" |\n");
+                String emoji = ruleEmoji(rule.getValidationStatus());
+                md.append(emoji).append(" **Regla ").append(i + 1).append(":** ")
+                  .append(s(rule.getDescription()));
+                if (notBlank(rule.getValidationStatus()))
+                    md.append(" — *").append(rule.getValidationStatus()).append("*");
+                md.append("\n\n");
             }
-            md.append("\n");
         }
         md.append("---\n\n");
 
-        // ── 6. Casos de Prueba Ejecutados ────────────────────────────────
-        md.append("## 6. Casos de Prueba Ejecutados\n\n");
+        // ── Casos de Prueba ──────────────────────────────────────────────
+        md.append("## 🧪 Casos de Prueba\n\n");
         List<TestCase> tcs = orEmpty(r.getTestCases());
         if (tcs.isEmpty()) {
             md.append("*Sin casos de prueba registrados.*\n\n");
         } else {
-            md.append("| ID | Descripción | Resultado Esperado | Resultado Obtenido | Estado |\n");
-            md.append("|----|-------------|--------------------|--------------------|--------|\n");
-            for (TestCase tc : tcs) {
-                boolean passed = "Exitoso".equalsIgnoreCase(tc.getResult());
-                md.append("| ").append(mdCell(s(tc.getCaseId())))
-                  .append(" | ").append(mdCell(s(tc.getDescription())))
-                  .append(" | ").append(mdCell(s(tc.getExpectedResult())))
-                  .append(" | ").append(mdCell(s(tc.getObtainedResult())))
-                  .append(" | ").append(passed ? "✅" : "❌")
-                  .append(" ").append(mdCell(s(tc.getResult())))
-                  .append(" |\n");
+            for (int idx = 0; idx < tcs.size(); idx++) {
+                TestCase tc = tcs.get(idx);
+                String tcId = notBlank(tc.getCaseId()) ? tc.getCaseId() : "Caso " + (idx + 1);
+                String tcName = notBlank(tc.getCaseName()) ? tc.getCaseName() : s(tc.getDescription());
+                boolean passed = "Exitoso".equalsIgnoreCase(tc.getResult()) || "Aprobado".equalsIgnoreCase(tc.getStatus());
+                md.append("### ").append(passed ? "✅" : "❌").append(" ").append(tcId);
+                if (!tcName.isEmpty()) md.append(" — ").append(tcName);
+                md.append("\n\n");
+
+                if (notBlank(tc.getObjective())) md.append("**Objetivo:** ").append(s(tc.getObjective())).append("\n\n");
+                if (notBlank(tc.getPreconditions())) md.append("**Precondiciones:** ").append(s(tc.getPreconditions())).append("\n\n");
+
+                // Steps
+                List<TestStep> steps = tc.getSteps() != null ? tc.getSteps() : Collections.emptyList();
+                if (!steps.isEmpty()) {
+                    md.append("**Pasos:**\n\n");
+                    md.append("| # | Acción | Resultado Esperado |\n");
+                    md.append("|---|--------|--------------------|\n");
+                    for (TestStep step : steps) {
+                        md.append("| ").append(step.getStepNumber())
+                          .append(" | ").append(mdCell(s(step.getAction())))
+                          .append(" | ").append(mdCell(s(step.getExpectedResult())))
+                          .append(" |\n");
+                    }
+                    md.append("\n");
+                }
+
+                if (notBlank(tc.getObtainedResult())) md.append("**Resultado obtenido:** ").append(s(tc.getObtainedResult())).append("\n\n");
+                if (notBlank(tc.getObservations())) md.append("**Observaciones:** ").append(s(tc.getObservations())).append("\n\n");
+
+                // Evidence count
+                List<TestEvidence> evs = tc.getEvidences() != null ? tc.getEvidences() : Collections.emptyList();
+                if (!evs.isEmpty()) md.append("📷 *").append(evs.size()).append(" evidencia(s) adjunta(s)*\n\n");
+
+                if (idx < tcs.size() - 1) md.append("---\n\n");
             }
             md.append("\n");
         }
         md.append("---\n\n");
 
-        // ── 7. Bugs Relacionados ─────────────────────────────────────────
-        md.append("## 7. Bugs Relacionados\n\n");
+        // ── Bugs Relacionados ────────────────────────────────────────────
+        md.append("## 🐛 Bugs Relacionados\n\n");
         List<RelatedBug> bugs = orEmpty(r.getRelatedBugs());
         if (bugs.isEmpty()) {
             md.append("*Sin bugs relacionados.*\n\n");
         } else {
-            md.append("| Identificador | Descripción | Estatus |\n");
-            md.append("|---------------|-------------|---------|\n");
             for (RelatedBug bug : bugs) {
-                md.append("| ").append(mdCell(s(bug.getIdentifier())))
-                  .append(" | ").append(mdCell(s(bug.getDescription())))
-                  .append(" | ").append(mdCell(s(bug.getBugStatus())))
-                  .append(" |\n");
+                md.append("- **").append(s(bug.getIdentifier())).append(":** ")
+                  .append(s(bug.getDescription()));
+                if (notBlank(bug.getBugStatus())) md.append(" — `").append(bug.getBugStatus()).append("`");
+                md.append("\n");
             }
             md.append("\n");
         }
         md.append("---\n\n");
 
-        // ── 8. Conclusiones ──────────────────────────────────────────────
-        md.append("## 8. Conclusiones\n\n");
+        // ── Conclusiones ─────────────────────────────────────────────────
+        md.append("## 📊 Conclusiones\n\n");
         if (notBlank(r.getFinalResult())) {
             boolean cumple = "Cumple".equalsIgnoreCase(r.getFinalResult());
-            md.append("**Resultado final del RFC:** ")
-              .append(cumple ? "✅" : "❌")
-              .append(" **").append(r.getFinalResult()).append("**\n\n");
+            md.append("> ").append(cumple ? "✅" : "❌").append(" **Resultado final: ").append(r.getFinalResult()).append("**\n\n");
         }
-        if (notBlank(r.getObservations())) {
-            md.append("**Observaciones relevantes:**\n\n")
-              .append(r.getObservations().trim()).append("\n\n");
-        }
-        if (notBlank(r.getRisks())) {
-            md.append("**Riesgos identificados:**\n\n")
-              .append(r.getRisks().trim()).append("\n\n");
-        }
-        if (notBlank(r.getRecommendations())) {
-            md.append("**Recomendaciones:**\n\n")
-              .append(r.getRecommendations().trim()).append("\n\n");
-        }
-        md.append("---\n\n");
+        if (notBlank(r.getObservations())) md.append("### Observaciones\n\n").append(htmlToMarkdown(r.getObservations())).append("\n\n");
+        if (notBlank(r.getRisks())) md.append("### ⚠️ Riesgos identificados\n\n").append(htmlToMarkdown(r.getRisks())).append("\n\n");
+        if (notBlank(r.getRecommendations())) md.append("### 💡 Recomendaciones\n\n").append(htmlToMarkdown(r.getRecommendations())).append("\n\n");
+        if (notBlank(r.getFinalNotes())) md.append("### Notas finales\n\n").append(htmlToMarkdown(r.getFinalNotes())).append("\n\n");
 
-        // ── 9. Notas Finales ─────────────────────────────────────────────
-        md.append("## 9. Notas Finales\n\n");
-        md.append(mdBlock(r.getFinalNotes())).append("\n\n");
         md.append("---\n\n");
-
-        // ── Footer ────────────────────────────────────────────────────────
-        md.append("*Documento generado el ").append(now)
-          .append(" mediante el sistema **Release Notifier QA**.*\n");
+        md.append("<sub>📄 Documento generado el ").append(now).append(" — Release Notifier QA</sub>\n");
 
         return md.toString().getBytes(StandardCharsets.UTF_8);
     }
@@ -587,36 +599,50 @@ public class RfcTechnicalService {
         String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
         StringBuilder md = new StringBuilder();
 
-        md.append("# Casos de Prueba\n\n");
-        md.append("> Documento de casos de prueba del RFC Técnico Final.\n\n");
-        md.append("**Generado el:** ").append(now).append("  \n");
-        md.append("**RFC:** ").append(s(r.getRfcNumber())).append("  \n");
-        md.append("**Nombre del cambio:** ").append(s(r.getChangeName())).append("  \n");
-        md.append("**Fecha de validación:** ").append(s(r.getValidationDate())).append("  \n");
-        md.append("**Tester responsable:** ").append(s(r.getTesterName())).append("\n\n");
+        // ── Header ───────────────────────────────────────────────────────
+        md.append("# 🧪 Casos de Prueba — RFC ").append(s(r.getRfcNumber())).append("\n\n");
+        md.append("> Documento de casos de prueba para **").append(s(r.getChangeName())).append("**  \n");
+        md.append("> Generado el **").append(now).append("** por Release Notifier QA\n\n");
+
+        md.append("| | |\n|---|---|\n");
+        md.append("| **RFC** | ").append(s(r.getRfcNumber())).append(" |\n");
+        md.append("| **Tester** | ").append(s(r.getTesterName())).append(" |\n");
+        md.append("| **Fecha** | ").append(s(r.getValidationDate())).append(" |\n");
+        md.append("| **Ambiente** | ").append(s(r.getEnvironment())).append(" |\n\n");
         md.append("---\n\n");
 
         List<TestCase> tcs = orEmpty(r.getTestCases());
         if (tcs.isEmpty()) {
             md.append("*Sin casos de prueba registrados.*\n\n");
         } else {
+            // Summary table
+            md.append("## 📊 Resumen\n\n");
+            long passed = tcs.stream().filter(tc -> "Exitoso".equalsIgnoreCase(tc.getResult()) || "Aprobado".equalsIgnoreCase(tc.getStatus())).count();
+            long failed = tcs.size() - passed;
+            md.append("- **Total:** ").append(tcs.size()).append(" caso(s)\n");
+            md.append("- ✅ **Exitosos:** ").append(passed).append("\n");
+            if (failed > 0) md.append("- ❌ **Fallidos:** ").append(failed).append("\n");
+            md.append("\n---\n\n");
+
+            // Each test case
             for (int idx = 0; idx < tcs.size(); idx++) {
                 TestCase tc = tcs.get(idx);
                 String tcId = notBlank(tc.getCaseId()) ? tc.getCaseId() : "Caso " + (idx + 1);
                 String tcName = notBlank(tc.getCaseName()) ? tc.getCaseName() : s(tc.getDescription());
-                md.append("## ").append(tcId);
-                if (notBlank(tcName)) md.append(" — ").append(tcName);
+                boolean pass = "Exitoso".equalsIgnoreCase(tc.getResult()) || "Aprobado".equalsIgnoreCase(tc.getStatus());
+
+                md.append("## ").append(pass ? "✅" : "❌").append(" ").append(tcId);
+                if (!tcName.isEmpty()) md.append(" — ").append(tcName);
                 md.append("\n\n");
 
-                // Info table
-                md.append("| Campo | Valor |\n|-------|-------|\n");
-                if (notBlank(tc.getPriority())) mdRow(md, "Prioridad", s(tc.getPriority()));
-                if (notBlank(tc.getTestType())) mdRow(md, "Tipo", s(tc.getTestType()));
-                String status = notBlank(tc.getStatus()) ? tc.getStatus() : s(tc.getResult());
-                mdRow(md, "Estado", status);
-                if (notBlank(tc.getTesterName())) mdRow(md, "Tester", s(tc.getTesterName()));
-                if (notBlank(tc.getExecutionDate())) mdRow(md, "Fecha", s(tc.getExecutionDate()));
-                md.append("\n");
+                // Meta info as compact list
+                if (notBlank(tc.getPriority()) || notBlank(tc.getTestType()) || notBlank(tc.getTesterName())) {
+                    if (notBlank(tc.getPriority())) md.append("**Prioridad:** `").append(tc.getPriority()).append("`  ");
+                    if (notBlank(tc.getTestType())) md.append("**Tipo:** `").append(tc.getTestType()).append("`  ");
+                    String st = notBlank(tc.getStatus()) ? tc.getStatus() : s(tc.getResult());
+                    if (!st.isEmpty()) md.append("**Estado:** `").append(st).append("`");
+                    md.append("\n\n");
+                }
 
                 if (notBlank(tc.getObjective())) md.append("**Objetivo:** ").append(tc.getObjective().trim()).append("\n\n");
                 if (notBlank(tc.getPreconditions())) md.append("**Precondiciones:** ").append(tc.getPreconditions().trim()).append("\n\n");
@@ -625,8 +651,9 @@ public class RfcTechnicalService {
                 // Steps
                 List<TestStep> steps = tc.getSteps() != null ? tc.getSteps() : Collections.emptyList();
                 if (!steps.isEmpty()) {
-                    md.append("### Pasos de Ejecución\n\n");
-                    md.append("| # | Acción | Resultado Esperado |\n|---|--------|--------------------|\n");
+                    md.append("### Pasos de ejecución\n\n");
+                    md.append("| # | Acción | Resultado Esperado |\n");
+                    md.append("|:---:|--------|--------------------|\n");
                     for (TestStep step : steps) {
                         md.append("| ").append(step.getStepNumber())
                           .append(" | ").append(mdCell(s(step.getAction())))
@@ -636,29 +663,36 @@ public class RfcTechnicalService {
                     md.append("\n");
                 }
 
-                // Result
-                if (notBlank(tc.getObtainedResult())) md.append("**Resultado obtenido:** ").append(tc.getObtainedResult().trim()).append("\n\n");
-                if (notBlank(tc.getObservations())) md.append("**Observaciones:** ").append(tc.getObservations().trim()).append("\n\n");
+                // Results
+                if (notBlank(tc.getObtainedResult()) || notBlank(tc.getObservations())) {
+                    md.append("### Resultado\n\n");
+                    if (notBlank(tc.getObtainedResult())) md.append("**Obtenido:** ").append(tc.getObtainedResult().trim()).append("\n\n");
+                    if (notBlank(tc.getObservations())) md.append("**Observaciones:** ").append(tc.getObservations().trim()).append("\n\n");
+                }
 
                 // Evidences
                 List<TestEvidence> evs = tc.getEvidences() != null ? tc.getEvidences() : Collections.emptyList();
                 if (!evs.isEmpty()) {
-                    md.append("### Evidencias\n\n");
+                    md.append("### 📷 Evidencias (").append(evs.size()).append(")\n\n");
                     for (int ei = 0; ei < evs.size(); ei++) {
                         TestEvidence ev = evs.get(ei);
-                        md.append("- _[Evidencia ").append(ei + 1).append("]_");
-                        if (notBlank(ev.getDescription())) md.append(" ").append(ev.getDescription().trim());
+                        md.append("- **Evidencia ").append(ei + 1).append("**");
+                        if (notBlank(ev.getDescription())) md.append(": ").append(ev.getDescription().trim());
                         md.append("\n");
                     }
                     md.append("\n");
                 }
 
-                if (notBlank(tc.getFinalObservations())) md.append("**Observaciones finales:** ").append(tc.getFinalObservations().trim()).append("\n\n");
-                md.append("---\n\n");
+                if (notBlank(tc.getFinalObservations())) {
+                    md.append("> 💡 ").append(tc.getFinalObservations().trim()).append("\n\n");
+                }
+
+                if (idx < tcs.size() - 1) md.append("---\n\n");
             }
         }
 
-        md.append("*Documento generado el ").append(now).append(" mediante **Release Notifier QA**.*\n");
+        md.append("\n---\n\n");
+        md.append("<sub>📄 Documento generado el ").append(now).append(" — Release Notifier QA</sub>\n");
         return md.toString().getBytes(StandardCharsets.UTF_8);
     }
 
