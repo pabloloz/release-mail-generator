@@ -3070,10 +3070,20 @@
         [data-theme="dark"] .section-label { color: #f1f5f9; border-color: #334155; }
 
         /* ── UAT editor (dark mode) ───────────────────────── */
-        [data-theme="dark"] .uat-rich-editor { background: #0f172a !important; color: #e2e8f0 !important; }
+        [data-theme="dark"] .uat-rich-editor { background: #0f172a !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+        [data-theme="dark"] .uat-rich-editor:focus { border-color: var(--primary) !important; }
+        [data-theme="dark"] .uat-rich-editor::selection { background: rgba(59,130,246,.3); }
+        [data-theme="dark"] .uat-rich-editor ul, [data-theme="dark"] .uat-rich-editor ol { color: #e2e8f0; }
+        [data-theme="dark"] .uat-rich-editor a { color: #60a5fa; }
+        [data-theme="dark"] .uat-rich-editor blockquote { border-color: #475569; color: #94a3b8; }
+        [data-theme="dark"] .uat-rich-editor table td, [data-theme="dark"] .uat-rich-editor table th { border-color: #334155; color: #e2e8f0; }
+        [data-theme="dark"] .uat-rich-editor table th { background: #1e293b; }
         [data-theme="dark"] .re-toolbar { background: #1e293b !important; border-color: #334155 !important; }
         [data-theme="dark"] .re-btn { color: #e2e8f0 !important; }
         [data-theme="dark"] .re-btn:hover { background: #334155 !important; }
+        [data-theme="dark"] .re-select { background: #0f172a; color: #e2e8f0; border-color: #334155; }
+        [data-theme="dark"] .uat-editor-hints { color: #64748b; }
+        [data-theme="dark"] .uat-editor-hints b { color: #94a3b8; }
 
         /* ── Form controls ───────────────────────────────────── */
         [data-theme="dark"] .form-control,

@@ -119,18 +119,28 @@
             }
         });
 
-        // Paste images
+        // Paste handler: images first, then clean HTML from Office/browsers
         editor.addEventListener('paste', function (e) {
             var items = e.clipboardData && e.clipboardData.items;
-            if (!items) return;
-            for (var i = 0; i < items.length; i++) {
-                if (items[i].type.startsWith('image/')) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    insertImageFile(items[i].getAsFile());
-                    return;
+            // Check for image files first
+            if (items) {
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].type.startsWith('image/')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        insertImageFile(items[i].getAsFile());
+                        return;
+                    }
                 }
             }
+            // Clean HTML paste from Word/Outlook/Teams/browsers
+            var html = e.clipboardData ? e.clipboardData.getData('text/html') : '';
+            if (html && html.length > 20) {
+                e.preventDefault();
+                var clean = cleanPastedHtml(html);
+                document.execCommand('insertHTML', false, clean);
+            }
+            // If no HTML, let plain text paste through naturally
         });
 
         // Enter creates paragraphs
@@ -181,7 +191,7 @@
         editor.focus();
         var img = document.createElement('img');
         img.src = dataUrl;
-        img.style.cssText = 'max-width:100%;height:auto;display:block;margin:8px 0;border-radius:6px;border:1px solid var(--border);';
+        img.style.cssText = 'max-width:100%;height:auto;display:block;margin:10px 0;border-radius:6px;border:1px solid var(--border);';
         img.setAttribute('data-uat-image', 'true');
         var sel = window.getSelection();
         if (sel.rangeCount) {
@@ -198,6 +208,44 @@
         var p = document.createElement('p');
         p.innerHTML = '<br>';
         img.after(p);
+    }
+
+    /**
+     * Cleans HTML pasted from Word, Outlook, Teams, Excel, browsers.
+     * Preserves: bold, italic, underline, lists, links, headings, tables, line breaks.
+     * Removes: styles, classes, Office markup, fonts, colors, backgrounds.
+     */
+    function cleanPastedHtml(html) {
+        // Remove everything before <body> if present
+        var bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        if (bodyMatch) html = bodyMatch[1];
+        // Strip Office-specific elements
+        html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+        html = html.replace(/<meta[^>]*>/gi, '');
+        html = html.replace(/<link[^>]*>/gi, '');
+        html = html.replace(/<title[^>]*>[\s\S]*?<\/title>/gi, '');
+        html = html.replace(/<o:p>[\s\S]*?<\/o:p>/gi, '');
+        html = html.replace(/<xml>[\s\S]*?<\/xml>/gi, '');
+        html = html.replace(/<!--[\s\S]*?-->/g, '');
+        // Strip class and style attributes (but keep href, src)
+        html = html.replace(/\s+class="[^"]*"/gi, '');
+        html = html.replace(/\s+class='[^']*'/gi, '');
+        html = html.replace(/\s+style="[^"]*"/gi, '');
+        html = html.replace(/\s+style='[^']*'/gi, '');
+        html = html.replace(/\s+lang="[^"]*"/gi, '');
+        html = html.replace(/\s+data-[a-z-]+="[^"]*"/gi, '');
+        // Strip font/span wrappers but keep content
+        html = html.replace(/<\/?font[^>]*>/gi, '');
+        html = html.replace(/<\/?span[^>]*>/gi, '');
+        // Keep structural tags: b, strong, i, em, u, ul, ol, li, a, br, p, div, h1-h6, table, tr, td, th, thead, tbody
+        // Remove everything else (like <v:shape>, <w:WordDocument> etc.)
+        html = html.replace(/<(?!\/?(b|strong|i|em|u|ul|ol|li|a|br|p|div|h[1-6]|table|tr|td|th|thead|tbody|blockquote|hr)[ >\/])[^>]+>/gi, '');
+        // Clean up empty paragraphs
+        html = html.replace(/<p>\s*<\/p>/gi, '');
+        html = html.replace(/<p>\s*&nbsp;\s*<\/p>/gi, '');
+        // Normalize whitespace
+        html = html.trim();
+        return html;
     }
 
     function focusEditor() {
