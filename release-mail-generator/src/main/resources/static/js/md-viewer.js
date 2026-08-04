@@ -4,6 +4,7 @@
 
     var _mdRawContent = '';
     var _mdFilename = '';
+    var _mdSourceUrl = '';
     var _mdCurrentTab = 'rendered';
 
     // Auto-intercept clicks on .md-preview-link elements
@@ -19,6 +20,7 @@
 
     function openMdViewer(url, title, filename) {
         _mdFilename = filename;
+        _mdSourceUrl = url;
         _mdCurrentTab = 'rendered';
         var viewer = document.getElementById('mdViewer');
         var titleEl = document.getElementById('mdViewerTitle');
@@ -54,6 +56,8 @@
         var a = document.createElement('a'); a.href = url; a.download = _mdFilename;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        // Register export in history
+        if (_mdSourceUrl) fetch(_mdSourceUrl + '?download=true').catch(function(){});
         if (typeof showToast === 'function') showToast('Markdown descargado', 'success');
     };
 

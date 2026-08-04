@@ -118,14 +118,17 @@ public class RfcTechnicalController {
     }
 
     @GetMapping("/{id}/markdown")
-    public ResponseEntity<byte[]> downloadMarkdown(@PathVariable String id) {
+    public ResponseEntity<byte[]> downloadMarkdown(@PathVariable String id,
+                                                   @RequestParam(defaultValue = "false") boolean download) {
         return rfcService.findById(id)
                 .map(r -> {
                     byte[] md = rfcService.generateMarkdown(r);
                     String filename = "RFC_" + sanitize(r.getRfcNumber()) + ".md";
-                    historyService.saveVersion("RFC", r.getRfcNumber(),
-                            "RFC " + r.getRfcNumber() + " — " + r.getChangeName(),
-                            null, "[Markdown exportado]", "EXPORTED", "MARKDOWN");
+                    if (download) {
+                        historyService.saveVersion("RFC", r.getRfcNumber(),
+                                "RFC " + r.getRfcNumber() + " — " + r.getChangeName(),
+                                null, "[Markdown exportado]", "EXPORTED", "MARKDOWN");
+                    }
                     return ResponseEntity.ok()
                             .header(HttpHeaders.CONTENT_DISPOSITION,
                                     "attachment; filename=\"" + filename + "\"")
@@ -161,14 +164,17 @@ public class RfcTechnicalController {
     }
 
     @GetMapping("/{id}/testcases-markdown")
-    public ResponseEntity<byte[]> downloadTestCasesMarkdown(@PathVariable String id) {
+    public ResponseEntity<byte[]> downloadTestCasesMarkdown(@PathVariable String id,
+                                                            @RequestParam(defaultValue = "false") boolean download) {
         return rfcService.findById(id)
                 .map(r -> {
                     byte[] md = rfcService.generateTestCasesMarkdown(r);
                     String filename = "CasosPrueba_" + sanitize(r.getRfcNumber()) + ".md";
-                    historyService.saveVersion("RFC", r.getRfcNumber(),
-                            "Casos de Prueba " + r.getRfcNumber(),
-                            null, "[Markdown exportado]", "EXPORTED", "MARKDOWN");
+                    if (download) {
+                        historyService.saveVersion("RFC", r.getRfcNumber(),
+                                "Casos de Prueba " + r.getRfcNumber(),
+                                null, "[Markdown exportado]", "EXPORTED", "MARKDOWN");
+                    }
                     return ResponseEntity.ok()
                             .header(HttpHeaders.CONTENT_DISPOSITION,
                                     "attachment; filename=\"" + filename + "\"")
