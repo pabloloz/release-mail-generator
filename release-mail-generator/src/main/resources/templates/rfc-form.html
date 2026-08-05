@@ -647,7 +647,7 @@
                             <div class="tc-evidences-container">
                                 <!-- Evidences are loaded asynchronously via JS to avoid large page payloads -->
                             </div>
-                            <div class="tc-ev-dropzone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleEvidenceDrop(event,this)">
+                            <div class="tc-ev-dropzone" tabindex="0" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleEvidenceDrop(event,this)">
                                 📷 Arrastra imágenes aquí, pega con Ctrl+V, o
                                 <label style="color:var(--primary);cursor:pointer;font-weight:600;"> selecciona archivos
                                     <input type="file" accept="image/png,image/jpeg,image/gif" multiple style="display:none;" onchange="handleEvidenceFiles(this)">
@@ -1029,7 +1029,7 @@ function addTestCase() {
             </div></div></div>
             <div class="tc-subsection"><div class="tc-sub-title" onclick="this.parentElement.classList.toggle('closed')">📷 Evidencias</div><div class="tc-sub-body">
                 <div class="tc-evidences-container"></div>
-                <div class="tc-ev-dropzone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleEvidenceDrop(event,this)">📷 Arrastra imágenes aquí, pega con Ctrl+V, o <label style="color:var(--primary);cursor:pointer;font-weight:600;"> selecciona archivos<input type="file" accept="image/png,image/jpeg,image/gif" multiple style="display:none;" onchange="handleEvidenceFiles(this)"></label></div>
+                <div class="tc-ev-dropzone" tabindex="0" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleEvidenceDrop(event,this)">📷 Arrastra imágenes aquí, pega con Ctrl+V, o <label style="color:var(--primary);cursor:pointer;font-weight:600;"> selecciona archivos<input type="file" accept="image/png,image/jpeg,image/gif" multiple style="display:none;" onchange="handleEvidenceFiles(this)"></label></div>
             </div></div>
             <div class="tc-subsection"><div class="tc-sub-title" onclick="this.parentElement.classList.toggle('closed')">💬 Observaciones Finales</div><div class="tc-sub-body">
                 <textarea class="form-control" name="tc-finalObservations" rows="2" placeholder="Comentarios adicionales..."></textarea>
@@ -1120,18 +1120,52 @@ async function handleEvidenceDrop(e, dropzone) {
 }
 // Global paste handler for evidence (when focused in a test case)
 document.addEventListener('paste', async (e) => {
-    const tcBody = e.target.closest?.('.item-body');
-    if (!tcBody) return;
+    // Find if we're inside a test case dynamic-item
+    const tcItem = e.target.closest?.('.dynamic-item') || e.target.closest?.('.tc-ev-dropzone')?.closest('.dynamic-item');
+    if (!tcItem) return;
+    // Only handle if inside the test cases container
+    if (!tcItem.closest('#testCasesContainer')) return;
+    const container = tcItem.querySelector('.tc-evidences-container');
+    if (!container) return;
+
     const items = e.clipboardData?.items;
     if (!items) return;
+
+    // Check for image files first (screenshots, direct paste)
     for (const item of items) {
         if (item.type.startsWith('image/')) {
             e.preventDefault();
-            const container = tcBody.querySelector('.tc-evidences-container');
-            if (!container) return;
             const file = item.getAsFile();
             try { const uri = await compressTcImage(file); addEvidenceToContainer(container, uri, 'Imagen pegada'); }
             catch (err) { showToast(err.message, 'error'); }
+            return;
+        }
+    }
+
+    // Check for HTML with embedded images (from Outlook, browsers)
+    const html = e.clipboardData?.getData('text/html');
+    if (html) {
+        const imgMatch = html.match(/<img[^>]+src="([^"]+)"/i);
+        if (imgMatch && imgMatch[1]) {
+            e.preventDefault();
+            const src = imgMatch[1];
+            if (src.startsWith('data:image/')) {
+                // Already a data URI
+                addEvidenceToContainer(container, src, 'Imagen pegada');
+            } else if (src.startsWith('http')) {
+                // External URL — try to fetch and convert to base64
+                try {
+                    showToast('Procesando imagen...', 'success');
+                    const resp = await fetch(src);
+                    const blob = await resp.blob();
+                    if (blob.type.startsWith('image/')) {
+                        const uri = await compressTcImage(blob);
+                        addEvidenceToContainer(container, uri, 'Imagen pegada');
+                    }
+                } catch (err) {
+                    showToast('No se pudo obtener la imagen. Intenta guardarla primero y arrastrarla.', 'error');
+                }
+            }
             return;
         }
     }

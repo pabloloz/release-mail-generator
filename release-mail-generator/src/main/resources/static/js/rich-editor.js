@@ -237,9 +237,9 @@
         // Strip font/span wrappers but keep content
         html = html.replace(/<\/?font[^>]*>/gi, '');
         html = html.replace(/<\/?span[^>]*>/gi, '');
-        // Keep structural tags: b, strong, i, em, u, ul, ol, li, a, br, p, div, h1-h6, table, tr, td, th, thead, tbody
+        // Keep structural tags: b, strong, i, em, u, ul, ol, li, a, br, p, div, h1-h6, table, tr, td, th, thead, tbody, img
         // Remove everything else (like <v:shape>, <w:WordDocument> etc.)
-        html = html.replace(/<(?!\/?(b|strong|i|em|u|ul|ol|li|a|br|p|div|h[1-6]|table|tr|td|th|thead|tbody|blockquote|hr)[ >\/])[^>]+>/gi, '');
+        html = html.replace(/<(?!\/?(b|strong|i|em|u|ul|ol|li|a|br|p|div|h[1-6]|table|tr|td|th|thead|tbody|blockquote|hr|img)[ >\/])[^>]+>/gi, '');
         // Clean up empty paragraphs
         html = html.replace(/<p>\s*<\/p>/gi, '');
         html = html.replace(/<p>\s*&nbsp;\s*<\/p>/gi, '');
