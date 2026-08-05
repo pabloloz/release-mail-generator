@@ -1201,35 +1201,54 @@
             });
         }
 
-        // ── Requerimientos image ─────────────────────────────────────────
-        async function handleReqImage(input) {
-            if (!input.files || !input.files[0]) return;
-            try {
-                const dataUri = await compressImage(input.files[0]);
-                setReqImage(dataUri, input.files[0].name);
-            } catch (e) { showToast(e.message, 'error'); }
+        // ── Requerimientos images (multiple) ─────────────────────────────
+        var _reqImages = []; // Array of {dataUri, name}
+
+        async function handleReqImages(input) {
+            if (!input.files) return;
+            for (const file of input.files) {
+                try {
+                    const dataUri = await compressImage(file);
+                    addReqImage(dataUri, file.name);
+                } catch (e) { showToast(e.message, 'error'); }
+            }
+            input.value = '';
         }
-        function setReqImage(dataUri, name) {
-            document.getElementById('reqImageData').value = dataUri;
-            document.getElementById('reqImageImg').src    = dataUri;
-            document.getElementById('reqImageName').textContent = name || 'Imagen pegada';
-            document.getElementById('reqImagePreview').style.display = '';
-            document.getElementById('reqImageClear').style.display  = '';
+        function addReqImage(dataUri, name) {
+            _reqImages.push({ dataUri, name: name || 'Imagen ' + (_reqImages.length + 1) });
+            renderReqGallery();
         }
-        function clearReqImage() {
-            document.getElementById('reqImageData').value  = '';
-            document.getElementById('reqImageImg').src     = '';
-            document.getElementById('reqImageName').textContent = '';
-            document.getElementById('reqImageFile').value  = '';
-            document.getElementById('reqImagePreview').style.display = 'none';
-            document.getElementById('reqImageClear').style.display  = 'none';
+        function removeReqImage(idx) {
+            _reqImages.splice(idx, 1);
+            renderReqGallery();
+        }
+        function renderReqGallery() {
+            const gallery = document.getElementById('reqImagesGallery');
+            const countEl = document.getElementById('reqImageCount');
+            if (!gallery) return;
+            if (countEl) countEl.textContent = _reqImages.length ? _reqImages.length + ' imagen(es)' : '';
+            gallery.innerHTML = _reqImages.map((img, idx) =>
+                '<div style="position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:120px;">'
+                + '<img src="' + img.dataUri + '" style="width:100%;height:80px;object-fit:cover;display:block;cursor:pointer;" onclick="window.open(this.src)">'
+                + '<div style="padding:4px 6px;font-size:.68rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (img.name||'Imagen') + '</div>'
+                + '<button onclick="removeReqImage(' + idx + ')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>'
+                + '</div>'
+            ).join('');
+        }
+        function getReqImagesData() {
+            return _reqImages.map(i => i.dataUri);
+        }
+        function clearReqImages() {
+            _reqImages = [];
+            renderReqGallery();
         }
         function handleReqDrop(e) {
             e.preventDefault();
             e.currentTarget.classList.remove('dragover');
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) {
-                compressImage(file).then(uri => setReqImage(uri, file.name)).catch(err => showToast(err.message, 'error'));
+            for (const file of e.dataTransfer.files) {
+                if (file.type.startsWith('image/')) {
+                    compressImage(file).then(uri => addReqImage(uri, file.name)).catch(err => showToast(err.message, 'error'));
+                }
             }
         }
         // Paste support for req image drop zone
@@ -1243,13 +1262,12 @@
                         if (item.type.startsWith('image/')) {
                             e.preventDefault();
                             const file = item.getAsFile();
-                            try { const uri = await compressImage(file); setReqImage(uri, 'Imagen pegada'); }
+                            try { const uri = await compressImage(file); addReqImage(uri, 'Imagen pegada'); }
                             catch (err) { showToast(err.message, 'error'); }
                             return;
                         }
                     }
                 });
-                dropZone.setAttribute('tabindex', '0');
             }
         });
 
@@ -1341,7 +1359,8 @@
                 saludo:         document.getElementById('uatSaludo').value,
                 adjunto:        document.getElementById('uatAdjunto').value,
                 requerimientos: document.getElementById('uatRequerimientos').value,
-                requerimientosImagen: document.getElementById('reqImageData').value || '',
+                requerimientosImagen: '',
+                requerimientosImagenes: getReqImagesData(),
                 blocks,
                 nota:           document.getElementById('uatNota').value,
                 cierre:         document.getElementById('uatCierre').value
@@ -1401,7 +1420,7 @@
             showToast('\u2714 Correo VoBo UAT copiado al portapapeles', 'success');
         }
         function clearUatForm() {
-            ['uatRfcNumber','uatRfcName','uatAdjunto','uatRequerimientos','uatNota'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); clearReqImage();
+            ['uatRfcNumber','uatRfcName','uatAdjunto','uatRequerimientos','uatNota'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); clearReqImages();
             document.getElementById('uatSaludo').value = 'Buenas tardes.';
             document.getElementById('uatCierre').value = 'Quedo pendiente por cualquier duda o comentario.';
             const editor = document.getElementById('uatRichEditor');
@@ -4204,17 +4223,13 @@ dbo.sp_reporte_facturacion.sql</div>
             <div class="d-flex align-items-center gap-2 mt-3">
                 <label class="tb-btn tb-btn-ghost" style="cursor:pointer;font-size:.78rem;">
                     &#x1F4F7; Agregar imagen
-                    <input type="file" id="reqImageFile" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="handleReqImage(this)">
+                    <input type="file" id="reqImageFile" accept="image/png,image/jpeg,image/gif" multiple style="display:none;" onchange="handleReqImages(this)">
                 </label>
-                <input type="hidden" id="reqImageData" value="">
-                <span id="reqImageName" class="text-muted" style="font-size:.8rem;"></span>
-                <button type="button" id="reqImageClear" onclick="clearReqImage()" class="tb-btn tb-btn-ghost" style="display:none;font-size:.75rem;color:var(--danger);">&#x2715; Quitar</button>
+                <span id="reqImageCount" class="text-muted" style="font-size:.78rem;"></span>
             </div>
-            <div id="reqImagePreview" style="display:none;margin-top:8px;">
-                <img id="reqImageImg" style="max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:6px;display:block;">
-            </div>
-            <div id="reqImageDropZone" class="uat-drop-zone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleReqDrop(event)">
-                &#x1F5BC;&#xFE0F; Pega (Ctrl+V) o arrastra una imagen aqu&#xED;
+            <div id="reqImagesGallery" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;"></div>
+            <div id="reqImageDropZone" class="uat-drop-zone" tabindex="0" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleReqDrop(event)">
+                &#x1F5BC;&#xFE0F; Pega (Ctrl+V) o arrastra im&#xE1;genes aqu&#xED;
             </div>
         </div>
 

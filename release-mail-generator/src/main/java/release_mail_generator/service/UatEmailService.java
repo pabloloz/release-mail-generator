@@ -110,18 +110,22 @@ public class UatEmailService {
         html.append("</p>");
 
         // Requerimientos (caja con borde azul)
-        if (notBlank(r.getRequerimientos()) || notBlank(r.getRequerimientosImagen())) {
+        List<String> reqImages = r.getRequerimientosImagenes() != null && !r.getRequerimientosImagenes().isEmpty()
+                ? r.getRequerimientosImagenes()
+                : (notBlank(r.getRequerimientosImagen()) ? List.of(r.getRequerimientosImagen()) : List.of());
+        boolean hasReqImages = !reqImages.isEmpty();
+        if (notBlank(r.getRequerimientos()) || hasReqImages) {
             html.append("<p style=\"margin:0 0 4px 0;\"><b>Requerimientos:</b></p>");
             if (notBlank(r.getRequerimientos())) {
                 html.append("<div style=\"border:1px solid #c7d2fe;border-radius:6px;padding:12px 16px;"
-                          + "background:#f0f4ff;margin-bottom:" + (notBlank(r.getRequerimientosImagen()) ? "10px" : "16px") + ";font-size:10.5pt;\">")
+                          + "background:#f0f4ff;margin-bottom:" + (hasReqImages ? "10px" : "16px") + ";font-size:10.5pt;\">")
                     .append(textToHtml(r.getRequerimientos()))
                     .append("</div>");
             }
-            if (notBlank(r.getRequerimientosImagen())) {
-                String safeSrc = safeImgSrc(r.getRequerimientosImagen());
+            for (String imgUri : reqImages) {
+                String safeSrc = safeImgSrc(imgUri);
                 if (!safeSrc.isEmpty()) {
-                    html.append("<p style=\"margin:0 0 16px 0;\">").append(emailImgTag(safeSrc, EMAIL_IMG_MAX_WIDTH)).append("</p>");
+                    html.append("<p style=\"margin:0 0 12px 0;\">").append(emailImgTag(safeSrc, EMAIL_IMG_MAX_WIDTH)).append("</p>");
                 }
             }
         }

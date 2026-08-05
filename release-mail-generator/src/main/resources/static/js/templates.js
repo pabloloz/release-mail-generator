@@ -41,7 +41,7 @@
                     uatSaludo: gv('uatSaludo'),
                     uatAdjunto: gv('uatAdjunto'),
                     uatRequerimientos: gv('uatRequerimientos'),
-                    reqImageData: gv('reqImageData'),
+                    reqImages: typeof getReqImagesData === 'function' ? getReqImagesData() : [],
                     uatNota: gv('uatNota'),
                     uatCierre: gv('uatCierre'),
                     uatEditorHtml: (document.getElementById('uatRichEditor') || {}).innerHTML || ''
@@ -55,18 +55,12 @@
                 setv('uatRequerimientos', d.uatRequerimientos);
                 setv('uatNota', d.uatNota);
                 setv('uatCierre', d.uatCierre);
-                // Restore requirements image
-                if (d.reqImageData) {
-                    setv('reqImageData', d.reqImageData);
-                    var imgEl = document.getElementById('reqImageImg');
-                    var previewEl = document.getElementById('reqImagePreview');
-                    var nameEl = document.getElementById('reqImageName');
-                    var clearBtn = document.getElementById('reqImageClear');
-                    if (imgEl) imgEl.src = d.reqImageData;
-                    if (previewEl) previewEl.style.display = '';
-                    if (nameEl) nameEl.textContent = 'Imagen de plantilla';
-                    if (clearBtn) clearBtn.style.display = '';
-                }
+                // Restore requirements images
+                if (typeof clearReqImages === 'function') clearReqImages();
+                var images = d.reqImages || (d.reqImageData ? [d.reqImageData] : []);
+                images.forEach(function(uri) {
+                    if (uri && typeof addReqImage === 'function') addReqImage(uri, 'Imagen de plantilla');
+                });
                 // Restore rich editor content
                 var editor = document.getElementById('uatRichEditor');
                 if (editor && d.uatEditorHtml) editor.innerHTML = d.uatEditorHtml;

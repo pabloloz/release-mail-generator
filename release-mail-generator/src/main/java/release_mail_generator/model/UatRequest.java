@@ -15,7 +15,8 @@ public class UatRequest {
 
     // Cuerpo libre
     private String requerimientos;       // Sección "Requerimientos:" — texto libre
-    private String requerimientosImagen; // Imagen opcional bajo requerimientos (base64 data URI)
+    private String requerimientosImagen; // Legacy single image (backward compat)
+    private List<String> requerimientosImagenes = new ArrayList<>(); // Multiple images (base64 data URIs)
 
     // Bloques dinámicos: ejemplos, pasos, evidencias (texto + imagen opcional cada uno)
     private List<UatBlock> blocks = new ArrayList<>();

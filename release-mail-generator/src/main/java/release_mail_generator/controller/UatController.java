@@ -73,10 +73,11 @@ public class UatController {
     @PostMapping("/uat/export/html")
     public ResponseEntity<byte[]> exportHtml(@RequestBody UatRequest r) {
         String body = uatEmailService.generateEmail(r);
+        String rfcNum = r.getRfcNumber() != null ? r.getRfcNumber() : "";
         String page = "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"UTF-8\">"
-                + "<title>VoBo UAT \u2013 " + escHtml(r.getRfcNumber()) + "</title></head><body>"
+                + "<title>VoBo UAT \u2013 " + escHtml(rfcNum) + "</title></head><body>"
                 + body + "</body></html>";
-        String filename = "VoBo-UAT-" + sanitize(r.getRfcNumber()) + ".html";
+        String filename = "VoBo-UAT-" + sanitize(rfcNum) + ".html";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build().toString())
