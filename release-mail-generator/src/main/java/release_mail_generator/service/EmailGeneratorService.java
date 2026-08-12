@@ -592,14 +592,19 @@ public class EmailGeneratorService {
                 html.append("</p>");
             }
 
-            // ── Script de Alta (para RDLs nuevos) ──────────────────────────────────
+            // ── Scripts ─────────────────────────────────────────────────────────────
             if (item.isHasRdlScript() && item.getRdlScriptName() != null && !item.getRdlScriptName().isBlank()) {
-                html.append("<p style=\"margin: 0 0 4px 0;\"><b>Ejecutar Script:</b></p>")
-                    .append("<p style=\"margin: 0 0 14px 0;\">")
-                    .append("<b>Nombre del script:</b>&nbsp;")
-                    .append("<span style=\"color:#7030A0;\">").append(esc(item.getRdlScriptName().trim())).append("</span><br>");
+                String[] scripts = item.getRdlScriptName().trim().split("\\r?\\n");
+                html.append("<p style=\"margin: 0 0 4px 0;\"><b>Ejecutar Script").append(scripts.length > 1 ? "s" : "").append(":</b></p>")
+                    .append("<p style=\"margin: 0 0 14px 0;\">");
+                for (String script : scripts) {
+                    String s = script.trim();
+                    if (s.isEmpty()) continue;
+                    html.append("<span style=\"color:#7030A0;\">").append(esc(s)).append("</span><br>");
+                }
                 if (item.getRdlScriptPath() != null && !item.getRdlScriptPath().isBlank()) {
-                    html.append("<b>Ubicaci\u00f3n:</b>&nbsp;").append(esc(item.getRdlScriptPath().trim())).append("<br>");
+                    html.append("<b>Ubicaci\u00f3n:</b>&nbsp;")
+                        .append(pathLink(item.getRdlScriptPath().trim())).append("<br>");
                 }
                 html.append("</p>");
             }
@@ -655,13 +660,16 @@ public class EmailGeneratorService {
 
     public String generateRdlTelegramMessage(RdlReleaseRequest r) {
         StringBuilder msg = new StringBuilder();
+        msg.append("```\n");
 
         String action = clean(r.getRdlAction());
         if (action.isEmpty()) action = "Deployment de RDLs y Stored Procedures";
-        msg.append("Acción: ").append(action).append("\n\n");
+        msg.append("Acci\u00f3n: ").append(action).append("\n");
 
         List<String> rdlNames = new ArrayList<>();
         List<String> spNames = new ArrayList<>();
+        List<String> spTickets = new ArrayList<>();
+        List<String> scriptNames = new ArrayList<>();
         List<String> projects = new ArrayList<>();
 
         List<RdlItem> items = r.getRdls();
@@ -675,33 +683,65 @@ public class EmailGeneratorService {
                 List<String> itemSpNames = linesFromText(item.getRdlSpName());
                 if (!itemSpNames.isEmpty()) spNames.addAll(itemSpNames);
 
+                String ticket = clean(item.getRdlSpTicket());
+                if (!ticket.isEmpty()) spTickets.add(ticket);
+
+                if (item.isHasRdlScript() && item.getRdlScriptName() != null && !item.getRdlScriptName().isBlank()) {
+                    for (String s : item.getRdlScriptName().trim().split("\\r?\\n")) {
+                        String trimmed = s.trim();
+                        if (!trimmed.isEmpty()) scriptNames.add(trimmed);
+                    }
+                }
+
                 String project = clean(item.getRdlProject());
                 if (!project.isEmpty()) projects.add(project);
             }
         }
 
-        if (!rdlNames.isEmpty()) {
-            msg.append("RDLs a desplegar:\n\n");
-            rdlNames.forEach(name -> msg.append(name).append("\n"));
-            msg.append("\n");
-        }
-
+        // ── SPs ──
         if (!spNames.isEmpty()) {
-            msg.append("Stored Procedures:\n\n");
-            spNames.forEach(sp -> msg.append(sp).append("\n"));
+            msg.append("Actualizar SP:\n");
+            spNames.forEach(sp -> msg.append("\uD83D\uDCC2 [").append(sp).append("]\n"));
+            if (!spTickets.isEmpty()) {
+                msg.append("\uD83C\uDFAB\uD83C\uDF9F Ticket VoBo SP: ").append(String.join(", ", spTickets)).append("\n");
+            }
             msg.append("\n");
         }
 
+        // ── Scripts ──
+        if (!scriptNames.isEmpty()) {
+            msg.append("Ejecutar Scripts:\n");
+            scriptNames.forEach(script -> msg.append("\uD83D\uDCC4 ").append(script).append("\n"));
+            msg.append("\n");
+        }
+
+        // ── Fecha ──
         String releaseDate = clean(r.getRdlReleaseDate());
         if (!releaseDate.isEmpty()) {
-            msg.append("Fecha de publicación: ").append(releaseDate).append("\n\n");
+            msg.append("Publicar: ").append(releaseDate).append("\n\n");
         }
 
+        // ── RDLs ──
+        if (!rdlNames.isEmpty()) {
+            msg.append("RDLs a desplegar:\n");
+            rdlNames.forEach(name -> msg.append("\uD83D\uDCC1 ").append(name).append("\n"));
+            msg.append("\n");
+        }
+
+        // ── Proyectos ──
         if (!projects.isEmpty()) {
-            msg.append("Proyectos relacionados:\n\n");
-            projects.forEach(project -> msg.append(project).append("\n"));
+            msg.append("Proyectos relacionados:\n");
+            projects.forEach(project -> msg.append("\u2705 ").append(project).append("\n"));
+            msg.append("\n");
         }
 
+        // ── Release URL ──
+        String releaseUrl = clean(r.getRdlReleaseUrl());
+        if (!releaseUrl.isEmpty()) {
+            msg.append("Release Publicaci\u00f3n: ").append(releaseUrl).append("\n");
+        }
+
+        msg.append("```");
         return msg.toString().trim();
     }
 
@@ -913,7 +953,8 @@ public class EmailGeneratorService {
                 });
             }
             if (item.isHasRdlScript() && item.getRdlScriptName() != null && !item.getRdlScriptName().isBlank()) {
-                pdfLine(doc, boldF, monoF, "Script de Alta:", clean(item.getRdlScriptName()));
+                String[] scripts = item.getRdlScriptName().trim().split("\\r?\\n");
+                pdfLine(doc, boldF, monoF, "Scripts:", String.join(", ", scripts).trim());
                 if (item.getRdlScriptPath() != null && !item.getRdlScriptPath().isBlank())
                     pdfLine(doc, boldF, monoF, "Ubicación:", clean(item.getRdlScriptPath()));
             }
@@ -955,7 +996,11 @@ public class EmailGeneratorService {
                 linesFromText(item.getRdlSpTicket()).forEach(t -> md.append("- **Ticket:** ").append(t).append("\n"));
             }
             if (item.isHasRdlScript() && item.getRdlScriptName() != null && !item.getRdlScriptName().isBlank()) {
-                md.append("- **Script de Alta:** `").append(clean(item.getRdlScriptName())).append("`\n");
+                String[] scripts = item.getRdlScriptName().trim().split("\\r?\\n");
+                for (String script : scripts) {
+                    String s = script.trim();
+                    if (!s.isEmpty()) md.append("- **Script:** `").append(s).append("`\n");
+                }
                 if (item.getRdlScriptPath() != null && !item.getRdlScriptPath().isBlank())
                     md.append("- **Ubicación:** `").append(clean(item.getRdlScriptPath())).append("`\n");
             }

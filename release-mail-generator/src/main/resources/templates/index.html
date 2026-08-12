@@ -327,6 +327,68 @@
             } catch (e) { /* silent — dashboard is informational */ }
         }
 
+        // ── KPI Drawer ───────────────────────────────────────────
+        async function openKpiDrawer(type, title) {
+            document.getElementById('kpiDrawerTitle').textContent = title;
+            document.getElementById('kpiDrawerOverlay').classList.add('open');
+            document.getElementById('kpiDrawer').classList.add('open');
+            document.getElementById('kpiDrawerBody').innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><span class="spinner"></span> Cargando...</div>';
+            // "Ver todos" button navigates to history with first type
+            var primaryType = type.split(',')[0];
+            document.getElementById('kpiDrawerViewAll').onclick = function() {
+                closeKpiDrawer();
+                showPane('history', null);
+                var filter = document.getElementById('historyTypeFilter');
+                if (filter) filter.value = (primaryType === 'EXPORTS') ? 'ALL' : primaryType;
+                if (typeof loadHistory === 'function') loadHistory(filter ? filter.value : 'ALL', 1);
+            };
+            try {
+                var items = [];
+                if (type === 'EXPORTS') {
+                    // Fetch all and filter by EXPORTED action
+                    var resp = await fetch('/history/api?page=1&size=20&sort=newest');
+                    if (!resp.ok) throw new Error('Error');
+                    var data = await resp.json();
+                    items = (data.items || []).filter(function(v) { return v.action === 'EXPORTED'; }).slice(0, 5);
+                } else if (type.indexOf(',') > -1) {
+                    // Multiple types (e.g. TELEGRAM,RDL_TELEGRAM) — fetch each and merge
+                    var types = type.split(',');
+                    var allItems = [];
+                    for (var t of types) {
+                        var r = await fetch('/history/api?page=1&size=5&sort=newest&type=' + t.trim());
+                        if (r.ok) { var d = await r.json(); allItems = allItems.concat(d.items || []); }
+                    }
+                    // Sort by date desc, exclude EXPORTED, take 5
+                    items = allItems.filter(function(v) { return v.action !== 'EXPORTED'; }).sort(function(a,b) { return new Date(b.createdAt) - new Date(a.createdAt); }).slice(0, 5);
+                } else {
+                    var resp2 = await fetch('/history/api?page=1&size=10&sort=newest&type=' + type);
+                    if (!resp2.ok) throw new Error('Error');
+                    var data2 = await resp2.json();
+                    // Exclude EXPORTED records (KPIs don't count them)
+                    items = (data2.items || []).filter(function(v) { return v.action !== 'EXPORTED'; }).slice(0, 5);
+                }
+                if (items.length === 0) {
+                    document.getElementById('kpiDrawerBody').innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:.85rem;">Sin documentos a\u00fan.</div>';
+                    return;
+                }
+                document.getElementById('kpiDrawerBody').innerHTML = items.map(function(v) {
+                    var date = new Date(v.createdAt);
+                    var timeAgo = getTimeAgo(date);
+                    var icon = DASH_TYPE_ICONS[v.documentType] || '\u{1F4C4}';
+                    return '<div class="kpi-drawer-item" onclick="closeKpiDrawer();showPane(\'history\',null);if(typeof viewVersion===\'function\')viewVersion(\'' + v.id + '\')">'
+                        + '<div class="kpi-drawer-item-title">' + icon + ' ' + escHtmlDash(v.title || v.documentRef) + '</div>'
+                        + '<div class="kpi-drawer-item-meta">' + (v.author || 'Sistema') + ' \u00b7 ' + timeAgo + '</div>'
+                        + '</div>';
+                }).join('');
+            } catch(e) {
+                document.getElementById('kpiDrawerBody').innerHTML = '<div style="text-align:center;padding:40px;color:var(--danger);">Error al cargar</div>';
+            }
+        }
+        function closeKpiDrawer() {
+            document.getElementById('kpiDrawerOverlay').classList.remove('open');
+            document.getElementById('kpiDrawer').classList.remove('open');
+        }
+
         function animateKpi(id, target) {
             const el = document.getElementById(id);
             if (!el) return;
@@ -418,6 +480,7 @@
             if (!document.querySelector('#telegramChangesContainer .dynamic-item')) addTelegramChangeRow();
             if (!document.querySelector('#rdlTgRdlsContainer .dynamic-item')) addRdlTgRdlRow();
             if (!document.querySelector('#rdlTgSpsContainer .dynamic-item')) addRdlTgSpRow();
+            if (!document.querySelector('#rdlTgScriptsContainer .dynamic-item')) addRdlTgScriptRow();
             if (!document.querySelector('#rdlTgProjectsContainer .dynamic-item')) addRdlTgProjectRow();
 
             try {
@@ -782,6 +845,18 @@
                 <button type="button" class="btn-remove-rdl" onclick="this.closest('.dynamic-item').remove()">&#x2715;</button>`;
             container.appendChild(row);
         }
+        function addRdlTgScriptRow() {
+            const container = document.getElementById('rdlTgScriptsContainer');
+            if (!container) return;
+            const row = document.createElement('div');
+            row.className = 'dynamic-item';
+            row.innerHTML = `
+                <div class="item-fields">
+                    <input type="text" class="form-control form-control-sm" name="rdlTgScripts" placeholder="Ej: Update_catalogo_comisiones.sql">
+                </div>
+                <button type="button" class="btn-remove-rdl" onclick="this.closest('.dynamic-item').remove()">&#x2715;</button>`;
+            container.appendChild(row);
+        }
         function addRdlTgProjectRow() {
             const container = document.getElementById('rdlTgProjectsContainer');
             if (!container) return;
@@ -799,8 +874,11 @@
                 .map(el => el.value.trim()).filter(v => v);
             const spNames = [...document.querySelectorAll('input[name="rdlTgSps"]')]
                 .map(el => el.value.trim()).filter(v => v);
+            const scriptNames = [...document.querySelectorAll('input[name="rdlTgScripts"]')]
+                .map(el => el.value.trim()).filter(v => v);
             const projects = [...document.querySelectorAll('input[name="rdlTgProjects"]')]
                 .map(el => el.value.trim()).filter(v => v);
+            const spTicket = (document.getElementById('rdlTgSpTicket') || {}).value || '';
 
             const rdls = [];
             const maxLen = Math.max(rdlNames.length, spNames.length, projects.length, 1);
@@ -808,6 +886,10 @@
                 rdls.push({
                     rdlReportName: i < rdlNames.length ? rdlNames[i] : '',
                     rdlSpName: i < spNames.length ? spNames[i] : '',
+                    hasRdlSp: spNames.length > 0 && i === 0,
+                    rdlSpTicket: i === 0 ? spTicket : '',
+                    hasRdlScript: scriptNames.length > 0 && i === 0,
+                    rdlScriptName: i === 0 ? scriptNames.join('\n') : '',
                     rdlProject: i < projects.length ? projects[i] : ''
                 });
             }
@@ -818,6 +900,7 @@
                     document.getElementById('rdlTgDate').value,
                     document.getElementById('rdlTgTime').value
                 ),
+                rdlReleaseUrl: (document.getElementById('rdlTgReleaseUrl') || {}).value || '',
                 rdlAction: (document.getElementById('rdlTgAction') || {}).value || ''
             };
         }
@@ -839,12 +922,20 @@
             if (datePicker) document.getElementById('rdlTgDate').value = datePicker.value;
             if (timePicker) document.getElementById('rdlTgTime').value = timePicker.value;
 
-            // Import RDLs, SPs and projects
+            // Import release URL
+            const releaseUrl = document.getElementById('rdlReleaseUrl');
+            if (releaseUrl && releaseUrl.value.trim()) {
+                document.getElementById('rdlTgReleaseUrl').value = releaseUrl.value.trim();
+            }
+
+            // Import RDLs, SPs, Scripts and projects
             const rdlsContainer = document.getElementById('rdlTgRdlsContainer');
             const spsContainer = document.getElementById('rdlTgSpsContainer');
+            const scriptsContainer = document.getElementById('rdlTgScriptsContainer');
             const projectsContainer = document.getElementById('rdlTgProjectsContainer');
             rdlsContainer.innerHTML = '';
             spsContainer.innerHTML = '';
+            scriptsContainer.innerHTML = '';
             projectsContainer.innerHTML = '';
 
             entries.forEach((entry, idx) => {
@@ -863,6 +954,22 @@
                         if (last) last.value = sp.trim();
                     });
                 }
+                // Ticket VoBo (take first non-empty)
+                const spTicket = g('rdlSpTicket');
+                if (spTicket && !document.getElementById('rdlTgSpTicket').value) {
+                    document.getElementById('rdlTgSpTicket').value = spTicket;
+                }
+                // Scripts
+                const scriptCheckbox = entry.querySelector(`[name="rdls[${idx}].hasRdlScript"]`);
+                const scriptTextarea = entry.querySelector(`[name="rdls[${idx}].rdlScriptName"]`);
+                if (scriptCheckbox && scriptCheckbox.checked && scriptTextarea && scriptTextarea.value.trim()) {
+                    scriptTextarea.value.trim().split(/\r?\n/).filter(s => s.trim()).forEach(script => {
+                        addRdlTgScriptRow();
+                        const last = scriptsContainer.querySelector('.dynamic-item:last-child input');
+                        if (last) last.value = script.trim();
+                    });
+                }
+
                 const project = g('rdlProject');
                 if (project) {
                     addRdlTgProjectRow();
@@ -874,6 +981,7 @@
             // Ensure at least one row in each
             if (!rdlsContainer.querySelector('.dynamic-item')) addRdlTgRdlRow();
             if (!spsContainer.querySelector('.dynamic-item')) addRdlTgSpRow();
+            if (!scriptsContainer.querySelector('.dynamic-item')) addRdlTgScriptRow();
             if (!projectsContainer.querySelector('.dynamic-item')) addRdlTgProjectRow();
 
             showToast('\u2714 Datos importados desde Correo RDL', 'success');
@@ -882,9 +990,11 @@
             document.getElementById('rdlTelegramForm').reset();
             document.getElementById('rdlTgRdlsContainer').innerHTML = '';
             document.getElementById('rdlTgSpsContainer').innerHTML = '';
+            document.getElementById('rdlTgScriptsContainer').innerHTML = '';
             document.getElementById('rdlTgProjectsContainer').innerHTML = '';
             addRdlTgRdlRow();
             addRdlTgSpRow();
+            addRdlTgScriptRow();
             addRdlTgProjectRow();
             document.getElementById('rdlTgAction').value = 'Deployment de RDLs y Stored Procedures';
             const preview = document.getElementById('rdlTelegramSection');
@@ -1201,54 +1311,35 @@
             });
         }
 
-        // ── Requerimientos images (multiple) ─────────────────────────────
-        var _reqImages = []; // Array of {dataUri, name}
-
-        async function handleReqImages(input) {
-            if (!input.files) return;
-            for (const file of input.files) {
-                try {
-                    const dataUri = await compressImage(file);
-                    addReqImage(dataUri, file.name);
-                } catch (e) { showToast(e.message, 'error'); }
-            }
-            input.value = '';
+        // ── Requerimientos image ─────────────────────────────────────────
+        async function handleReqImage(input) {
+            if (!input.files || !input.files[0]) return;
+            try {
+                const dataUri = await compressImage(input.files[0]);
+                setReqImage(dataUri, input.files[0].name);
+            } catch (e) { showToast(e.message, 'error'); }
         }
-        function addReqImage(dataUri, name) {
-            _reqImages.push({ dataUri, name: name || 'Imagen ' + (_reqImages.length + 1) });
-            renderReqGallery();
+        function setReqImage(dataUri, name) {
+            document.getElementById('reqImageData').value = dataUri;
+            document.getElementById('reqImageImg').src    = dataUri;
+            document.getElementById('reqImageName').textContent = name || 'Imagen pegada';
+            document.getElementById('reqImagePreview').style.display = '';
+            document.getElementById('reqImageClear').style.display  = '';
         }
-        function removeReqImage(idx) {
-            _reqImages.splice(idx, 1);
-            renderReqGallery();
-        }
-        function renderReqGallery() {
-            const gallery = document.getElementById('reqImagesGallery');
-            const countEl = document.getElementById('reqImageCount');
-            if (!gallery) return;
-            if (countEl) countEl.textContent = _reqImages.length ? _reqImages.length + ' imagen(es)' : '';
-            gallery.innerHTML = _reqImages.map((img, idx) =>
-                '<div style="position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:120px;">'
-                + '<img src="' + img.dataUri + '" style="width:100%;height:80px;object-fit:cover;display:block;cursor:pointer;" onclick="window.open(this.src)">'
-                + '<div style="padding:4px 6px;font-size:.68rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (img.name||'Imagen') + '</div>'
-                + '<button onclick="removeReqImage(' + idx + ')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>'
-                + '</div>'
-            ).join('');
-        }
-        function getReqImagesData() {
-            return _reqImages.map(i => i.dataUri);
-        }
-        function clearReqImages() {
-            _reqImages = [];
-            renderReqGallery();
+        function clearReqImage() {
+            document.getElementById('reqImageData').value  = '';
+            document.getElementById('reqImageImg').src     = '';
+            document.getElementById('reqImageName').textContent = '';
+            document.getElementById('reqImageFile').value  = '';
+            document.getElementById('reqImagePreview').style.display = 'none';
+            document.getElementById('reqImageClear').style.display  = 'none';
         }
         function handleReqDrop(e) {
             e.preventDefault();
             e.currentTarget.classList.remove('dragover');
-            for (const file of e.dataTransfer.files) {
-                if (file.type.startsWith('image/')) {
-                    compressImage(file).then(uri => addReqImage(uri, file.name)).catch(err => showToast(err.message, 'error'));
-                }
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                compressImage(file).then(uri => setReqImage(uri, file.name)).catch(err => showToast(err.message, 'error'));
             }
         }
         // Paste support for req image drop zone
@@ -1262,12 +1353,13 @@
                         if (item.type.startsWith('image/')) {
                             e.preventDefault();
                             const file = item.getAsFile();
-                            try { const uri = await compressImage(file); addReqImage(uri, 'Imagen pegada'); }
+                            try { const uri = await compressImage(file); setReqImage(uri, 'Imagen pegada'); }
                             catch (err) { showToast(err.message, 'error'); }
                             return;
                         }
                     }
                 });
+                dropZone.setAttribute('tabindex', '0');
             }
         });
 
@@ -1344,6 +1436,8 @@
             return blocks;
         }
 
+        // ── Legacy functions kept for backward compat ────────────────────
+        function addUatBlock() { /* no-op: replaced by rich editor */ }
 
         function formatUatRfcNumber(value) {
             const raw = (value || '').trim();
@@ -1359,8 +1453,7 @@
                 saludo:         document.getElementById('uatSaludo').value,
                 adjunto:        document.getElementById('uatAdjunto').value,
                 requerimientos: document.getElementById('uatRequerimientos').value,
-                requerimientosImagen: '',
-                requerimientosImagenes: getReqImagesData(),
+                requerimientosImagen: document.getElementById('reqImageData').value || '',
                 blocks,
                 nota:           document.getElementById('uatNota').value,
                 cierre:         document.getElementById('uatCierre').value
@@ -1420,7 +1513,7 @@
             showToast('\u2714 Correo VoBo UAT copiado al portapapeles', 'success');
         }
         function clearUatForm() {
-            ['uatRfcNumber','uatRfcName','uatAdjunto','uatRequerimientos','uatNota'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); clearReqImages();
+            ['uatRfcNumber','uatRfcName','uatAdjunto','uatRequerimientos','uatNota'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); clearReqImage();
             document.getElementById('uatSaludo').value = 'Buenas tardes.';
             document.getElementById('uatCierre').value = 'Quedo pendiente por cualquier duda o comentario.';
             const editor = document.getElementById('uatRichEditor');
@@ -1778,13 +1871,6 @@
         }
         .btn-remove-rdl:hover { background: #fee2e2; }
 
-        /* ── Telegram Preview ────────────────────────────────────────── */
-        .telegram-preview {
-            margin: 0; background: #0f172a; color: #e2e8f0; padding: 24px;
-            white-space: pre-wrap; font-family: 'Cascadia Code', Consolas, monospace;
-            font-size: 13.5px; line-height: 1.55; border-radius: 0 0 10px 10px;
-        }
-
         /* ── Form Actions ───────────────────────────────────────────── */
         .form-actions {
             margin-top: 12px;
@@ -1993,6 +2079,11 @@
         }
 
         /* ── Form action row ─────────────────────────────────────────── */
+        .form-actions {
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+            margin-top: 8px;
+        }
         /* ── VoBo UAT ────────────────────────────────────────────────── */
         .btn-md {
             background: var(--primary-dark); color: white; border: none;
@@ -2302,6 +2393,34 @@
             transition: box-shadow .15s, transform .12s;
         }
         .kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); transform: translateY(-2px); }
+        .kpi-card:active { transform: translateY(0) scale(.98); }
+
+        /* KPI Drawer */
+        .kpi-drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 9998; opacity: 0; pointer-events: none; transition: opacity .2s; }
+        .kpi-drawer-overlay.open { opacity: 1; pointer-events: all; }
+        .kpi-drawer {
+            position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 90vw;
+            background: white; z-index: 9999; box-shadow: -8px 0 32px rgba(0,0,0,.12);
+            display: flex; flex-direction: column;
+            transform: translateX(100%); transition: transform .25s cubic-bezier(.4,0,.2,1);
+        }
+        .kpi-drawer.open { transform: translateX(0); }
+        .kpi-drawer-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .kpi-drawer-header h3 { margin: 0; font-size: 1rem; font-weight: 700; }
+        .kpi-drawer-close { border: none; background: transparent; font-size: 1.1rem; cursor: pointer; color: var(--text-muted); padding: 4px 8px; border-radius: 6px; }
+        .kpi-drawer-close:hover { background: var(--bg-section); }
+        .kpi-drawer-body { flex: 1; overflow-y: auto; padding: 16px 24px; }
+        .kpi-drawer-footer { padding: 14px 24px; border-top: 1px solid var(--border); }
+        .kpi-drawer-item { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; cursor: pointer; transition: all .12s; }
+        .kpi-drawer-item:hover { border-color: var(--primary); box-shadow: 0 2px 8px rgba(37,99,235,.08); }
+        .kpi-drawer-item-title { font-size: .84rem; font-weight: 600; color: var(--text); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .kpi-drawer-item-meta { font-size: .72rem; color: var(--text-muted); }
+        [data-theme="dark"] .kpi-drawer { background: #1e293b; }
+        [data-theme="dark"] .kpi-drawer-header { border-color: #334155; }
+        [data-theme="dark"] .kpi-drawer-footer { border-color: #334155; }
+        [data-theme="dark"] .kpi-drawer-item { border-color: #334155; }
+        [data-theme="dark"] .kpi-drawer-item:hover { border-color: #3b82f6; }
+        [data-theme="dark"] .kpi-drawer-item-title { color: #f1f5f9; }
         .kpi-icon { font-size: 1.4rem; margin-bottom: 6px; }
         .kpi-value {
             font-size: 1.6rem; font-weight: 800; letter-spacing: -.03em;
@@ -3089,20 +3208,10 @@
         [data-theme="dark"] .section-label { color: #f1f5f9; border-color: #334155; }
 
         /* ── UAT editor (dark mode) ───────────────────────── */
-        [data-theme="dark"] .uat-rich-editor { background: #0f172a !important; color: #e2e8f0 !important; border-color: #334155 !important; }
-        [data-theme="dark"] .uat-rich-editor:focus { border-color: var(--primary) !important; }
-        [data-theme="dark"] .uat-rich-editor::selection { background: rgba(59,130,246,.3); }
-        [data-theme="dark"] .uat-rich-editor ul, [data-theme="dark"] .uat-rich-editor ol { color: #e2e8f0; }
-        [data-theme="dark"] .uat-rich-editor a { color: #60a5fa; }
-        [data-theme="dark"] .uat-rich-editor blockquote { border-color: #475569; color: #94a3b8; }
-        [data-theme="dark"] .uat-rich-editor table td, [data-theme="dark"] .uat-rich-editor table th { border-color: #334155; color: #e2e8f0; }
-        [data-theme="dark"] .uat-rich-editor table th { background: #1e293b; }
+        [data-theme="dark"] .uat-rich-editor { background: #0f172a !important; color: #e2e8f0 !important; }
         [data-theme="dark"] .re-toolbar { background: #1e293b !important; border-color: #334155 !important; }
         [data-theme="dark"] .re-btn { color: #e2e8f0 !important; }
         [data-theme="dark"] .re-btn:hover { background: #334155 !important; }
-        [data-theme="dark"] .re-select { background: #0f172a; color: #e2e8f0; border-color: #334155; }
-        [data-theme="dark"] .uat-editor-hints { color: #64748b; }
-        [data-theme="dark"] .uat-editor-hints b { color: #94a3b8; }
 
         /* ── Form controls ───────────────────────────────────── */
         [data-theme="dark"] .form-control,
@@ -3207,6 +3316,10 @@
         [data-theme="dark"] #uatEmailPreview *:not(a),
         [data-theme="dark"] .email-preview-body *:not(a) {
             color: inherit !important;
+        }
+        [data-theme="dark"] #rdlEmailPreview .rdl-hdr {
+            background: #1e3a5f !important;
+            border-left-color: #3b82f6 !important;
         }
         [data-theme="dark"] #emailPreview a,
         [data-theme="dark"] #rdlEmailPreview a,
@@ -3377,32 +3490,32 @@
                 <!-- KPI Cards -->
                 <div class="dash-section-title">Indicadores</div>
                 <div class="kpi-grid" id="kpiGrid">
-                    <div class="kpi-card kpi-blue">
+                    <div class="kpi-card kpi-blue" onclick="openKpiDrawer('RFC','RFCs Creados')" style="cursor:pointer;">
                         <div class="kpi-icon">&#x1F4CB;</div>
                         <div class="kpi-value" id="kpiRfc">—</div>
                         <div class="kpi-label">RFCs Creados</div>
                     </div>
-                    <div class="kpi-card kpi-green">
+                    <div class="kpi-card kpi-green" onclick="openKpiDrawer('UAT','VoBos Generados')" style="cursor:pointer;">
                         <div class="kpi-icon">&#x2705;</div>
                         <div class="kpi-value" id="kpiUat">—</div>
                         <div class="kpi-label">VoBos Generados</div>
                     </div>
-                    <div class="kpi-card kpi-indigo">
+                    <div class="kpi-card kpi-indigo" onclick="openKpiDrawer('RELEASE','Correos de Liberaci&#xF3;n')" style="cursor:pointer;">
                         <div class="kpi-icon">&#x1F4E7;</div>
                         <div class="kpi-value" id="kpiRelease">—</div>
                         <div class="kpi-label">Correos de Liberaci&#xF3;n</div>
                     </div>
-                    <div class="kpi-card kpi-amber">
+                    <div class="kpi-card kpi-amber" onclick="openKpiDrawer('RDL','Reportes RDL')" style="cursor:pointer;">
                         <div class="kpi-icon">&#x1F4CA;</div>
                         <div class="kpi-value" id="kpiRdl">—</div>
                         <div class="kpi-label">Reportes RDL</div>
                     </div>
-                    <div class="kpi-card kpi-purple">
+                    <div class="kpi-card kpi-purple" onclick="openKpiDrawer('TELEGRAM,RDL_TELEGRAM','Mensajes Telegram')" style="cursor:pointer;">
                         <div class="kpi-icon">&#x2708;&#xFE0F;</div>
                         <div class="kpi-value" id="kpiTelegram">—</div>
                         <div class="kpi-label">Mensajes Telegram</div>
                     </div>
-                    <div class="kpi-card kpi-slate">
+                    <div class="kpi-card kpi-slate" onclick="openKpiDrawer('EXPORTS','Exportaciones')" style="cursor:pointer;">
                         <div class="kpi-icon">&#x1F4C4;</div>
                         <div class="kpi-value" id="kpiExports">—</div>
                         <div class="kpi-label">Exportaciones</div>
@@ -3478,6 +3591,21 @@
 
             </div>
         </div>
+    <!-- KPI Drawer -->
+    <div id="kpiDrawerOverlay" class="kpi-drawer-overlay" onclick="closeKpiDrawer()"></div>
+    <div id="kpiDrawer" class="kpi-drawer">
+        <div class="kpi-drawer-header">
+            <h3 id="kpiDrawerTitle">Documentos</h3>
+            <button onclick="closeKpiDrawer()" class="kpi-drawer-close">&#x2715;</button>
+        </div>
+        <div id="kpiDrawerBody" class="kpi-drawer-body">
+            <div style="text-align:center;padding:40px;color:var(--text-muted);">Cargando...</div>
+        </div>
+        <div class="kpi-drawer-footer">
+            <button id="kpiDrawerViewAll" class="btn-generate" style="width:100%;font-size:.82rem;">Ver todos en Historial</button>
+        </div>
+    </div>
+
     </div><!-- /pane-dashboard -->
 
     <!-- ════════════════ PANE: ARTEFACTOS DE LIBERACIÓN ═══════ -->
@@ -3731,7 +3859,7 @@ No publicar en Citrix hasta confirmación de QA.</div>
     </form>
 
     <!-- PREVIEW MÓDULOS / ARTEFACTOS -->
-    <div id="emailSection" class="mt-4" th:if="${generatedEmail}">
+    <div id="emailSection" class="mt-5" th:if="${generatedEmail}">
         <div class="section-label" style="margin-top:0;">&#x1F4E7; Vista previa del correo</div>
         <div class="email-wrapper">
             <div class="email-toolbar">
@@ -3783,7 +3911,7 @@ No publicar en Citrix hasta confirmación de QA.</div>
                     </select>
                 </div>
                 <div class="col-md-8 d-flex align-items-end">
-                    <button type="button" class="btn-generate" style="font-size:.82rem;padding:8px 18px;" onclick="importReleaseDataToMessage()">&#x1F4E5; Importar datos</button>
+                    <button type="button" class="btn-generate" style="background:var(--primary-dark);font-size:.82rem;padding:8px 16px;" onclick="importReleaseDataToMessage()">&#x1F4E5; Importar datos desde Correo de Liberación</button>
                 </div>
             </div>
         </div>
@@ -3908,7 +4036,7 @@ Problema 33520 → Error en cálculo de tarifas</div>
                 </div>
                 <button class="btn-copy" type="button" onclick="copyTelegramMessage()">&#x1F4CB; Copiar</button>
             </div>
-            <pre id="telegramMessageText" class="telegram-preview"></pre>
+            <pre id="telegramMessageText" style="margin:0; background:#0f172a; color:#e2e8f0; padding:24px; white-space:pre-wrap; font-family:'Cascadia Code', Consolas, monospace; font-size:13.5px; line-height:1.55; border-radius:0 0 10px 10px;"></pre>
         </div>
     </div>
 
@@ -4014,7 +4142,7 @@ Problema 33520 → Error en cálculo de tarifas</div>
     </form>
 
     <!-- PREVIEW RDL -->
-    <div id="rdlEmailSection" class="mt-4" style="display:none;">
+    <div id="rdlEmailSection" class="mt-5" style="display:none;">
         <div class="section-label" style="margin-top:0;">&#x1F4E7; Vista previa &mdash; Reporte RDL</div>
         <div class="email-wrapper">
             <div class="email-toolbar">
@@ -4064,7 +4192,7 @@ Problema 33520 → Error en cálculo de tarifas</div>
                            placeholder="Ej: Deployment de RDLs y Stored Procedures">
                 </div>
                 <div class="col-md-4 d-flex align-items-end">
-                    <button type="button" class="btn-generate" style="font-size:.82rem;padding:8px 18px;" onclick="importRdlDataToTelegram()">&#x1F4E5; Importar datos</button>
+                    <button type="button" class="btn-generate" style="background:var(--primary-dark);font-size:.82rem;padding:8px 16px;" onclick="importRdlDataToTelegram()">&#x1F4E5; Importar desde Correo RDL</button>
                 </div>
             </div>
         </div>
@@ -4099,6 +4227,21 @@ dbo.sp_reporte_facturacion.sql</div>
                 <button type="button" class="btn-add-uat" onclick="addRdlTgSpRow()">&#x2b; Agregar SP</button>
             </div>
             <div id="rdlTgSpsContainer"></div>
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <label class="form-label">Ticket VoBo SP</label>
+                    <input type="text" class="form-control form-control-sm" id="rdlTgSpTicket" placeholder="Ej: 11905395">
+                </div>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">&#x2699;&#xFE0F; Scripts a ejecutar</div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label mb-0">Nombre de cada script</label>
+                <button type="button" class="btn-add-uat" onclick="addRdlTgScriptRow()">&#x2b; Agregar script</button>
+            </div>
+            <div id="rdlTgScriptsContainer"></div>
         </div>
 
         <div class="section-block">
@@ -4118,21 +4261,37 @@ dbo.sp_reporte_facturacion.sql</div>
                     <select class="form-select" id="rdlTgTime">
                         <option value="">Hora</option>
                         <option value="7:00 am">7:00 am</option>
+                        <option value="7:30 am">7:30 am</option>
                         <option value="8:00 am">8:00 am</option>
+                        <option value="8:30 am" selected>8:30 am</option>
                         <option value="9:00 am">9:00 am</option>
+                        <option value="9:30 am">9:30 am</option>
                         <option value="10:00 am">10:00 am</option>
+                        <option value="10:30 am">10:30 am</option>
                         <option value="11:00 am">11:00 am</option>
+                        <option value="11:30 am">11:30 am</option>
                         <option value="12:00 pm">12:00 pm</option>
+                        <option value="12:30 pm">12:30 pm</option>
                         <option value="1:00 pm">1:00 pm</option>
+                        <option value="1:30 pm">1:30 pm</option>
                         <option value="2:00 pm">2:00 pm</option>
+                        <option value="2:30 pm">2:30 pm</option>
                         <option value="3:00 pm">3:00 pm</option>
+                        <option value="3:30 pm">3:30 pm</option>
                         <option value="4:00 pm">4:00 pm</option>
+                        <option value="4:30 pm">4:30 pm</option>
                         <option value="5:00 pm">5:00 pm</option>
+                        <option value="5:30 pm">5:30 pm</option>
                         <option value="6:00 pm">6:00 pm</option>
+                        <option value="6:30 pm">6:30 pm</option>
                         <option value="7:00 pm">7:00 pm</option>
+                        <option value="7:30 pm">7:30 pm</option>
                         <option value="8:00 pm">8:00 pm</option>
+                        <option value="8:30 pm">8:30 pm</option>
                         <option value="9:00 pm">9:00 pm</option>
+                        <option value="9:30 pm">9:30 pm</option>
                         <option value="10:00 pm">10:00 pm</option>
+                        <option value="10:30 pm">10:30 pm</option>
                         <option value="11:00 pm">11:00 pm</option>
                     </select>
                 </div>
@@ -4154,11 +4313,16 @@ dbo.sp_reporte_facturacion.sql</div>
             <div id="rdlTgProjectsContainer"></div>
         </div>
 
+        <div class="section-block">
+            <div class="section-label">&#x1F517; Release</div>
+            <input type="text" class="form-control form-control-sm" id="rdlTgReleaseUrl" placeholder="https://megacablesfyc.atlassian.net/projects/SFYCL/versions/...">
+        </div>
+
         <div class="form-actions d-flex gap-2 justify-content-end">
             <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
             <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearRdlTelegramForm()">&#x2715; Limpiar</button>
-            <button type="button" id="btnGenerateRdlTelegram" class="btn-generate" onclick="generateRdlTelegramMessage()">Generar Telegram RDL &rarr;</button>
+            <button type="button" id="btnGenerateRdlTelegram" class="btn-generate" style="background:var(--primary-dark);" onclick="generateRdlTelegramMessage()">Generar Telegram RDL &rarr;</button>
         </div>
     </form>
 
@@ -4174,7 +4338,7 @@ dbo.sp_reporte_facturacion.sql</div>
                 </div>
                 <button class="btn-copy" type="button" onclick="copyRdlTelegramMessage()">&#x1F4CB; Copiar</button>
             </div>
-            <pre id="rdlTelegramMessageText" class="telegram-preview"></pre>
+            <pre id="rdlTelegramMessageText" style="margin:0; background:#0f172a; color:#e2e8f0; padding:24px; white-space:pre-wrap; font-family:'Cascadia Code', Consolas, monospace; font-size:13.5px; line-height:1.55; border-radius:0 0 10px 10px;"></pre>
         </div>
     </div>
 
@@ -4223,13 +4387,17 @@ dbo.sp_reporte_facturacion.sql</div>
             <div class="d-flex align-items-center gap-2 mt-3">
                 <label class="tb-btn tb-btn-ghost" style="cursor:pointer;font-size:.78rem;">
                     &#x1F4F7; Agregar imagen
-                    <input type="file" id="reqImageFile" accept="image/png,image/jpeg,image/gif" multiple style="display:none;" onchange="handleReqImages(this)">
+                    <input type="file" id="reqImageFile" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="handleReqImage(this)">
                 </label>
-                <span id="reqImageCount" class="text-muted" style="font-size:.78rem;"></span>
+                <input type="hidden" id="reqImageData" value="">
+                <span id="reqImageName" class="text-muted" style="font-size:.8rem;"></span>
+                <button type="button" id="reqImageClear" onclick="clearReqImage()" class="tb-btn tb-btn-ghost" style="display:none;font-size:.75rem;color:var(--danger);">&#x2715; Quitar</button>
             </div>
-            <div id="reqImagesGallery" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;"></div>
-            <div id="reqImageDropZone" class="uat-drop-zone" tabindex="0" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleReqDrop(event)">
-                &#x1F5BC;&#xFE0F; Pega (Ctrl+V) o arrastra im&#xE1;genes aqu&#xED;
+            <div id="reqImagePreview" style="display:none;margin-top:8px;">
+                <img id="reqImageImg" style="max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:6px;display:block;">
+            </div>
+            <div id="reqImageDropZone" class="uat-drop-zone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleReqDrop(event)">
+                &#x1F5BC;&#xFE0F; Pega (Ctrl+V) o arrastra una imagen aqu&#xED;
             </div>
         </div>
 
@@ -4268,7 +4436,7 @@ dbo.sp_reporte_facturacion.sql</div>
                 <button type="button" class="re-btn" onclick="reCmd('removeFormat')" title="Quitar formato">&#x2718;</button>
                 <label class="re-btn re-btn-img" title="Insertar imagen">
                     &#x1F4CE;
-                    <input type="file" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
+                    <input type="file" id="uatEditorFileInput" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
                 </label>
             </div>
             <div id="uatRichEditor" contenteditable="true" class="uat-rich-editor"
@@ -4302,7 +4470,7 @@ dbo.sp_reporte_facturacion.sql</div>
             <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
             <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearUatForm()">&#x2715; Limpiar</button>
-            <button type="button" class="btn-generate" onclick="generateUatEmail()">Generar Correo VoBo UAT &rarr;</button>
+            <button type="button" class="btn-generate" onclick="generateUatEmail()">&#x1F4E8; Generar Correo VoBo UAT</button>
         </div>
 
         <!-- PREVIEW -->
@@ -4551,19 +4719,19 @@ dbo.sp_reporte_facturacion.sql</div>
                     </div>
                 </div>
             </div>
-            <!-- Script de Alta (para RDLs nuevos) -->
+            <!-- Scripts (múltiples) -->
             <div class="col-12">
                 <div class="artifact-row" style="flex-direction:column; align-items:stretch; margin-bottom:0;">
                     <div class="artifact-check" style="padding-top:0;">
                         <input type="checkbox" name="rdls[0].hasRdlScript" value="true" onchange="toggleEntryRdlScript(this)">
-                        <label>&nbsp;Incluir Script de Alta (RDL nuevo)</label>
+                        <label>&nbsp;Incluir Scripts</label>
                     </div>
                     <div class="rdl-script-group" style="display:none; margin-top:12px;">
                         <div class="row g-3">
                             <div class="col-md-7">
-                                <label class="form-label">Nombre del script</label>
-                                <input type="text" class="form-control form-control-sm font-monospace" name="rdls[0].rdlScriptName"
-                                       placeholder="Ej: Alta_rdl_bitacora_movimientos_cuadrillas_tecnicos.sql">
+                                <label class="form-label">Scripts <span class="text-muted fw-normal" style="font-size:.72rem;">(uno por l&#xED;nea)</span></label>
+                                <textarea class="form-control form-control-sm font-monospace" name="rdls[0].rdlScriptName" rows="3"
+                                       placeholder="Alta_rdl_bitacora_movimientos.sql&#10;Update_permisos_reportes.sql&#10;Insert_configuracion_nueva.sql"></textarea>
                             </div>
                             <div class="col-md-5">
                                 <label class="form-label">Ubicaci&#xF3;n</label>

@@ -21,8 +21,8 @@ public class RdlItem {
 
     // Script de Alta (opcional, para RDLs nuevos)
     private boolean hasRdlScript;
-    private String rdlScriptName;    // Ej: Alta_rdl_bitacora_movimientos_cuadrillas_tecnicos.sql
-    private String rdlScriptPath;    // Ej: \\ntdesarrollo.evolution.corp\sprints$\RFC'S Semana 13 2026\Scripts
+    private String rdlScriptName;    // Múltiples scripts separados por \n
+    private String rdlScriptPath;    // Ubicación compartida de los scripts
 
     // Proyecto (por RDL)
     private String rdlProject;       // Ej: RFC 23533 | "CAR_CuentasMaestras" cambio RDL y SP
