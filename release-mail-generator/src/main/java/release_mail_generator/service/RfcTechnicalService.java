@@ -78,6 +78,11 @@ public class RfcTechnicalService {
         return repository.findAllByOrderByCreatedAtDesc();
     }
 
+    /** Listado ligero para la vista de lista: no carga evidencias base64. */
+    public List<RfcTechnicalRepository.RfcSummary> findAllSummaries() {
+        return repository.findAllSummaries();
+    }
+
     public List<RfcTechnicalRecord> search(String query) {
         return repository.search(query);
     }
@@ -93,12 +98,15 @@ public class RfcTechnicalService {
         if (record.getStatus() == null || record.getStatus().isBlank()) {
             record.setStatus("Borrador");
         }
-        // Auto-update status based on final result
+        // Auto-update status based on final result ONLY if status is still "Borrador" or "En validación"
         if (notBlank(record.getFinalResult())) {
-            if ("Cumple".equalsIgnoreCase(record.getFinalResult())) {
-                record.setStatus("Aprobado");
-            } else if ("No cumple".equalsIgnoreCase(record.getFinalResult())) {
-                record.setStatus("Rechazado");
+            String currentStatus = record.getStatus();
+            if ("Borrador".equals(currentStatus) || "En validaci\u00f3n".equals(currentStatus)) {
+                if ("Cumple".equalsIgnoreCase(record.getFinalResult())) {
+                    record.setStatus("Aprobado");
+                } else if ("No cumple".equalsIgnoreCase(record.getFinalResult())) {
+                    record.setStatus("Rechazado");
+                }
             }
         }
         // Validate unique RFC number

@@ -8,15 +8,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;
 
+import com.lowagie.text.Chunk;
 import com.lowagie.text.Document;
 import com.lowagie.text.Element;
 import com.lowagie.text.Font;
+import com.lowagie.text.Image;
 import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.Phrase;
+import com.lowagie.text.Rectangle;
 import com.lowagie.text.pdf.ColumnText;
 import com.lowagie.text.pdf.PdfContentByte;
 import com.lowagie.text.pdf.PdfPageEventHelper;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import com.lowagie.text.pdf.draw.LineSeparator;
 
@@ -42,6 +47,7 @@ public class EmailGeneratorService {
 
     /** Base64 de la imagen MegaCarteraDRP; se carga una sola vez al inicio. */
     private String megaCarteraDrpImg;
+    private byte[] logoBytes;
 
     @PostConstruct
     private void init() {
@@ -52,6 +58,12 @@ public class EmailGeneratorService {
         } catch (IOException e) {
             log.warn("No se pudo cargar imagen MegaCarteraDRP: {}", e.getMessage());
             megaCarteraDrpImg = "";
+        }
+        try (var is = getClass().getResourceAsStream("/static/images/logo-empresa.png")) {
+            logoBytes = (is != null) ? is.readAllBytes() : null;
+        } catch (IOException e) {
+            log.warn("No se pudo cargar logo-empresa.png: {}", e.getMessage());
+            logoBytes = null;
         }
     }
 
@@ -896,74 +908,306 @@ public class EmailGeneratorService {
     // EXPORT: RDL EMAIL → PDF / MARKDOWN
     // ══════════════════════════════════════════════════════════════════════════
 
+    private static final Color C_TEXT    = new Color(30, 41, 59);
+    private static final Color C_MUTED   = new Color(100, 116, 139);
+    private static final Color C_ACCENT  = new Color(37, 99, 235);
+    private static final Color C_LINE    = new Color(203, 213, 225);
+
     public byte[] generateRdlPdf(RdlReleaseRequest r) throws Exception {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        Document doc = new Document(PageSize.A4, 50, 50, 60, 50);
+        Document doc = new Document(PageSize.A4, 54, 54, 50, 54);
         PdfWriter writer = PdfWriter.getInstance(doc, bos);
-        final String headerLabel = "Reporte RDL — " + clean(r.getRdlReleaseDate());
+
         writer.setPageEvent(new PdfPageEventHelper() {
             @Override public void onEndPage(PdfWriter w, Document d) {
+                if (w.getPageNumber() == 1) return; // Skip footer on cover
                 try {
                     PdfContentByte cb = w.getDirectContent();
-                    Font f = new Font(Font.HELVETICA, 8, Font.NORMAL, PDF_MUTED);
-                    cb.setLineWidth(0.5f); cb.setColorStroke(PDF_BORDER);
-                    cb.moveTo(d.left(), d.bottom()-4); cb.lineTo(d.right(), d.bottom()-4); cb.stroke();
-                    ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT, new Phrase("Página "+w.getPageNumber(), f), d.right(), d.bottom()-16, 0);
-                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,  new Phrase(headerLabel, f), d.left(), d.bottom()-16, 0);
+                    Font f = new Font(Font.HELVETICA, 7, Font.NORMAL, C_MUTED);
+                    cb.setLineWidth(0.3f); cb.setColorStroke(C_LINE);
+                    cb.moveTo(d.left(), d.bottom() - 10);
+                    cb.lineTo(d.right(), d.bottom() - 10);
+                    cb.stroke();
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,
+                        new Phrase("Release Notifier QA", f), d.left(), d.bottom() - 22, 0);
+                    ColumnText.showTextAligned(cb, Element.ALIGN_RIGHT,
+                        new Phrase("P\u00e1gina " + (w.getPageNumber() - 1), f), d.right(), d.bottom() - 22, 0);
                 } catch (Exception ignored) {}
             }
         });
         doc.open();
 
-        Font titleF = new Font(Font.HELVETICA, 18, Font.BOLD,   PDF_TEXT);
-        Font secF   = new Font(Font.HELVETICA, 12, Font.BOLD,   PDF_PRIMARY);
-        Font bodyF  = new Font(Font.HELVETICA, 10, Font.NORMAL, PDF_TEXT);
-        Font boldF  = new Font(Font.HELVETICA, 10, Font.BOLD,   PDF_TEXT);
-        Font monoF  = new Font(Font.COURIER,   9,  Font.NORMAL, PDF_TEXT);
+        // Fonts — sized for comfortable reading without zoom
+        Font fDocTitle = new Font(Font.HELVETICA, 16, Font.BOLD, C_TEXT);
+        Font fRdlTitle = new Font(Font.HELVETICA, 14, Font.BOLD, C_ACCENT);
+        Font fSecTitle = new Font(Font.HELVETICA, 10, Font.BOLD, C_ACCENT);
+        Font fLabel    = new Font(Font.HELVETICA, 9.5f, Font.BOLD, C_TEXT);
+        Font fBody     = new Font(Font.HELVETICA, 9.5f, Font.NORMAL, C_TEXT);
+        Font fMono     = new Font(Font.COURIER, 9, Font.NORMAL, C_TEXT);
+        Font fSmall    = new Font(Font.HELVETICA, 7.5f, Font.NORMAL, C_MUTED);
 
-        Paragraph title = new Paragraph("Reporte RDL — Liberación", titleF);
-        title.setAlignment(Element.ALIGN_CENTER); title.setSpacingAfter(12); doc.add(title);
-        doc.add(new LineSeparator(1.5f, 100, PDF_PRIMARY, Element.ALIGN_CENTER, -4));
-
+        // ── Filter valid entries ─────────────────────────────────────────────
         String date = clean(r.getRdlReleaseDate());
-        if (!date.isEmpty()) pdfLine(doc, boldF, bodyF, "Fecha de liberación:", date);
-        String url = clean(r.getRdlReleaseUrl());
-        if (!url.isEmpty()) pdfLine(doc, boldF, bodyF, "Release Jira:", url);
+        String releaseUrl = clean(r.getRdlReleaseUrl());
+        List<RdlItem> rdls = r.getRdls() != null ? r.getRdls().stream()
+            .filter(it -> it != null && ((it.getRdlReportName() != null && !it.getRdlReportName().isBlank())
+                || (it.getRdlUrlMegang() != null && !it.getRdlUrlMegang().isBlank())))
+            .collect(Collectors.toList()) : List.of();
 
-        List<RdlItem> rdls = r.getRdls() != null ? r.getRdls() : List.of();
-        for (int i = 0; i < rdls.size(); i++) {
-            RdlItem item = rdls.get(i);
-            pdfSection(doc, secF, "RDL #" + (i+1) + ": " + clean(item.getRdlReportName()));
-            if (item.getRdlReportFolder() != null && !item.getRdlReportFolder().isBlank())
-                pdfLine(doc, boldF, monoF, "Carpeta SSRS:", clean(item.getRdlReportFolder()));
-            if (item.getRdlUrlMegang() != null && !item.getRdlUrlMegang().isBlank())
-                pdfLine(doc, boldF, monoF, "MEGANG-612:", clean(item.getRdlUrlMegang()));
-            if (item.getRdlUrlNtrs02() != null && !item.getRdlUrlNtrs02().isBlank())
-                pdfLine(doc, boldF, monoF, "NTRS02:", clean(item.getRdlUrlNtrs02()));
-            if (item.getRdlPathMegang() != null && !item.getRdlPathMegang().isBlank())
-                pdfLine(doc, boldF, monoF, "Sprint MEGANG:", clean(item.getRdlPathMegang()));
-            if (item.getRdlPathNtrs02() != null && !item.getRdlPathNtrs02().isBlank())
-                pdfLine(doc, boldF, monoF, "Sprint NTRS02:", clean(item.getRdlPathNtrs02()));
-            if (item.isHasRdlSp()) {
-                linesFromText(item.getRdlSpName()).forEach(sp -> {
-                    try { addPara(doc, "  SP: " + sp, monoF, 2); } catch (Exception e) {}
-                });
-                linesFromText(item.getRdlSpTicket()).forEach(t -> {
-                    try { addPara(doc, "  Ticket: " + t, bodyF, 2); } catch (Exception e) {}
-                });
+        List<String> allProjects = new ArrayList<>();
+        for (RdlItem it : rdls) { String p = clean(it.getRdlProject()); if (!p.isEmpty()) allProjects.add(p); }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // COVER PAGE
+        // ══════════════════════════════════════════════════════════════════════
+
+        // Navy top band
+        PdfPTable topBand = new PdfPTable(1);
+        topBand.setWidthPercentage(110);
+        PdfPCell bandCell = new PdfPCell();
+        bandCell.setBackgroundColor(new Color(15, 23, 42));
+        bandCell.setFixedHeight(5);
+        bandCell.setBorder(Rectangle.NO_BORDER);
+        topBand.addCell(bandCell);
+        doc.add(topBand);
+        doc.add(new Paragraph(" "));
+
+        // Logo + branding
+        if (logoBytes != null) {
+            try {
+                Image logo = Image.getInstance(logoBytes);
+                float maxH = 44;
+                float scale = maxH / logo.getHeight();
+                logo.scaleAbsolute(logo.getWidth() * scale, maxH);
+                logo.setAlignment(Element.ALIGN_LEFT);
+
+                PdfPTable logoRow = new PdfPTable(new float[]{0.2f, 0.8f});
+                logoRow.setWidthPercentage(100);
+                logoRow.setSpacingAfter(20);
+
+                PdfPCell logoCell = new PdfPCell(logo, false);
+                logoCell.setBorder(Rectangle.NO_BORDER);
+                logoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                logoCell.setPaddingTop(6);
+                logoRow.addCell(logoCell);
+
+                Font brandFont = new Font(Font.HELVETICA, 8.5f, Font.BOLD, C_ACCENT);
+                Phrase brandPhrase = new Phrase("RELEASE NOTIFIER QA\nEquipo QA & Liberaciones", brandFont);
+                PdfPCell brandCell = new PdfPCell(brandPhrase);
+                brandCell.setBorder(Rectangle.NO_BORDER);
+                brandCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                brandCell.setPaddingLeft(8);
+                logoRow.addCell(brandCell);
+
+                doc.add(logoRow);
+            } catch (Exception e) {
+                Font brandFont = new Font(Font.HELVETICA, 8.5f, Font.BOLD, C_ACCENT);
+                Paragraph brand = new Paragraph("RELEASE NOTIFIER QA  \u00b7  MEGACABLE", brandFont);
+                brand.setSpacingAfter(30);
+                doc.add(brand);
             }
-            if (item.isHasRdlScript() && item.getRdlScriptName() != null && !item.getRdlScriptName().isBlank()) {
-                String[] scripts = item.getRdlScriptName().trim().split("\\r?\\n");
-                pdfLine(doc, boldF, monoF, "Scripts:", String.join(", ", scripts).trim());
-                if (item.getRdlScriptPath() != null && !item.getRdlScriptPath().isBlank())
-                    pdfLine(doc, boldF, monoF, "Ubicación:", clean(item.getRdlScriptPath()));
-            }
-            if (item.getRdlProject() != null && !item.getRdlProject().isBlank())
-                pdfLine(doc, boldF, bodyF, "Proyecto:", clean(item.getRdlProject()));
+        } else {
+            Font brandFont = new Font(Font.HELVETICA, 8.5f, Font.BOLD, C_ACCENT);
+            Paragraph brand = new Paragraph("RELEASE NOTIFIER QA  \u00b7  MEGACABLE", brandFont);
+            brand.setSpacingAfter(30);
+            doc.add(brand);
         }
+
+        // Document type title
+        Font coverTitleFont = new Font(Font.HELVETICA, 28, Font.BOLD, new Color(15, 23, 42));
+        Paragraph coverTitle = new Paragraph("Liberaci\u00f3n de RDL", coverTitleFont);
+        coverTitle.setSpacingAfter(8);
+        doc.add(coverTitle);
+
+        // Accent bar
+        LineSeparator accentBar = new LineSeparator(3f, 12f, C_ACCENT, Element.ALIGN_LEFT, 0);
+        Paragraph accentP = new Paragraph(new Chunk(accentBar));
+        accentP.setSpacingAfter(24);
+        doc.add(accentP);
+
+        // Projects — each on its own line
+        if (!allProjects.isEmpty()) {
+            Font projFont = new Font(Font.HELVETICA, 11, Font.BOLD, C_TEXT);
+            for (String proj : allProjects) {
+                Paragraph projP = new Paragraph("\u2022  " + proj, projFont);
+                projP.setSpacingAfter(4);
+                doc.add(projP);
+            }
+            Paragraph spacer = new Paragraph(" ");
+            spacer.setSpacingAfter(30);
+            doc.add(spacer);
+        }
+
+        // Metadata grid
+        Font metaLabel = new Font(Font.HELVETICA, 7, Font.BOLD, C_MUTED);
+        Font metaValue = new Font(Font.HELVETICA, 10, Font.NORMAL, C_TEXT);
+        PdfPTable meta = new PdfPTable(new float[]{1f, 1f});
+        meta.setWidthPercentage(70);
+        meta.setHorizontalAlignment(Element.ALIGN_LEFT);
+
+        rdlCoverMeta(meta, "FECHA DE LIBERACI\u00d3N", date.isEmpty() ? "\u2014" : date, metaLabel, metaValue);
+        rdlCoverMeta(meta, "SERVIDORES", "NTRS02, MEGANG-612", metaLabel, metaValue);
+        rdlCoverMeta(meta, "DATA SOURCE", "MegaCarteraDRP", metaLabel, metaValue);
+        rdlCoverMeta(meta, "RDLs", String.valueOf(rdls.size()), metaLabel, metaValue);
+        doc.add(meta);
+
+        // MegaCarteraDRP image — below data source grid
+        String imgB64 = getMegaCarteraDrpImg();
+        if (!imgB64.isEmpty()) {
+            try {
+                Image dsImg = Image.getInstance(Base64.getDecoder().decode(imgB64));
+                dsImg.scaleToFit(130, 38);
+                dsImg.setSpacingBefore(8);
+                dsImg.setSpacingAfter(12);
+                dsImg.setAlignment(Element.ALIGN_LEFT);
+                doc.add(dsImg);
+            } catch (Exception ignored) {}
+        }
+
+        // Release Jira
+        if (!releaseUrl.isEmpty()) {
+            Paragraph pJira = new Paragraph();
+            pJira.setSpacingBefore(8);
+            pJira.setLeading(16);
+            pJira.add(new Phrase("RELEASE JIRA\n", metaLabel));
+            pJira.add(new Phrase(releaseUrl, fMono));
+            doc.add(pJira);
+        }
+
+        // Cover footer
+        Font footNote = new Font(Font.HELVETICA, 7.5f, Font.ITALIC, C_MUTED);
+        Paragraph fn = new Paragraph("Documento generado autom\u00e1ticamente  \u00b7  Megacable  \u00b7  Equipo QA & Liberaciones", footNote);
+        fn.setSpacingBefore(40);
+        doc.add(fn);
+
+        // ══════════════════════════════════════════════════════════════════════
+        // RDLs — each on its own page
+        // ══════════════════════════════════════════════════════════════════════
+        for (int i = 0; i < rdls.size(); i++) {
+            doc.newPage();
+
+            RdlItem item = rdls.get(i);
+            String rdlName = clean(item.getRdlReportName());
+            if (rdlName.isEmpty()) rdlName = "RDL " + (i + 1);
+
+            // ── RDL title ────────────────────────────────────────────────────
+            Paragraph rdlH = new Paragraph("RDL " + String.format("%02d", i + 1) + " \u2014 " + rdlName, fRdlTitle);
+            rdlH.setSpacingBefore(4);
+            rdlH.setSpacingAfter(10);
+            doc.add(rdlH);
+
+            // ── UBICACIÓN ────────────────────────────────────────────────────
+            boolean hasUrlMegang  = item.getRdlUrlMegang()  != null && !item.getRdlUrlMegang().isBlank();
+            boolean hasUrlNtrs02  = item.getRdlUrlNtrs02()  != null && !item.getRdlUrlNtrs02().isBlank();
+            boolean hasPathMegang = item.getRdlPathMegang() != null && !item.getRdlPathMegang().isBlank();
+            boolean hasPathNtrs02 = item.getRdlPathNtrs02() != null && !item.getRdlPathNtrs02().isBlank();
+            String folder = clean(item.getRdlReportFolder());
+
+            if (hasUrlMegang || hasUrlNtrs02 || hasPathMegang || hasPathNtrs02 || !folder.isEmpty()) {
+                rdlSec(doc, "UBICACI\u00d3N", fSecTitle);
+                if (hasUrlMegang)  rdlLabelBlock(doc, "MEGANG-612 (URL)", clean(item.getRdlUrlMegang()), fLabel, fMono);
+                if (hasUrlNtrs02)  rdlLabelBlock(doc, "NTRS02 (URL)",     clean(item.getRdlUrlNtrs02()), fLabel, fMono);
+                if (hasPathMegang) rdlLabelBlock(doc, "Ruta MEGANG-612",  clean(item.getRdlPathMegang()), fLabel, fMono);
+                if (hasPathNtrs02) rdlLabelBlock(doc, "Ruta NTRS02",      clean(item.getRdlPathNtrs02()), fLabel, fMono);
+                if (!folder.isEmpty()) rdlLabelBlock(doc, "Carpeta SSRS", folder, fLabel, fMono);
+            }
+
+            // ── STORED PROCEDURES ────────────────────────────────────────────
+            if (item.isHasRdlSp()) {
+                List<String> spNames = linesFromText(item.getRdlSpName());
+                if (!spNames.isEmpty()) {
+                    rdlSec(doc, "STORED PROCEDURES", fSecTitle);
+                    for (String sp : spNames) rdlBullet(doc, sp, fMono);
+                }
+            }
+
+            // ── TICKET VoBo ──────────────────────────────────────────────────
+            List<String> tickets = linesFromText(item.getRdlSpTicket());
+            if (!tickets.isEmpty()) {
+                rdlSec(doc, "TICKET DE VoBo", fSecTitle);
+                Paragraph pTkt = new Paragraph(String.join(", ", tickets), fBody);
+                pTkt.setSpacingAfter(6);
+                doc.add(pTkt);
+            }
+
+            // ── SCRIPTS ──────────────────────────────────────────────────────
+            if (item.isHasRdlScript() && item.getRdlScriptName() != null && !item.getRdlScriptName().isBlank()) {
+                rdlSec(doc, "SCRIPTS A EJECUTAR", fSecTitle);
+                for (String s : item.getRdlScriptName().trim().split("\\r?\\n")) {
+                    String trimmed = s.trim();
+                    if (!trimmed.isEmpty()) rdlBullet(doc, trimmed, fMono);
+                }
+                if (item.getRdlScriptPath() != null && !item.getRdlScriptPath().isBlank()) {
+                    rdlLabelBlock(doc, "Ubicaci\u00f3n", clean(item.getRdlScriptPath()), fLabel, fMono);
+                }
+            }
+
+            // ── PROYECTO / RFC ───────────────────────────────────────────────
+            String project = clean(item.getRdlProject());
+            if (!project.isEmpty()) {
+                rdlSec(doc, "PROYECTO / RFC", fSecTitle);
+                Paragraph pp = new Paragraph(project, fBody);
+                pp.setSpacingAfter(6);
+                doc.add(pp);
+            }
+        }
+
+        // ── End note (stays on last RDL's page) ──────────────────────────────
+        Paragraph endNote = new Paragraph("Documento generado el "
+            + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+            + " \u2014 Release Notifier QA", fSmall);
+        endNote.setAlignment(Element.ALIGN_CENTER);
+        endNote.setSpacingBefore(30);
+        doc.add(endNote);
 
         doc.close();
         return bos.toByteArray();
+    }
+
+    // ── RDL PDF helpers ──────────────────────────────────────────────────────
+
+    /** Section heading in accent color */
+    private void rdlSec(Document doc, String label, Font f) throws Exception {
+        Paragraph p = new Paragraph(label, f);
+        p.setSpacingBefore(12);
+        p.setSpacingAfter(4);
+        doc.add(p);
+        doc.add(new LineSeparator(0.3f, 100, C_LINE, Element.ALIGN_LEFT, 0));
+    }
+
+    /** Label on one line, monospace value indented below — for paths/URLs */
+    private void rdlLabelBlock(Document doc, String label, String value, Font lf, Font mf) throws Exception {
+        Paragraph pLabel = new Paragraph(label, lf);
+        pLabel.setSpacingBefore(4);
+        pLabel.setSpacingAfter(1);
+        doc.add(pLabel);
+        Paragraph pValue = new Paragraph(value, mf);
+        pValue.setIndentationLeft(14);
+        pValue.setSpacingAfter(5);
+        doc.add(pValue);
+    }
+
+    /** Bullet point with monospace text */
+    private void rdlBullet(Document doc, String text, Font f) throws Exception {
+        Paragraph p = new Paragraph("\u2022  " + text, f);
+        p.setIndentationLeft(14);
+        p.setSpacingAfter(4);
+        doc.add(p);
+    }
+
+    /** Cover page metadata cell */
+    private void rdlCoverMeta(PdfPTable table, String label, String value, Font lf, Font vf) {
+        Phrase content = new Phrase();
+        content.add(new Chunk(label + "\n", lf));
+        content.add(new Chunk(value, vf));
+        PdfPCell cell = new PdfPCell(content);
+        cell.setBorder(Rectangle.TOP);
+        cell.setBorderColor(C_LINE);
+        cell.setBorderWidth(0.5f);
+        cell.setPaddingTop(10);
+        cell.setPaddingBottom(14);
+        cell.setPaddingLeft(0);
+        table.addCell(cell);
     }
 
     public byte[] generateRdlMarkdown(RdlReleaseRequest r) {

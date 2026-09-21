@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import release_mail_generator.model.DocumentVersion;
+import release_mail_generator.repository.DocumentVersionRepository;
 import release_mail_generator.service.DocumentHistoryService;
 
 import java.util.*;
@@ -24,21 +25,21 @@ public class DocumentHistoryController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "newest") String sort) {
 
-        List<DocumentVersion> all;
+        List<DocumentVersionRepository.DocumentVersionSummary> all;
         if (q != null && !q.isBlank()) {
-            all = historyService.search(q);
+            all = historyService.searchSummaries(q);
         } else if (type != null && !type.isBlank() && !"ALL".equals(type)) {
-            all = historyService.listByType(type);
+            all = historyService.listByTypeSummaries(type);
         } else {
-            all = historyService.listAll();
+            all = historyService.listAllSummaries();
         }
 
         // Sort
-        Comparator<DocumentVersion> cmp = switch (sort) {
-            case "oldest" -> Comparator.comparing(DocumentVersion::getCreatedAt);
+        Comparator<DocumentVersionRepository.DocumentVersionSummary> cmp = switch (sort) {
+            case "oldest" -> Comparator.comparing(DocumentVersionRepository.DocumentVersionSummary::getCreatedAt);
             case "title"  -> Comparator.comparing(v -> v.getTitle() != null ? v.getTitle().toLowerCase() : "", Comparator.naturalOrder());
-            case "type"   -> Comparator.comparing(DocumentVersion::getDocumentType);
-            default       -> Comparator.comparing(DocumentVersion::getCreatedAt).reversed();
+            case "type"   -> Comparator.comparing(DocumentVersionRepository.DocumentVersionSummary::getDocumentType);
+            default       -> Comparator.comparing(DocumentVersionRepository.DocumentVersionSummary::getCreatedAt).reversed();
         };
         all = all.stream().sorted(cmp).toList();
 
@@ -125,6 +126,22 @@ public class DocumentHistoryController {
     }
 
     private Map<String, Object> toSummary(DocumentVersion v) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", v.getId());
+        m.put("documentType", v.getDocumentType());
+        m.put("documentRef", v.getDocumentRef());
+        m.put("title", v.getTitle());
+        m.put("author", v.getAuthor());
+        m.put("action", v.getAction());
+        m.put("format", v.getFormat());
+        m.put("versionNumber", v.getVersionNumber());
+        m.put("createdAt", v.getCreatedAt().toString());
+        m.put("contentSize", v.getContentSize());
+        m.put("contentHash", v.getContentHash());
+        return m;
+    }
+
+    private Map<String, Object> toSummary(DocumentVersionRepository.DocumentVersionSummary v) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", v.getId());
         m.put("documentType", v.getDocumentType());

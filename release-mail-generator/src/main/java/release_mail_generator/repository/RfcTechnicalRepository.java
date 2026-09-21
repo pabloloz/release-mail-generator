@@ -15,6 +15,32 @@ public interface RfcTechnicalRepository extends JpaRepository<RfcTechnicalRecord
 
     List<RfcTechnicalRecord> findAllByRfcNumberIgnoreCase(String rfcNumber);
 
+    /**
+     * Proyección ligera para listados: excluye testCases/businessRules/relatedBugs
+     * (TEXT con evidencias en base64) que no se usan en la vista de lista.
+     */
+    @Query("SELECT r.id as id, r.rfcNumber as rfcNumber, r.changeName as changeName, " +
+           "r.validationDate as validationDate, r.testerName as testerName, " +
+           "r.requester as requester, r.environment as environment, " +
+           "r.status as status, r.finalResult as finalResult, " +
+           "r.createdAt as createdAt, r.updatedAt as updatedAt " +
+           "FROM RfcTechnicalRecord r ORDER BY r.createdAt DESC")
+    List<RfcSummary> findAllSummaries();
+
+    interface RfcSummary {
+        String getId();
+        String getRfcNumber();
+        String getChangeName();
+        String getValidationDate();
+        String getTesterName();
+        String getRequester();
+        String getEnvironment();
+        String getStatus();
+        String getFinalResult();
+        java.time.LocalDateTime getCreatedAt();
+        java.time.LocalDateTime getUpdatedAt();
+    }
+
     @Query("SELECT r FROM RfcTechnicalRecord r WHERE " +
            "LOWER(r.rfcNumber) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(r.changeName) LIKE LOWER(CONCAT('%', :q, '%')) OR " +

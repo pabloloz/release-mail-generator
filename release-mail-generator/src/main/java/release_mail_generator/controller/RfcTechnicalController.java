@@ -28,7 +28,7 @@ public class RfcTechnicalController {
 
     @GetMapping
     public String list(Model model) {
-        model.addAttribute("rfcList", rfcService.findAll());
+        model.addAttribute("rfcList", rfcService.findAllSummaries());
         return "rfc-list";
     }
 

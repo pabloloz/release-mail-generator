@@ -743,26 +743,93 @@
             } catch (err) { showToast('Error al exportar: ' + err.message, 'error'); }
         }
 
-        function downloadRdlPdf() {
-            const content = document.getElementById('rdlEmailPreview').innerHTML;
-            const win = window.open('', '_blank');
-            win.document.write(
-                '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-              + '<title>Correo RDL</title>'
-              + '<style>'
-              + 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000;padding:20px;margin:0;}'
-              + 'a{color:#0563C1;}'
-              + '@media print{body{padding:10mm;margin:0;}.rdl-hdr{page-break-before:always;}}'
-              + '</style></head><body>'
-              + content
-              + '</body></html>'
-            );
-            win.document.close();
-            const headers = win.document.querySelectorAll('.rdl-hdr');
-            if (headers.length > 0) headers[0].style.pageBreakBefore = 'auto';
-            win.focus();
-            setTimeout(() => win.print(), 400);
+        async function downloadRdlPdf() {
+            try {
+                const payload = collectRdlPayload();
+                const resp = await fetch('/rdl/export/pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!resp.ok) throw new Error('Error ' + resp.status);
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const cd = resp.headers.get('Content-Disposition') || '';
+                const match = cd.match(/filename="?([^"]+)"?/);
+                a.download = match ? match[1] : 'RDL-Deployment.pdf';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                showToast('Error al generar el PDF: ' + err.message, 'error');
+            }
         }
+
+        // ── PDF Viewer (shared modal) ─────────────────────────────────
+        var _pdfViewerBlob = null;
+        var _pdfViewerFilename = 'RDL-Deployment.pdf';
+        var _pdfViewerPayload = null;
+
+        async function previewRdlPdf() {
+            _pdfViewerPayload = collectRdlPayload();
+            const overlay = document.getElementById('pdfViewerOverlay');
+            const body = document.getElementById('pdfViewerBody');
+            document.getElementById('pdfViewerTitle').textContent = 'Deployment RDL — Vista previa';
+            body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:.88rem;gap:10px;"><span class="spinner"></span> Generando vista previa...</div>';
+            overlay.style.display = 'flex';
+            try {
+                const resp = await fetch('/rdl/export/pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(_pdfViewerPayload)
+                });
+                if (!resp.ok) throw new Error('Error ' + resp.status);
+                _pdfViewerBlob = await resp.blob();
+                const cd = resp.headers.get('Content-Disposition') || '';
+                const match = cd.match(/filename="?([^"]+)"?/);
+                _pdfViewerFilename = match ? match[1] : 'RDL-Deployment.pdf';
+                const blobUrl = URL.createObjectURL(_pdfViewerBlob);
+                body.innerHTML = '<iframe src="' + blobUrl + '#toolbar=1&navpanes=0" style="width:100%;height:100%;border:none;"></iframe>';
+            } catch (err) {
+                body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ef4444;font-size:.88rem;">Error al generar PDF: ' + err.message + '</div>';
+            }
+        }
+
+        function closePdfViewer() {
+            document.getElementById('pdfViewerOverlay').style.display = 'none';
+            document.getElementById('pdfViewerBody').innerHTML = '';
+            _pdfViewerBlob = null;
+        }
+
+        function refreshPdfViewer() {
+            if (_pdfViewerPayload) previewRdlPdf();
+        }
+
+        function downloadCurrentPdf() {
+            if (_pdfViewerBlob) {
+                const url = URL.createObjectURL(_pdfViewerBlob);
+                const a = document.createElement('a');
+                a.href = url; a.download = _pdfViewerFilename;
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+                showToast('PDF descargado', 'success');
+            }
+        }
+
+        function printCurrentPdf() {
+            const iframe = document.querySelector('#pdfViewerBody iframe');
+            if (iframe) { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
+        }
+
+        // Close viewer on Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('pdfViewerOverlay').style.display === 'flex') {
+                closePdfViewer();
+            }
+        });
 
         function collectRdlPayload() {
             const entries = document.querySelectorAll('#rdlEntries .rdl-entry');
@@ -4153,7 +4220,7 @@ Problema 33520 → Error en cálculo de tarifas</div>
                     <span style="margin-left:8px; opacity:.8;">Correo RDL</span>
                 </div>
                 <div class="d-flex gap-2">
-                    <button class="btn-pdf" onclick="downloadRdlPdf()">&#x1F4E5; PDF</button>
+                    <button class="btn-pdf" onclick="previewRdlPdf()">&#x1F4C4; PDF</button>
                     <button class="btn-md" onclick="downloadRdlExport('markdown')">&#x1F4C4; Markdown</button>
                     <button class="btn-html-export" onclick="downloadRdlExport('html')">&#x1F310; HTML</button>
                     <button class="btn-copy" onclick="copyRdlEmail()">&#x1F4CB; Copiar</button>
@@ -4751,6 +4818,24 @@ dbo.sp_reporte_facturacion.sql</div>
         </div>
     </div>
 </template>
+
+<!-- PDF Viewer Modal (shared) -->
+<div id="pdfViewerOverlay" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,.6); align-items:center; justify-content:center;" onclick="if(event.target===this)closePdfViewer()">
+    <div style="background:#1e293b; border-radius:12px; width:95vw; height:92vh; max-width:1200px; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.4); animation:fadeSlideUp .2s ease;">
+        <div style="display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid #334155; flex-shrink:0;">
+            <div id="pdfViewerTitle" style="font-size:.84rem; font-weight:700; color:#e2e8f0; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Vista previa</div>
+            <button onclick="refreshPdfViewer()" style="border:none; background:rgba(255,255,255,.08); color:#e2e8f0; padding:6px 14px; border-radius:6px; font-size:.78rem; font-weight:600; cursor:pointer;">&#x1F504; Actualizar</button>
+            <button onclick="printCurrentPdf()" style="border:none; background:rgba(255,255,255,.08); color:#e2e8f0; padding:6px 14px; border-radius:6px; font-size:.78rem; font-weight:600; cursor:pointer;">&#x1F5A8;&#xFE0F; Imprimir</button>
+            <button onclick="downloadCurrentPdf()" style="border:none; background:var(--primary); color:white; padding:6px 14px; border-radius:6px; font-size:.78rem; font-weight:600; cursor:pointer;">&#x1F4E5; Descargar</button>
+            <button onclick="closePdfViewer()" style="border:none; background:transparent; color:#94a3b8; font-size:1.1rem; cursor:pointer; padding:4px 8px; border-radius:4px;">&#x2715;</button>
+        </div>
+        <div id="pdfViewerBody" style="flex:1; overflow:hidden; background:#0f172a; border-radius:0 0 12px 12px;">
+            <div id="pdfViewerLoading" style="display:flex; align-items:center; justify-content:center; height:100%; color:#94a3b8; font-size:.88rem; gap:10px;">
+                <span class="spinner"></span> Generando vista previa...
+            </div>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

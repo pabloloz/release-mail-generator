@@ -61,6 +61,24 @@ public class DocumentHistoryService {
         return repo.findByDocumentTypeOrderByCreatedAtDesc(type);
     }
 
+    /**
+     * Variantes ligeras para listados/paginación: no cargan el CLOB `content`
+     * (HTML con imágenes base64 embebidas), que podía causar picos de memoria
+     * al listar el historial completo en cada carga de página.
+     */
+    public List<DocumentVersionRepository.DocumentVersionSummary> listAllSummaries() {
+        return repo.findSummaryAllByOrderByCreatedAtDesc();
+    }
+
+    public List<DocumentVersionRepository.DocumentVersionSummary> listByTypeSummaries(String type) {
+        return repo.findSummaryByDocumentType(type);
+    }
+
+    public List<DocumentVersionRepository.DocumentVersionSummary> searchSummaries(String query) {
+        if (query == null || query.isBlank()) return listAllSummaries();
+        return repo.searchSummary(query.trim());
+    }
+
     public List<DocumentVersion> listVersionsOf(String type, String ref) {
         return repo.findVersions(type, ref);
     }
@@ -119,8 +137,8 @@ public class DocumentHistoryService {
         data.put("exports", repo.countByFormat("PDF") + repo.countByFormat("MARKDOWN"));
         data.put("restored", repo.countByAction("RESTORED"));
 
-        // Recent activity (last 10)
-        List<Map<String, Object>> recent = repo.findTop10ByOrderByCreatedAtDesc()
+        // Recent activity (last 10) — proyección ligera, sin el CLOB content
+        List<Map<String, Object>> recent = repo.findTop10Summary(org.springframework.data.domain.PageRequest.of(0, 10))
                 .stream().map(this::toMetadata).toList();
         data.put("recent", recent);
 
@@ -156,6 +174,21 @@ public class DocumentHistoryService {
     }
 
     private Map<String, Object> toMetadata(DocumentVersion v) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", v.getId());
+        m.put("documentType", v.getDocumentType());
+        m.put("documentRef", v.getDocumentRef());
+        m.put("title", v.getTitle());
+        m.put("author", v.getAuthor());
+        m.put("action", v.getAction());
+        m.put("format", v.getFormat());
+        m.put("versionNumber", v.getVersionNumber());
+        m.put("createdAt", v.getCreatedAt().toString());
+        m.put("contentSize", v.getContentSize());
+        return m;
+    }
+
+    private Map<String, Object> toMetadata(DocumentVersionRepository.DocumentVersionSummary v) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", v.getId());
         m.put("documentType", v.getDocumentType());
