@@ -6,8 +6,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Connection;
@@ -343,5 +345,67 @@ class H2ToPostgresMigratorTest {
         assertThat(second.issues()).isEmpty();
         assertThat(second.rfcRecords().identicalExisting()).isEqualTo(1);
         assertThat(second.documentVersions().identicalExisting()).isEqualTo(1);
+    }
+
+    @Test
+    void alteracionSilenciosaTrasInsertar_sedetectaYRevierteTodaLaImportacion() throws Exception {
+        // Simula una alteración silenciosa de datos en el destino (p. ej. un trigger de base de
+        // datos preexistente, una regla de collation o un bug de esquema) usando un trigger real
+        // de PostgreSQL que modifica la fila justo al insertarla. La verificación post-inserción
+        // del migrador debe detectar la discrepancia al releerla y revertir TODA la importación.
+        try (Statement st = pg.createStatement()) {
+            st.execute("CREATE OR REPLACE FUNCTION test_mutar_change_name() RETURNS trigger AS $$ " +
+                    "BEGIN NEW.change_name := NEW.change_name || ' (alterado)'; RETURN NEW; END; $$ LANGUAGE plpgsql");
+            st.execute("CREATE TRIGGER trg_mutar_change_name BEFORE INSERT ON rfc_technical_records " +
+                    "FOR EACH ROW EXECUTE FUNCTION test_mutar_change_name()");
+        }
+        try {
+            insertRfc(h2, "M1", "Valor original", "[]", LocalDateTime.of(2026, 1, 1, 10, 0));
+
+            H2ToPostgresMigrator.MigrationReport report = H2ToPostgresMigrator.migrate(h2, pg);
+
+            assertThat(report.committed()).isFalse();
+            assertThat(report.issues()).anyMatch(issue -> issue.contains("id=M1")
+                    && issue.contains("no coincide") && issue.contains("change_name"));
+
+            // Rollback real: no debe quedar ninguna fila nueva en el destino.
+            assertThat(count(pg, "rfc_technical_records")).isZero();
+            // El H2 origen tampoco se tocó.
+            assertThat(readRfcChangeName(h2, "M1")).isEqualTo("Valor original");
+        } finally {
+            try (Statement st = pg.createStatement()) {
+                st.execute("DROP TRIGGER IF EXISTS trg_mutar_change_name ON rfc_technical_records");
+                st.execute("DROP FUNCTION IF EXISTS test_mutar_change_name()");
+            }
+        }
+    }
+
+    @Test
+    void laSalidaNuncaExponeContenidoNiUrlsCompletasNiMensajesSqlCrudos() throws Exception {
+        insertRfc(h2, "S1", "Cambio con informacion sensible", "[]", LocalDateTime.of(2026, 1, 1, 10, 0));
+        insertDocVersion(h2, "S2", "S1", "QA", "contenido-muy-secreto-no-debe-imprimirse",
+                sha256("contenido-muy-secreto-no-debe-imprimirse"), LocalDateTime.of(2026, 1, 1, 11, 0));
+        // Conflicto deliberado para forzar también la rama de mensajes de "issues".
+        insertRfc(pg, "S1", "Otro valor ya en destino", "[]", LocalDateTime.of(2026, 1, 1, 10, 0));
+
+        PrintStream originalOut = System.out;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        H2ToPostgresMigrator.MigrationReport report;
+        try {
+            System.setOut(new PrintStream(captured, true, StandardCharsets.UTF_8));
+            report = H2ToPostgresMigrator.migrate(h2, pg);
+        } finally {
+            System.setOut(originalOut);
+        }
+
+        String output = captured.toString(StandardCharsets.UTF_8);
+
+        assertThat(report.committed()).isFalse();
+        assertThat(output).doesNotContain("contenido-muy-secreto-no-debe-imprimirse");
+        assertThat(output).doesNotContain("jdbc:postgresql://");
+        assertThat(output).doesNotContain("jdbc:h2:");
+        // Los nombres de campo en conflicto sí pueden aparecer, pero nunca los valores.
+        assertThat(output).doesNotContain("Otro valor ya en destino");
+        assertThat(output).doesNotContain("Cambio con informacion sensible");
     }
 }

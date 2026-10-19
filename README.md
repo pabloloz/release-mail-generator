@@ -233,6 +233,14 @@ herramienta no crea tablas, solo inserta filas en tablas que ya existen.
 - Antes de insertar cada versión de documento, recalcula su hash SHA-256 (mismas reglas que
   `DocumentHistoryService`) y lo compara contra `content_hash` del origen; si no corresponde,
   aborta toda la importación sin modificar el origen.
+- Después de insertar cada fila, **la relee desde el destino y la compara de nuevo contra el
+  origen antes de hacer commit** — detecta cualquier alteración silenciosa que el motor pudiera
+  introducir al guardar (truncamiento, triggers, collation, etc.) y aborta toda la importación
+  si no coincide.
+- Los errores SQL se reportan con una clasificación segura (clase de excepción + SQLState),
+  nunca con el mensaje crudo del driver (que en PostgreSQL puede incluir en el `DETAIL` los
+  valores de la fila involucrada). Tampoco se imprime nunca la URL JDBC completa — solo el
+  esquema (`jdbc:postgresql://***`).
 - Ejecutarla dos veces con el mismo origen no duplica ni modifica nada (idempotente).
 
 ```bash

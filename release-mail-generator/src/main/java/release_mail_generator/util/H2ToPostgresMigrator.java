@@ -42,6 +42,14 @@ import java.util.Objects;
  *   <li>Antes de insertar cada versión de documento se recalcula su hash SHA-256 (mismas reglas
  *       que {@code DocumentHistoryService}) y se compara contra {@code content_hash} guardado en
  *       el origen; si no corresponde, se aborta toda la importación sin modificar el origen.</li>
+ *   <li>Después de insertar cada fila, se <b>relee desde el destino y se compara de nuevo</b>
+ *       contra el origen, antes de hacer commit — esto detecta cualquier alteración silenciosa
+ *       que el motor pudiera introducir al guardar (truncamiento, triggers, collation, etc.).
+ *       Cualquier diferencia aborta toda la importación.</li>
+ *   <li>Los errores SQL se reportan con una clasificación segura (clase de excepción + SQLState)
+ *       y nunca con el mensaje crudo del driver, que en varios motores puede incluir los valores
+ *       de datos de la fila involucrada (p. ej. el {@code DETAIL} de PostgreSQL ante violaciones
+ *       de restricción). Tampoco se imprime nunca la URL JDBC completa, solo el esquema.</li>
  * </ul>
  *
  * <p><b>Importante:</b> para que la comparación origen/destino sea consistente, el origen H2 y
@@ -115,8 +123,8 @@ public final class H2ToPostgresMigrator {
         System.out.println("requiere que ninguno de los dos lados cambie durante la importación.");
         System.out.println("Esta herramienta IMPORTA datos; no sustituye un respaldo previo.");
         System.out.println();
-        System.out.println("Origen (solo lectura): " + sourceUrl);
-        System.out.println("Destino: " + maskCredentials(targetUrl));
+        System.out.println("Origen (solo lectura): " + redactJdbcUrl(sourceUrl));
+        System.out.println("Destino: " + redactJdbcUrl(targetUrl));
         System.out.println();
 
         MigrationReport report;
@@ -131,9 +139,16 @@ public final class H2ToPostgresMigrator {
         }
     }
 
-    /** Enmascara cualquier credencial que pudiera ir embebida en una URL JDBC antes de imprimirla. */
-    private static String maskCredentials(String url) {
-        return url.replaceAll("://[^/@\\s]+@", "://***@");
+    /**
+     * Nunca imprime la URL JDBC completa (host, puerto, nombre de base, credenciales): solo el
+     * esquema (p. ej. {@code jdbc:postgresql://***}), suficiente para confirmar a qué motor se
+     * está conectando sin exponer datos de conexión.
+     */
+    private static String redactJdbcUrl(String url) {
+        if (url == null || url.isBlank()) return "(no configurado)";
+        int schemeEnd = url.indexOf("://");
+        String scheme = schemeEnd > 0 ? url.substring(0, schemeEnd) : url.split(":")[0];
+        return scheme + "://***";
     }
 
     // ── Migración (núcleo testeable, nunca llama a System.exit) ─────────────
@@ -169,11 +184,15 @@ public final class H2ToPostgresMigrator {
             }
             return new MigrationReport(rfcStats, docStats, List.copyOf(issues), ok);
         } catch (SQLException e) {
-            issues.add("Error SQL durante la migración (" + e.getClass().getSimpleName() + "): " + e.getMessage());
+            // Nunca se incluye e.getMessage(): los mensajes crudos de JDBC/PostgreSQL pueden
+            // embeber valores de datos (p. ej. el DETAIL de una violación de restricción incluye
+            // la fila completa). Solo se reporta una clasificación segura + SQLState.
+            issues.add("Error SQL durante la migración (" + safeErrorCode(e) + ") — destino revertido, "
+                    + "no se modificó nada. Revisa los logs del servidor de base de datos para más detalle.");
             try {
                 dst.rollback();
             } catch (SQLException rollbackFailure) {
-                issues.add("Además, el rollback falló: " + rollbackFailure.getMessage());
+                issues.add("Además, el rollback falló (" + safeErrorCode(rollbackFailure) + ").");
             }
             return new MigrationReport(rfcStats, docStats, List.copyOf(issues), false);
         } finally {
@@ -265,6 +284,23 @@ public final class H2ToPostgresMigrator {
                 ins.setTimestamp(i++, rs.getTimestamp("updated_at"));
                 ins.executeUpdate();
                 inserted++;
+
+                // Verificación post-inserción: relee la fila recién insertada y la compara contra
+                // el origen ANTES del commit, para detectar cualquier alteración silenciosa (p. ej.
+                // truncamiento, triggers, collation) que el motor pudiera introducir al guardarla.
+                findDst.setString(1, id);
+                try (ResultSet verifyRs = findDst.executeQuery()) {
+                    if (!verifyRs.next()) {
+                        issues.add("rfc_technical_records id=" + id + ": no se encontró al releerla tras "
+                                + "insertarla — importación abortada.");
+                    } else {
+                        List<String> postDiffs = compareRfcRecord(rs, verifyRs);
+                        if (!postDiffs.isEmpty()) {
+                            issues.add("rfc_technical_records id=" + id + ": la fila insertada no coincide con "
+                                    + "el origen al releerla (campos: " + postDiffs + ") — importación abortada.");
+                        }
+                    }
+                }
             }
         }
 
@@ -377,6 +413,22 @@ public final class H2ToPostgresMigrator {
                 ins.setLong(i++, rs.getLong("content_size"));
                 ins.executeUpdate();
                 inserted++;
+
+                // Verificación post-inserción: relee la fila recién insertada y la compara contra
+                // el origen ANTES del commit (misma razón que en rfc_technical_records).
+                findDst.setString(1, id);
+                try (ResultSet verifyRs = findDst.executeQuery()) {
+                    if (!verifyRs.next()) {
+                        issues.add("document_versions id=" + id + ": no se encontró al releerla tras insertarla "
+                                + "— importación abortada.");
+                    } else {
+                        List<String> postDiffs = compareDocumentVersion(rs, verifyRs);
+                        if (!postDiffs.isEmpty()) {
+                            issues.add("document_versions id=" + id + ": la fila insertada no coincide con el "
+                                    + "origen al releerla (campos: " + postDiffs + ") — importación abortada.");
+                        }
+                    }
+                }
             }
         }
 
@@ -436,6 +488,18 @@ public final class H2ToPostgresMigrator {
         LocalDateTime la = a == null ? null : a.toLocalDateTime().truncatedTo(ChronoUnit.MILLIS);
         LocalDateTime lb = b == null ? null : b.toLocalDateTime().truncatedTo(ChronoUnit.MILLIS);
         if (!Objects.equals(la, lb)) diffs.add(field);
+    }
+
+    /**
+     * Clasificación segura de una {@link SQLException} para reportar en la salida: solo el
+     * nombre de la clase de excepción y el código SQLState estándar (p. ej. {@code 23505} =
+     * violación de unicidad). Nunca incluye {@code e.getMessage()}, que en varios motores
+     * (incluido PostgreSQL, en el {@code DETAIL} de violaciones de restricción) puede contener
+     * los valores de datos de la fila involucrada.
+     */
+    private static String safeErrorCode(SQLException e) {
+        String sqlState = e.getSQLState() != null ? e.getSQLState() : "desconocido";
+        return e.getClass().getSimpleName() + ", SQLState=" + sqlState;
     }
 
     /** Mismo algoritmo que {@code DocumentHistoryService.sha256}: SHA-256 en hex, null tratado como "". */
