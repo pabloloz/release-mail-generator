@@ -88,8 +88,14 @@ public interface DocumentVersionRepository extends JpaRepository<DocumentVersion
     @Query("SELECT d.documentType, COUNT(d) FROM DocumentVersion d WHERE d.action <> 'EXPORTED' GROUP BY d.documentType")
     List<Object[]> countByTypeGrouped();
 
-    @Query("SELECT FUNCTION('FORMATDATETIME', d.createdAt, 'yyyy-MM-dd') as day, COUNT(d) FROM DocumentVersion d WHERE d.createdAt >= :since GROUP BY FUNCTION('FORMATDATETIME', d.createdAt, 'yyyy-MM-dd') ORDER BY day")
-    List<Object[]> dailyActivitySince(@Param("since") LocalDateTime since);
+    /**
+     * Fechas de creación desde {@code since}, para construir la gráfica de actividad diaria.
+     * El agrupamiento por día se hace en Java (ver DocumentHistoryService) en lugar de con
+     * una función de fecha específica de motor (H2 FORMATDATETIME no existe en PostgreSQL),
+     * para que la consulta funcione igual en ambos motores.
+     */
+    @Query("SELECT d.createdAt FROM DocumentVersion d WHERE d.createdAt >= :since")
+    List<LocalDateTime> findCreatedAtSince(@Param("since") LocalDateTime since);
 
     /** Search within document content (DB-level, avoids loading all CLOBs into memory). */
     @Query("SELECT d FROM DocumentVersion d WHERE LOWER(CAST(d.content AS string)) LIKE LOWER(CONCAT('%', :q, '%')) ORDER BY d.createdAt DESC")

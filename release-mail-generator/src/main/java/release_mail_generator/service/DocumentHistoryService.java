@@ -142,14 +142,18 @@ public class DocumentHistoryService {
                 .stream().map(this::toMetadata).toList();
         data.put("recent", recent);
 
-        // Daily activity chart (last 14 days)
+        // Daily activity chart (last 14 days) — agrupado en Java (portable entre H2 y PostgreSQL;
+        // ver DocumentVersionRepository.findCreatedAtSince).
         LocalDateTime since = LocalDateTime.now().minusDays(14);
-        List<Object[]> daily = repo.dailyActivitySince(since);
+        Map<java.time.LocalDate, Long> byDay = new TreeMap<>();
+        for (LocalDateTime createdAt : repo.findCreatedAtSince(since)) {
+            byDay.merge(createdAt.toLocalDate(), 1L, Long::sum);
+        }
         List<Map<String, Object>> chart = new java.util.ArrayList<>();
-        for (Object[] row : daily) {
+        for (Map.Entry<java.time.LocalDate, Long> entry : byDay.entrySet()) {
             Map<String, Object> point = new LinkedHashMap<>();
-            point.put("day", row[0].toString());
-            point.put("count", ((Number) row[1]).intValue());
+            point.put("day", entry.getKey().toString());
+            point.put("count", entry.getValue().intValue());
             chart.add(point);
         }
         data.put("chart", chart);

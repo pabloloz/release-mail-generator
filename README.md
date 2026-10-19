@@ -141,13 +141,115 @@ docker run -p 8080:8080 -v $(pwd)/data:/app/data release-mail-generator
 
 ---
 
+## Persistencia en producción (PostgreSQL)
+
+El perfil `prod` usa **PostgreSQL** (no H2) como base de datos, con el esquema gestionado por
+**migraciones versionadas de Flyway** (`src/main/resources/db/migration/`). H2 sigue siendo la
+base para desarrollo (`dev`) y pruebas (`test`) — no se requiere PostgreSQL local para trabajar
+en el día a día del proyecto.
+
+### Variables de entorno (obligatorias en `prod`, sin valores por defecto)
+
+| Variable | Descripción |
+|---|---|
+| `DB_URL` | `jdbc:postgresql://host:5432/nombre_bd` |
+| `DB_USERNAME` | Usuario de la base de datos |
+| `DB_PASSWORD` | Contraseña de la base de datos |
+
+Si falta alguna, la aplicación **no arranca** (mismo patrón fail-fast que `APP_SECURITY_*`).
+En `prod`, `spring.jpa.hibernate.ddl-auto=validate`: Hibernate solo verifica que el esquema
+coincide con las entidades; nunca genera ni altera DDL. El esquema lo crea/actualiza
+exclusivamente Flyway.
+
+### Ejecutar localmente contra PostgreSQL
+
+Requiere una instancia PostgreSQL accesible (local, Docker, o en la nube):
+
+```bash
+# PowerShell
+$env:DB_URL = "jdbc:postgresql://localhost:5432/release_mail_generator"
+$env:DB_USERNAME = "postgres"
+$env:DB_PASSWORD = "tu-password"
+$env:APP_SECURITY_USERNAME = "tu-usuario"
+$env:APP_SECURITY_PASSWORD_HASH = '$2a$10$...'
+
+cd release-mail-generator
+./mvnw spring-boot:run "-Dspring-boot.run.profiles=prod"
+```
+
+Al arrancar, Flyway aplica `V1__init_schema.sql` sobre una base vacía automáticamente.
+
+### Configurar Render manualmente (sin asumir disco persistente ni servicios automáticos)
+
+Render **no** provisiona PostgreSQL ni disco automáticamente con estos cambios — se asume que
+administras la base de datos externamente (Render Postgres, Supabase, RDS, etc.) y solo
+conectas la app a ella:
+
+1. Crea/obtén una instancia PostgreSQL por tu cuenta (el proveedor que prefieras).
+2. En el servicio Web de Render, agrega las variables de entorno:
+
+   | Variable | Valor |
+   |---|---|
+   | `SPRING_PROFILES_ACTIVE` | `prod` |
+   | `DB_URL` | `jdbc:postgresql://<host>:<puerto>/<bd>` |
+   | `DB_USERNAME` | usuario de esa base |
+   | `DB_PASSWORD` | contraseña de esa base |
+   | `APP_SECURITY_USERNAME` / `APP_SECURITY_PASSWORD_HASH` | igual que antes |
+
+3. Redeploy. En el primer arranque, Flyway crea el esquema sobre la base vacía.
+4. Si la base PostgreSQL vive en otro proveedor con red privada/pública, asegúrate de que
+   el servicio de Render tenga permitido el acceso (allowlist de IP, SSL según el proveedor,
+   etc.) — esto es responsabilidad del proveedor de la base, no de esta aplicación.
+
+### Respaldo e importación de los datos H2 existentes
+
+`util/H2ToPostgresMigrator` copia los datos existentes (RFC técnicos + historial de
+documentos, incluyendo contenido) desde el H2 de desarrollo hacia PostgreSQL, **sin tocar
+el H2 original**:
+
+- Abre el H2 origen en **modo solo lectura** (`ACCESS_MODE_DATA=r`) — nunca escribe ni borra ahí.
+- Inserta en PostgreSQL con `INSERT ... ON CONFLICT (id) DO NOTHING` — nunca sobrescribe filas
+  existentes en el destino; es seguro ejecutarlo varias veces.
+- Al final verifica: cantidad de filas copiadas vs. origen, y recalcula el hash SHA-256 del
+  contenido de cada versión de documento contra `content_hash` para confirmar integridad.
+
+```bash
+cd release-mail-generator
+./mvnw -q compile
+
+java -cp "target/classes;$(./mvnw -q dependency:build-classpath -Dmdep.outputFile=/dev/stdout)" ^
+     -DsourceH2Path=./data/rfcdb ^
+     -DtargetDbUrl=jdbc:postgresql://localhost:5432/release_mail_generator ^
+     -DtargetDbUser=postgres -DtargetDbPassword=tu-password ^
+     release_mail_generator.util.H2ToPostgresMigrator
+```
+
+(En Windows, separa el classpath con `;`; el driver de PostgreSQL ya está en
+`target/classes`/dependencias del proyecto tras compilar.) El comando imprime un resumen con
+conteos de origen/destino y el resultado de la verificación de hashes; termina con código de
+salida distinto de cero si algo no cuadra.
+
+### Procedimiento de reversión (rollback)
+
+Como el H2 original nunca se modifica ni se borra durante este proceso, volver atrás es
+inmediato:
+
+1. Quita o cambia `SPRING_PROFILES_ACTIVE` para que no sea `prod` (o define explícitamente
+   las propiedades de datasource de vuelta a H2 si se requiere mantener el nombre de perfil).
+2. No hace falta restaurar nada: el archivo `./data/rfcdb.mv.db` sigue intacto en todo momento.
+3. Si ya se habían enviado cambios reales a producción contra PostgreSQL después de la
+   migración, esos cambios quedarían solo en PostgreSQL — considera eso antes de revertir en un
+   entorno con tráfico real.
+
+---
+
 ## Perfiles de configuración
 
 | Archivo | Perfil | Uso |
 |---|---|---|
-| `application.properties` | (compartido) | H2 datasource, puerto |
+| `application.properties` | (compartido) | H2 datasource (dev/test), puerto |
 | `application-dev.properties` | `dev` | Cache off, H2 Console on, SQL logs |
-| `application-prod.properties` | `prod` | Cache on, H2 Console off |
+| `application-prod.properties` | `prod` | PostgreSQL + Flyway + `ddl-auto=validate`, cache on, H2 Console off |
 
 ---
 
@@ -198,7 +300,9 @@ release-mail-generator/          ← Repositorio Git
 
 ## Estructura de la base de datos
 
-La base H2 se crea automáticamente en `./data/rfcdb.mv.db` con DDL auto (`update`).
+En **dev/test** la base H2 se crea/actualiza automáticamente en `./data/rfcdb.mv.db` (DDL auto
+`update`). En **prod** el esquema en PostgreSQL lo crea Flyway a partir de
+`src/main/resources/db/migration/V1__init_schema.sql` (Hibernate solo valida, no genera DDL).
 
 Tabla principal: `rfc_technical_records`
 
@@ -222,14 +326,19 @@ cd release-mail-generator
 ./mvnw test
 ```
 
-Los tests usan H2 en memoria (`src/test/resources/application.properties`) — no generan archivos en disco.
+La mayoría de los tests usan H2 en memoria (`src/test/resources/application.properties`) — no
+generan archivos en disco. Adicionalmente, `integration/PostgresPersistenceIntegrationTest`
+valida el comportamiento real contra **PostgreSQL** (migraciones Flyway sobre base vacía, CRUD,
+historial, búsqueda, dashboard y persistencia tras reiniciar el contexto), usando
+`io.zonky.test:embedded-postgres` — descarga y ejecuta un binario real de PostgreSQL sin
+necesidad de Docker ni de una instancia PostgreSQL instalada localmente.
 
 ---
 
 ## Mejoras futuras sugeridas
 
-- [ ] Autenticación básica con Spring Security
-- [ ] Migración a PostgreSQL para producción robusta
+- [x] Autenticación con Spring Security
+- [x] Migración a PostgreSQL para producción (perfil `prod`, ver sección "Persistencia en producción")
 - [ ] Exportar RFC a formato Word (.docx)
 - [ ] Historial de correos generados
 - [ ] Integración con Groq/OpenAI para generación automática de textos

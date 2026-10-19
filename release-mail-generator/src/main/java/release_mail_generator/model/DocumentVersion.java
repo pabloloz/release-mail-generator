@@ -32,9 +32,12 @@ public class DocumentVersion {
     @Column(length = 200)
     private String author;
 
-    /** Contenido generado (HTML o texto plano) */
-    @Lob
-    @Column(columnDefinition = "CLOB")
+    /** Contenido generado (HTML o texto plano).
+     * NOTA: sin @Lob a propósito — con PostgreSQL, @Lob sobre un String fuerza a Hibernate a
+     * usar objetos grandes basados en OID (java.sql.Clob/stream), lo cual falla para una
+     * columna TEXT corriente ("Unable to access lob stream"). Sin @Lob, Hibernate simplemente
+     * usa setString/getString, que funciona igual en H2 y PostgreSQL para columnas TEXT. */
+    @Column(columnDefinition = "TEXT")
     private String content;
 
     /** SHA-256 del contenido para comparación rápida */
