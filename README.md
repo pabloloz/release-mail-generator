@@ -201,33 +201,66 @@ conectas la app a ella:
    el servicio de Render tenga permitido el acceso (allowlist de IP, SSL según el proveedor,
    etc.) — esto es responsabilidad del proveedor de la base, no de esta aplicación.
 
-### Respaldo e importación de los datos H2 existentes
+### Importación de los datos H2 existentes
 
-`util/H2ToPostgresMigrator` copia los datos existentes (RFC técnicos + historial de
-documentos, incluyendo contenido) desde el H2 de desarrollo hacia PostgreSQL, **sin tocar
-el H2 original**:
+`util/H2ToPostgresMigrator` **importa** los datos existentes (RFC técnicos + historial de
+documentos, incluyendo contenido) desde el H2 de desarrollo hacia PostgreSQL.
 
-- Abre el H2 origen en **modo solo lectura** (`ACCESS_MODE_DATA=r`) — nunca escribe ni borra ahí.
-- Inserta en PostgreSQL con `INSERT ... ON CONFLICT (id) DO NOTHING` — nunca sobrescribe filas
-  existentes en el destino; es seguro ejecutarlo varias veces.
-- Al final verifica: cantidad de filas copiadas vs. origen, y recalcula el hash SHA-256 del
-  contenido de cada versión de documento contra `content_hash` para confirmar integridad.
+> ⚠️ **Esto es una herramienta de importación, no un respaldo.** Antes de ejecutarla, haz un
+> respaldo real de ambas bases: copia el archivo `./data/rfcdb.mv.db` (y `.trace.db` si existe)
+> a otra ubicación, y si el destino PostgreSQL ya tiene datos, saca un `pg_dump` de esa base.
+> Además, **detén las escrituras en origen y destino mientras corre** — una comparación
+> consistente entre ambos requiere que ninguno cambie durante la importación.
+
+**Requisito previo:** el esquema de destino debe existir ya en PostgreSQL (Flyway lo crea al
+arrancar la aplicación con el perfil `prod` por primera vez — ver sección anterior). Esta
+herramienta no crea tablas, solo inserta filas en tablas que ya existen.
+
+**Garantías de la herramienta:**
+
+- Abre el H2 origen en **modo solo lectura** (`ACCESS_MODE_DATA=r` + `Connection.setReadOnly`)
+  — nunca escribe ni borra ahí, con éxito o con error.
+- Corre dentro de **una única transacción** en el destino: solo hace `commit` si **todas** las
+  filas del origen quedaron insertadas o verificadas como idénticas a lo ya existente. Ante
+  cualquier conflicto, hash inválido o error, hace **rollback explícito** y termina con código
+  de salida distinto de cero — nunca deja una importación a medias.
+- Nunca usa `UPDATE` ni `DELETE` en el destino: solo `INSERT` de filas nuevas. Si un id ya
+  existe en el destino, compara **todos los campos** (incluyendo JSON de casos de prueba,
+  evidencias, contenido y hashes) contra el origen — si coinciden se cuenta como verificado;
+  si difieren, se informa el id, la tabla y los campos distintos, y se aborta toda la
+  importación sin sobrescribir nada. Permite sin problema que el destino tenga registros
+  adicionales que no existan en el origen.
+- Antes de insertar cada versión de documento, recalcula su hash SHA-256 (mismas reglas que
+  `DocumentHistoryService`) y lo compara contra `content_hash` del origen; si no corresponde,
+  aborta toda la importación sin modificar el origen.
+- Ejecutarla dos veces con el mismo origen no duplica ni modifica nada (idempotente).
 
 ```bash
 cd release-mail-generator
 ./mvnw -q compile
 
-java -cp "target/classes;$(./mvnw -q dependency:build-classpath -Dmdep.outputFile=/dev/stdout)" ^
-     -DsourceH2Path=./data/rfcdb ^
-     -DtargetDbUrl=jdbc:postgresql://localhost:5432/release_mail_generator ^
-     -DtargetDbUser=postgres -DtargetDbPassword=tu-password ^
+# La contraseña SIEMPRE por variable de entorno, nunca como argumento -D.
+$env:DB_USERNAME = "postgres"
+$env:DB_PASSWORD = "tu-password"
+
+java -cp "target/classes;$(./mvnw -q dependency:build-classpath -Dmdep.outputFile=/dev/stdout)" `
+     -DsourceH2Path=./data/rfcdb `
+     -DtargetDbUrl=jdbc:postgresql://localhost:5432/release_mail_generator `
      release_mail_generator.util.H2ToPostgresMigrator
 ```
 
-(En Windows, separa el classpath con `;`; el driver de PostgreSQL ya está en
-`target/classes`/dependencias del proyecto tras compilar.) El comando imprime un resumen con
-conteos de origen/destino y el resultado de la verificación de hashes; termina con código de
-salida distinto de cero si algo no cuadra.
+(En Windows, separa el classpath con `;`; el driver de PostgreSQL ya está entre las
+dependencias del proyecto tras compilar.) El comando imprime un resumen por tabla (leídos,
+insertados, existentes idénticos, conflictos, verificados), y un mensaje final que distingue
+claramente **"IMPORTACIÓN CONFIRMADA"** (commit) de **"IMPORTACIÓN REVERTIDA"** (rollback, nada
+cambió). Nunca imprime contraseñas, cadenas de conexión con credenciales, contenido de
+documentos, JSON completo ni imágenes base64 — solo ids, nombres de tabla y nombres de campo.
+
+**Si la importación se revierte** (conflictos o hash inválido en el origen): el destino queda
+exactamente como estaba antes de ejecutar la herramienta (no hace falta deshacer nada
+manualmente). Revisa los mensajes "Problemas encontrados" para identificar qué id/tabla/campo
+causó el conflicto, corrígelo en el origen o decide manualmente cómo conciliarlo, y vuelve a
+ejecutar la herramienta.
 
 ### Procedimiento de reversión (rollback)
 
@@ -329,8 +362,11 @@ cd release-mail-generator
 La mayoría de los tests usan H2 en memoria (`src/test/resources/application.properties`) — no
 generan archivos en disco. Adicionalmente, `integration/PostgresPersistenceIntegrationTest`
 valida el comportamiento real contra **PostgreSQL** (migraciones Flyway sobre base vacía, CRUD,
-historial, búsqueda, dashboard y persistencia tras reiniciar el contexto), usando
-`io.zonky.test:embedded-postgres` — descarga y ejecuta un binario real de PostgreSQL sin
+historial, búsqueda, dashboard y persistencia tras reiniciar el contexto), y
+`util/H2ToPostgresMigratorTest` valida la herramienta de importación (destino vacío,
+idempotencia, registros adicionales en destino, conflictos de datos, hash de origen inválido,
+atomicidad ante error parcial, y valores nulos/Unicode/fechas) — ambas usan
+`io.zonky.test:embedded-postgres`, que descarga y ejecuta un binario real de PostgreSQL sin
 necesidad de Docker ni de una instancia PostgreSQL instalada localmente.
 
 ---
