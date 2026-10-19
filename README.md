@@ -23,6 +23,44 @@ Herramienta interna para el equipo de QA de Megacable. Genera correos HTML estru
 
 ---
 
+## Autenticación
+
+La aplicación requiere login (Spring Security, formulario + sesión). La cuenta se define
+por completo mediante variables de entorno — **no hay credenciales por defecto**; si faltan,
+la aplicación no arranca.
+
+| Variable | Descripción |
+|---|---|
+| `APP_SECURITY_USERNAME` | Usuario para iniciar sesión. |
+| `APP_SECURITY_PASSWORD_HASH` | Hash **BCrypt** de la contraseña (nunca la contraseña en texto plano). |
+| `APP_SECURITY_ROLE` | Opcional, por defecto `USER`. |
+
+### Generar el hash BCrypt
+
+```bash
+cd release-mail-generator
+./mvnw -q compile
+java -cp target/classes release_mail_generator.util.PasswordHashGenerator
+# Pide la contraseña de forma interactiva (no queda en el historial de la terminal)
+# e imprime: APP_SECURITY_PASSWORD_HASH=$2a$10$...
+```
+
+### Ejecutar con las variables definidas
+
+```bash
+# PowerShell
+$env:APP_SECURITY_USERNAME = "tu-usuario"
+$env:APP_SECURITY_PASSWORD_HASH = '$2a$10$...'
+./mvnw spring-boot:run "-Dspring-boot.run.profiles=dev"
+```
+
+Todas las páginas y APIs (generación de correos, RFC, historial, búsqueda, exportaciones)
+requieren sesión iniciada; solo `/login` y los recursos estáticos (`/css/**`, `/js/**`,
+`/images/**`) son públicos. CSRF permanece habilitado: los formularios y llamadas `fetch`
+del frontend envían el token automáticamente (ver `/js/csrf.js`).
+
+---
+
 ## Ejecución local
 
 ### Opción A — Maven (recomendado para desarrollo)

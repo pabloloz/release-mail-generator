@@ -8,7 +8,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
     <script src="/js/dark-mode.js"></script>
+    <script src="/js/csrf.js"></script>
     <script>
         function togglePath(cbId, groupId) {
             const group = document.getElementById(groupId);
@@ -1905,6 +1908,48 @@
         .btn-tpl:hover { background: var(--bg); border-color: var(--primary); color: var(--primary); }
         [data-theme="dark"] .btn-tpl { background: #1e293b; border-color: var(--border); color: var(--text-muted); }
         [data-theme="dark"] .btn-tpl:hover { background: #0f172a; border-color: #60a5fa; color: #60a5fa; }
+
+        /* ── Estado de plantilla (nueva / editando / cambios sin guardar) ── */
+        .tpl-status-bar {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            font-size: .74rem; color: var(--text-muted); margin: -6px 0 10px 0;
+        }
+        .tpl-status-bar:empty { display: none; }
+        .tpl-status-name { font-weight: 600; color: var(--text); }
+        .tpl-status-sep { opacity: .4; }
+        .tpl-status-dirty { color: #d97706; font-weight: 600; }
+        .tpl-status-clean { color: #059669; font-weight: 600; }
+        [data-theme="dark"] .tpl-status-dirty { color: #fbbf24; }
+        [data-theme="dark"] .tpl-status-clean { color: #34d399; }
+
+        /* ── Confirmación de cambios sin guardar ── */
+        .tpl-confirm-overlay {
+            position: fixed; inset: 0; background: rgba(15,23,42,.45);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 2000; opacity: 0; pointer-events: none; transition: opacity .15s;
+        }
+        .tpl-confirm-overlay.open { opacity: 1; pointer-events: all; }
+        .tpl-confirm-box {
+            background: white; border-radius: var(--radius); padding: 22px 24px;
+            max-width: 380px; width: 92%; box-shadow: var(--shadow-md);
+            transform: translateY(8px); transition: transform .15s;
+        }
+        .tpl-confirm-overlay.open .tpl-confirm-box { transform: translateY(0); }
+        [data-theme="dark"] .tpl-confirm-box { background: #1e293b; color: var(--text); }
+        .tpl-confirm-title { font-weight: 700; font-size: .95rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .tpl-confirm-text { font-size: .82rem; color: var(--text-muted); margin-bottom: 18px; line-height: 1.5; }
+        .tpl-confirm-actions { display: flex; flex-direction: column; gap: 8px; }
+        .tpl-confirm-actions button {
+            border: none; border-radius: var(--radius-xs); padding: 9px 14px;
+            font-weight: 600; font-size: .82rem; cursor: pointer; font-family: inherit;
+            transition: filter .15s;
+        }
+        .tpl-confirm-actions button:hover { filter: brightness(.95); }
+        .tpl-btn-save { background: var(--primary); color: white; }
+        .tpl-btn-discard { background: #fee2e2; color: #991b1b; }
+        .tpl-btn-cancel { background: var(--bg); color: var(--text-muted); }
+        [data-theme="dark"] .tpl-btn-discard { background: #450a0a; color: #fca5a5; }
+        [data-theme="dark"] .tpl-btn-cancel { background: #0f172a; color: var(--text-muted); }
         .btn-copy {
             background: var(--primary); color: white; border: none;
             padding: 6px 14px; border-radius: var(--radius-xs);
@@ -2407,6 +2452,8 @@
         .dashboard-hero-content { position: relative; z-index: 1; max-width: 680px; }
         .dashboard-hero h1 { font-size: 1.5rem; font-weight: 700; color: white; margin: 0 0 6px; letter-spacing: -.03em; }
         .dashboard-hero p { color: rgba(255,255,255,.8); margin: 0; font-size: .86rem; line-height: 1.6; }
+        .dash-welcome { color: rgba(255,255,255,.95) !important; font-size: .88rem !important; font-weight: 500; margin: 0 0 10px !important; }
+        .dash-welcome strong { font-weight: 700; }
         .dash-badge {
             display: inline-flex; align-items: center; gap: 6px;
             background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
@@ -2415,6 +2462,29 @@
             backdrop-filter: blur(4px);
         }
         .dash-version { position: absolute; top: 16px; right: 24px; font-size: .66rem; color: rgba(255,255,255,.4); z-index: 1; }
+
+        /* ── Usuario + cerrar sesión (sidebar) ──────────────────────────── */
+        .sidebar-user {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.1);
+        }
+        .sidebar-user-avatar {
+            width: 32px; height: 32px; border-radius: 50%; background: var(--primary);
+            color: white; font-weight: 700; font-size: .8rem; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .sidebar-user-info { flex: 1; min-width: 0; }
+        .sidebar-user-name {
+            color: white; font-size: .78rem; font-weight: 600; margin-bottom: 1px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sidebar-logout-form { margin: 0; }
+        .sidebar-logout-btn {
+            border: none; background: transparent; color: rgba(255,255,255,.5);
+            font-size: .7rem; padding: 0; cursor: pointer; font-family: inherit;
+            display: inline-flex; align-items: center; gap: 4px; transition: color .15s;
+        }
+        .sidebar-logout-btn:hover { color: #fca5a5; }
 
         .dashboard-body { background: var(--bg); padding: 36px 48px 48px; flex: 1; }
         .dashboard-body-inner { max-width: 880px; margin: 0 auto; }
@@ -3530,6 +3600,16 @@
                 <span class="nav-icon" id="theme-toggle-icon">&#x1F319;</span> Modo Oscuro
             </button>
         </nav>
+        <div class="sidebar-user" th:if="${currentUser}">
+            <div class="sidebar-user-avatar" th:text="${#strings.substring(currentUser,0,1).toUpperCase()}">U</div>
+            <div class="sidebar-user-info">
+                <div class="sidebar-user-name" th:text="${currentUser}">usuario</div>
+                <form th:action="@{/logout}" method="post" class="sidebar-logout-form">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                    <button type="submit" class="sidebar-logout-btn" title="Cerrar sesión">&#x23FB; Cerrar sesión</button>
+                </form>
+            </div>
+        </div>
         <div class="sidebar-footer">
             <img src="/images/logo-qa.png" alt="QA" onerror="this.style.display='none'">
         </div>
@@ -3546,6 +3626,7 @@
             <div class="dashboard-hero-content">
                 <div class="dash-badge">&#x1F3E2; Megacable &mdash; Equipo QA &amp; Liberaciones</div>
                 <h1>Release Notifier QA</h1>
+                <p class="dash-welcome" th:if="${currentUser}">&#x1F44B; Hola, <strong th:text="${currentUser}">usuario</strong> &mdash; bienvenido de nuevo.</p>
                 <p>Plataforma de gesti&#xF3;n de liberaciones, documentaci&#xF3;n t&#xE9;cnica y validaciones para equipos de QA, Desarrollo y Operaciones.</p>
             </div>
         </div>
@@ -3684,6 +3765,7 @@
     </div>
     <div class="pane-body">
     <form action="/generate" method="post" onsubmit="onReleasesFormSubmit(event)">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
 
         <!-- DATOS GENERALES -->
         <div class="section-block">
@@ -3916,8 +3998,10 @@ No publicar en Citrix hasta confirmación de QA.</div>
         </div>
 
 
+        <div class="tpl-status-bar" id="tpl-status-releases"></div>
         <div class="form-actions d-flex gap-2 justify-content-end">
-            <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" id="btn-tpl-save-releases" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" id="btn-tpl-saveas-releases" onclick="saveTemplateAsNew()" title="Crear una copia con otro nombre" style="display:none;">&#xFF0B; Guardar como nueva</button>
             <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearAll()">&#x2715; Limpiar</button>
             <button type="submit" class="btn-generate">Generar Correo &rarr;</button>
@@ -3959,6 +4043,7 @@ No publicar en Citrix hasta confirmación de QA.</div>
     </div>
     <div class="pane-body">
     <form id="releaseMessageForm" onsubmit="event.preventDefault(); generateReleaseMessage();">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
 
         <div class="section-block">
             <div class="section-label">🧭 Tipo de Comunicación <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
@@ -4083,8 +4168,10 @@ Problema 33520 → Error en cálculo de tarifas</div>
             </div>
         </div>
 
+        <div class="tpl-status-bar" id="tpl-status-messages"></div>
         <div class="form-actions d-flex gap-2 justify-content-end">
-            <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" id="btn-tpl-save-messages" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" id="btn-tpl-saveas-messages" onclick="saveTemplateAsNew()" title="Crear una copia con otro nombre" style="display:none;">&#xFF0B; Guardar como nueva</button>
             <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearReleaseMessageForm()">&#x2715; Limpiar</button>
             <button type="button" id="btnGenerateReleaseMessage" class="btn-generate" onclick="generateReleaseMessage()">Generar Mensaje &rarr;</button>
@@ -4120,6 +4207,7 @@ Problema 33520 → Error en cálculo de tarifas</div>
     </div>
     <div class="pane-body">
     <form action="/generate-rdl" method="post" id="rdlForm">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
 
         <!-- SEMANA / AÑO compartido -->
         <div class="section-block">
@@ -4199,8 +4287,10 @@ Problema 33520 → Error en cálculo de tarifas</div>
             <button type="button" class="btn-add-rdl" onclick="addRdlEntry()">&#x2b; Agregar otro RDL</button>
         </div>
 
+        <div class="tpl-status-bar" id="tpl-status-rdl"></div>
         <div class="form-actions d-flex gap-2 justify-content-end">
-            <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" id="btn-tpl-save-rdl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" id="btn-tpl-saveas-rdl" onclick="saveTemplateAsNew()" title="Crear una copia con otro nombre" style="display:none;">&#xFF0B; Guardar como nueva</button>
             <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearRdlForm()">&#x2715; Limpiar</button>
             <button type="button" id="btnGenerateRdlEmail" class="btn-generate" onclick="submitRdlForm()">Generar Correo RDL &rarr;</button>
@@ -4242,6 +4332,7 @@ Problema 33520 → Error en cálculo de tarifas</div>
     </div>
     <div class="pane-body">
     <form id="rdlTelegramForm" onsubmit="event.preventDefault(); generateRdlTelegramMessage();">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
 
         <div class="section-block">
             <div class="section-label">&#x1F680; Acci&#xF3;n <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
@@ -4385,8 +4476,10 @@ dbo.sp_reporte_facturacion.sql</div>
             <input type="text" class="form-control form-control-sm" id="rdlTgReleaseUrl" placeholder="https://megacablesfyc.atlassian.net/projects/SFYCL/versions/...">
         </div>
 
+        <div class="tpl-status-bar" id="tpl-status-rdl-telegram"></div>
         <div class="form-actions d-flex gap-2 justify-content-end">
-            <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" id="btn-tpl-save-rdl-telegram" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" id="btn-tpl-saveas-rdl-telegram" onclick="saveTemplateAsNew()" title="Crear una copia con otro nombre" style="display:none;">&#xFF0B; Guardar como nueva</button>
             <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearRdlTelegramForm()">&#x2715; Limpiar</button>
             <button type="button" id="btnGenerateRdlTelegram" class="btn-generate" style="background:var(--primary-dark);" onclick="generateRdlTelegramMessage()">Generar Telegram RDL &rarr;</button>
@@ -4533,8 +4626,10 @@ dbo.sp_reporte_facturacion.sql</div>
         </div>
 
         <!-- ACTION BAR -->
+        <div class="tpl-status-bar" id="tpl-status-uat"></div>
         <div class="form-actions d-flex gap-2 justify-content-end">
-            <button type="button" class="btn-tpl" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" id="btn-tpl-save-uat" onclick="saveAsTemplate()" title="Guardar como plantilla">&#x1F4BE; Guardar plantilla</button>
+            <button type="button" class="btn-tpl" id="btn-tpl-saveas-uat" onclick="saveTemplateAsNew()" title="Crear una copia con otro nombre" style="display:none;">&#xFF0B; Guardar como nueva</button>
             <button type="button" class="btn-tpl" onclick="openTemplatesPanel()" title="Cargar plantilla guardada">&#x1F4D1; Cargar</button>
             <button type="button" class="btn-clear" onclick="clearUatForm()">&#x2715; Limpiar</button>
             <button type="button" class="btn-generate" onclick="generateUatEmail()">&#x1F4E8; Generar Correo VoBo UAT</button>

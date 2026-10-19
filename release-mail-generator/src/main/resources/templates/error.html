@@ -24,6 +24,9 @@
         <div class="error-code" th:text="${status ?: '404'}">404</div>
         <div class="error-title" th:text="${error ?: 'Página no encontrada'}">Página no encontrada</div>
         <div class="error-desc">La página que buscas no existe o ha sido movida. Verifica la URL o regresa al inicio.</div>
+        <div class="error-desc" th:if="${requestId}" style="font-family:monospace;opacity:.7;">
+            ID de solicitud: <span th:text="${requestId}">abcd1234</span>
+        </div>
         <a href="/" class="error-btn">← Volver al inicio</a>
     </div>
 </body>

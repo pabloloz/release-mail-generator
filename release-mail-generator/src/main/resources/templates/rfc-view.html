@@ -10,7 +10,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/animations.css" rel="stylesheet">
     <link href="/css/md-viewer.css" rel="stylesheet">
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
     <script src="/js/dark-mode.js"></script>
+    <script src="/js/csrf.js"></script>
     <style>
         :root {
             --primary:        #2563eb;
@@ -245,6 +248,7 @@
         </div>
         <form th:action="@{/rfc/{id}/delete(id=${record.id})}" method="post"
               onsubmit="return confirm('&#xBF;Eliminar este RFC?')">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
             <button type="submit" class="rfc-act-btn rfc-act-danger">&#x1F5D1; Eliminar</button>
         </form>
     </div>

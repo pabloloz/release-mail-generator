@@ -87,8 +87,6 @@ public class RfcTechnicalController {
             ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("error", "Error al guardar: " + e.getMessage()));
         }
     }
 
@@ -97,22 +95,23 @@ public class RfcTechnicalController {
                                               @RequestParam(defaultValue = "false") boolean download) {
         return rfcService.findById(id)
                 .map(r -> {
+                    byte[] pdf;
                     try {
-                        byte[] pdf = rfcService.generatePdf(r);
-                        String filename = "RFC_" + sanitize(r.getRfcNumber()) + ".pdf";
-                        if (download) {
-                            historyService.saveVersion("RFC", r.getRfcNumber(),
-                                    "RFC " + r.getRfcNumber() + " — " + r.getChangeName(),
-                                    null, "[PDF exportado]", "EXPORTED", "PDF");
-                        }
-                        return ResponseEntity.ok()
-                                .header(HttpHeaders.CONTENT_DISPOSITION,
-                                        (download ? "attachment" : "inline") + "; filename=\"" + filename + "\"")
-                                .contentType(MediaType.APPLICATION_PDF)
-                                .body(pdf);
+                        pdf = rfcService.generatePdf(r);
                     } catch (Exception e) {
-                        return ResponseEntity.internalServerError().<byte[]>build();
+                        throw new RuntimeException("Error al generar PDF de RFC " + r.getRfcNumber(), e);
                     }
+                    String filename = "RFC_" + sanitize(r.getRfcNumber()) + ".pdf";
+                    if (download) {
+                        historyService.saveVersion("RFC", r.getRfcNumber(),
+                                "RFC " + r.getRfcNumber() + " — " + r.getChangeName(),
+                                null, "[PDF exportado]", "EXPORTED", "PDF");
+                    }
+                    return ResponseEntity.ok()
+                            .header(HttpHeaders.CONTENT_DISPOSITION,
+                                    (download ? "attachment" : "inline") + "; filename=\"" + filename + "\"")
+                            .contentType(MediaType.APPLICATION_PDF)
+                            .body(pdf);
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -143,22 +142,23 @@ public class RfcTechnicalController {
                                                        @RequestParam(defaultValue = "false") boolean download) {
         return rfcService.findById(id)
                 .map(r -> {
+                    byte[] pdf;
                     try {
-                        byte[] pdf = rfcService.generateTestCasesPdf(r);
-                        String filename = "CasosPrueba_" + sanitize(r.getRfcNumber()) + ".pdf";
-                        if (download) {
-                            historyService.saveVersion("RFC", r.getRfcNumber(),
-                                    "Casos de Prueba " + r.getRfcNumber(),
-                                    null, "[PDF exportado]", "EXPORTED", "PDF");
-                        }
-                        return ResponseEntity.ok()
-                                .header(HttpHeaders.CONTENT_DISPOSITION,
-                                        (download ? "attachment" : "inline") + "; filename=\"" + filename + "\"")
-                                .contentType(MediaType.APPLICATION_PDF)
-                                .body(pdf);
+                        pdf = rfcService.generateTestCasesPdf(r);
                     } catch (Exception e) {
-                        return ResponseEntity.internalServerError().<byte[]>build();
+                        throw new RuntimeException("Error al generar PDF de casos de prueba de RFC " + r.getRfcNumber(), e);
                     }
+                    String filename = "CasosPrueba_" + sanitize(r.getRfcNumber()) + ".pdf";
+                    if (download) {
+                        historyService.saveVersion("RFC", r.getRfcNumber(),
+                                "Casos de Prueba " + r.getRfcNumber(),
+                                null, "[PDF exportado]", "EXPORTED", "PDF");
+                    }
+                    return ResponseEntity.ok()
+                            .header(HttpHeaders.CONTENT_DISPOSITION,
+                                    (download ? "attachment" : "inline") + "; filename=\"" + filename + "\"")
+                            .contentType(MediaType.APPLICATION_PDF)
+                            .body(pdf);
                 })
                 .orElse(ResponseEntity.notFound().build());
     }

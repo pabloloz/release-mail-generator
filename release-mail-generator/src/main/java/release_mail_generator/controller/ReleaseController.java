@@ -16,6 +16,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
+import java.security.Principal;
 
 @Controller
 public class ReleaseController {
@@ -29,6 +30,12 @@ public class ReleaseController {
     ) {
         this.emailGeneratorService = emailGeneratorService;
         this.historyService = historyService;
+    }
+
+    /** Expone el usuario autenticado a la vista (saludo + chip en el sidebar). */
+    @ModelAttribute("currentUser")
+    public String currentUser(Principal principal) {
+        return principal != null ? principal.getName() : null;
     }
 
     @GetMapping("/")
