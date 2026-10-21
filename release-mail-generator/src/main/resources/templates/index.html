@@ -3233,12 +3233,12 @@
                     <button type="button" class="dash-retry-btn" id="dashboardRetryBtn">Reintentar</button>
                 </div>
                 <div class="kpi-grid" id="kpiGrid" aria-live="polite" aria-busy="true">
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRfc','blue','RFC','RFCs Creados','📋')}"></div>
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiUat','green','UAT','VoBos Generados','✅')}"></div>
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRelease','indigo','RELEASE','Correos de Liberación','📧')}"></div>
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRdl','amber','RDL','Reportes RDL','📊')}"></div>
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiTelegram','purple','TELEGRAM,RDL_TELEGRAM','Mensajes Telegram','✈️')}"></div>
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiExports','slate','EXPORTS','Exportaciones','📄')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRfc','blue','RFC','RFCs Creados','clipboard')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiUat','green','UAT','VoBos Generados','check')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRelease','indigo','RELEASE','Correos de Liberación','mail')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRdl','amber','RDL','Reportes RDL','chart')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiTelegram','purple','TELEGRAM,RDL_TELEGRAM','Mensajes Telegram','send')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiExports','slate','EXPORTS','Exportaciones','document')}"></div>
                 </div>
 
                 <!-- Activity Chart + Recent -->

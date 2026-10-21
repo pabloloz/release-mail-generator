@@ -7,7 +7,8 @@
   Parámetros: id (string, el mismo id que ya usa animateKpi/getElementById,
   ej. 'kpiRfc'), tone (blue/green/indigo/amber/purple/slate -> .kpi-{tone}),
   type (tipo(s) de documento para el drawer, ej. 'RFC' o 'TELEGRAM,RDL_TELEGRAM'),
-  label (texto visible y título del drawer), icon (emoji, por ahora).
+  label (texto visible y título del drawer), icon (nombre del símbolo del
+  sprite SVG, ej. 'clipboard' -> #icon-clipboard, ver fragments/icon-sprite.html).
 
   En vez de onclick="openKpiDrawer('TELEGRAM,RDL_TELEGRAM','...')" (que
   requeriría anidar comillas dentro de th:onclick), se usan data-type/data-label
@@ -17,7 +18,7 @@
 <div class="kpi-card" th:fragment="kpi(id, tone, type, label, icon)"
      th:classappend="'kpi-' + ${tone}"
      th:data-type="${type}" th:data-label="${label}">
-    <div class="kpi-icon" th:text="${icon}">📋</div>
+    <svg class="kpi-icon icon" aria-hidden="true"><use th:href="'#icon-' + ${icon}"></use></svg>
     <div class="kpi-value" th:id="${id}">—</div>
     <div class="kpi-label" th:text="${label}">Label</div>
 </div>
