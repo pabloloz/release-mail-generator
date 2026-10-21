@@ -406,28 +406,49 @@
             }, 30);
         }
 
+        /**
+         * Completa el rango de los últimos 14 días con 0 para los días sin actividad.
+         * El backend (/history/api/dashboard) solo manda los días CON datos — este
+         * relleno se hace aquí, en el cliente, sin tocar esa respuesta.
+         */
+        function buildFull14Days(chartData) {
+            const byDay = new Map((chartData || []).map(d => [d.day, d.count]));
+            const days = [];
+            const today = new Date();
+            for (let i = 13; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                days.push({ day: key, count: byDay.get(key) || 0 });
+            }
+            return days;
+        }
+
         function renderMiniChart(chartData) {
             const container = document.getElementById('dashChart');
             const totalEl = document.getElementById('chartTotal');
             if (!container) return;
-            if (!chartData.length) {
-                container.innerHTML = '<div class="dash-chart-empty">Sin datos aún. Genera un documento para ver actividad.</div>';
-                if (totalEl) totalEl.textContent = '';
-                return;
-            }
-            const max = Math.max(...chartData.map(d => d.count), 1);
-            const total = chartData.reduce((s, d) => s + d.count, 0);
+
+            const fullDays = buildFull14Days(chartData);
+            const max = Math.max(...fullDays.map(d => d.count), 1);
+            const total = fullDays.reduce((s, d) => s + d.count, 0);
             if (totalEl) totalEl.textContent = total + ' doc' + (total !== 1 ? 's' : '');
 
-            const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-            container.innerHTML = chartData.map(d => {
-                const pct = Math.max((d.count / max) * 100, 4);
+            const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+            container.innerHTML = fullDays.map((d, i) => {
+                const isZero = d.count === 0;
+                const pct = isZero ? 4 : Math.max((d.count / max) * 100, 4);
                 const dt = new Date(d.day + 'T12:00:00');
-                const dayLabel = days[dt.getDay()] + ' ' + dt.getDate();
-                return '<div class="chart-bar-col">'
+                const dayLabel = dayNames[dt.getDay()] + ' ' + dt.getDate();
+                // Etiqueta de fecha solo cada 2 días, para que no se amontonen en móvil.
+                const showLabel = i % 2 === 0;
+                const fullDate = dt.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+                const tooltipText = fullDate + ' — ' + d.count + (d.count === 1 ? ' documento' : ' documentos');
+                return '<div class="chart-bar-col" tabindex="0" title="' + tooltipText + '" aria-label="' + tooltipText + '">'
                     + '<span class="chart-bar-value">' + d.count + '</span>'
-                    + '<div class="chart-bar" style="height:' + pct + 'px;"></div>'
-                    + '<span class="chart-bar-label">' + dayLabel + '</span>'
+                    + '<div class="chart-bar' + (isZero ? ' chart-bar-zero' : '') + '" style="height:' + pct + 'px;"></div>'
+                    + '<span class="chart-bar-label">' + (showLabel ? dayLabel : '') + '</span>'
+                    + '<span class="chart-bar-tooltip" aria-hidden="true">' + tooltipText + '</span>'
                     + '</div>';
             }).join('');
         }

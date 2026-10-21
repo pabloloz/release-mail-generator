@@ -404,17 +404,33 @@
     font-size: .78rem; align-self: center;
 }
 .chart-bar-col {
-    flex: 1; display: flex; flex-direction: column;
-    align-items: center; gap: 4px;
+    flex: 1; min-width: 0; display: flex; flex-direction: column;
+    align-items: center; gap: 4px; position: relative;
+    border-radius: 4px; cursor: default;
 }
+/* Tooltip instantáneo (CSS puro, sin librerías): visible con mouse o teclado. */
+.chart-bar-col:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary); }
+.chart-bar-tooltip {
+    position: absolute; bottom: 100%; left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+    background: #0f172a; color: white; font-size: .68rem; font-weight: 600;
+    padding: 4px 9px; border-radius: 6px; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity .12s;
+    z-index: 5;
+}
+.chart-bar-col:hover .chart-bar-tooltip,
+.chart-bar-col:focus-visible .chart-bar-tooltip { opacity: 1; }
 .chart-bar {
     width: 100%; max-width: 28px; border-radius: 4px 4px 0 0;
     background: var(--primary); min-height: 4px;
     transition: height .3s ease;
 }
+/* Días sin actividad: barra en 0 (altura mínima) con baja opacidad, para que
+   los 14 días del rango siempre se vean, incluso sin datos. */
+.chart-bar-zero { background: var(--text-muted); opacity: .25; }
 .chart-bar-label {
     font-size: .58rem; color: var(--text-muted);
-    font-weight: 600; white-space: nowrap;
+    font-weight: 600; white-space: nowrap; min-height: 1em;
 }
 .chart-bar-value {
     font-size: .62rem; font-weight: 700; color: var(--text);
