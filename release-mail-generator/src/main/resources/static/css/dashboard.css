@@ -200,6 +200,10 @@
 }
 .dashboard-hero h1 { font-size: 1.5rem; font-weight: 700; color: white; margin: 0 0 6px; letter-spacing: -.03em; }
 .dashboard-hero p { color: rgba(255,255,255,.8); margin: 0; font-size: .86rem; line-height: 1.6; }
+/* La palabra &nbsp;Operaciones. (en el HTML) ya evita que quede sola en la
+   última línea en cualquier navegador; text-wrap:balance mejora además el
+   reparto del resto de líneas en navegadores que lo soportan. */
+.dash-hero-subtitle { max-width: 640px; text-wrap: balance; }
 .dash-welcome { color: rgba(255,255,255,.95) !important; font-size: .88rem !important; font-weight: 500; margin: 0 0 10px !important; }
 .dash-welcome strong { font-weight: 700; }
 .dash-badge {
