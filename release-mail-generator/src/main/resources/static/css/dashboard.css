@@ -416,8 +416,9 @@
     align-items: center; gap: 4px; position: relative;
     border-radius: 4px; cursor: default;
 }
-/* Tooltip instantáneo (CSS puro, sin librerías): visible con mouse o teclado. */
-.chart-bar-col:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary); }
+/* Tooltip instantáneo (CSS puro, sin librerías): visible con mouse o teclado.
+   El foco visible de .chart-bar-col se unifica en la sección de
+   accesibilidad (al final del archivo), junto con el resto de componentes. */
 .chart-bar-tooltip {
     position: absolute; bottom: 100%; left: 50%;
     transform: translateX(-50%) translateY(-4px);
@@ -504,6 +505,40 @@
     font-family: inherit; transition: background .15s, transform .1s;
 }
 .dash-retry-btn:hover { background: var(--primary-dark); transform: translateY(-1px); }
+
+/* ── Accesibilidad: foco visible consistente (sidebar + dashboard) ──────── */
+/* var(--primary) no cambia entre temas (#2563eb) y tiene buen contraste
+   tanto contra el sidebar (siempre oscuro, #0f172a) como contra las
+   tarjetas claras/oscuras del dashboard — mismo outline en ambos temas. */
+.sidebar-nav-item:focus-visible,
+.theme-toggle-btn:focus-visible,
+.sidebar-logout-btn:focus-visible,
+.gs-input:focus-visible,
+.dash-hero-btn:focus-visible,
+.kpi-card:focus-visible,
+.module-card:focus-visible,
+.quick-action-btn:focus-visible,
+.dash-retry-btn:focus-visible,
+.kpi-drawer-close:focus-visible,
+.fav-item-remove:focus-visible,
+.chart-bar-col:focus-visible {
+    outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px;
+}
+
+/* ── Accesibilidad: respeta prefers-reduced-motion ───────────────────────
+   Quita la animación/transición de hover (elevación, transform) y la
+   transición de altura de las barras de la gráfica; los estados finales
+   (color, borde, sombra) se mantienen, solo se quita el movimiento. */
+@media (prefers-reduced-motion: reduce) {
+    .kpi-card, .module-card, .module-card::after, .quick-action-btn,
+    .dash-hero-btn, .dash-hero-btn-primary, .dash-hero-btn-secondary, .chart-bar {
+        transition: none !important;
+    }
+    .kpi-card:hover, .module-card:hover, .quick-action-btn:hover,
+    .dash-hero-btn:hover {
+        transform: none !important;
+    }
+}
 
 /* ── Responsive: KPIs / dos columnas ────────────────────────────────────── */
 @media (max-width: 900px) {
