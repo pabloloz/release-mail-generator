@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Fragmento del sidebar — extraído verbatim de templates/index.html (Etapa 2).
+  Parámetro: currentUser (String, puede ser null) — mismo Model attribute que
+  ya exponía ReleaseController.currentUser(Principal).
+
+  IMPORTANTE: no se cambió ningún id, clase, atributo data-pane ni onclick.
+  showPane(), dark-mode.js, global-search.js y favorites.js siguen
+  funcionando exactamente igual porque buscan estos mismos selectores sin
+  importar en qué archivo viva el HTML.
+-->
+<aside class="sidebar" th:fragment="sidebar(currentUser)">
+    <div class="sidebar-brand">
+        <img src="/images/logo-empresa.png" alt=""
+             onerror="this.style.display='none'">
+        <div class="sidebar-brand-name">Release Notifier QA</div>
+        <div class="sidebar-brand-sub">Plataforma QA &amp; Liberaciones</div>
+    </div>
+    <!-- Sidebar Search -->
+    <div class="sidebar-search">
+        <div class="gs-input-wrap">
+            <span class="gs-icon">&#x1F50D;</span>
+            <input type="text" id="globalSearchInput" class="gs-input"
+                   placeholder="Buscar..." autocomplete="off" spellcheck="false"
+                   oninput="onGlobalSearch()" onfocus="onGlobalSearchFocus()" />
+            <kbd class="gs-kbd" id="gsKbd">&#x2318;K</kbd>
+        </div>
+        <div class="gs-results" id="gsResults"></div>
+    </div>
+    <div class="gs-overlay" id="gsOverlay" onclick="closeGlobalSearch()"></div>
+    <nav class="sidebar-nav">
+        <div class="sidebar-nav-section">Plataforma</div>
+        <button class="sidebar-nav-item" data-pane="dashboard" onclick="showPane('dashboard',this)">
+            <span class="nav-icon">&#x229E;</span> Dashboard
+        </button>
+        <div class="sidebar-nav-section">M&#xF3;dulos</div>
+        <button class="sidebar-nav-item" data-pane="releases" onclick="showPane('releases',this)">
+            <span class="nav-icon">&#x1F4E6;</span> Artefactos
+        </button>
+        <button id="nav-artifacts-mail" class="sidebar-nav-item sidebar-subnav-item" data-pane="releases" onclick="showPane('releases',this)">
+            <span class="nav-icon">&#x1F4E7;</span> Correo de Liberación
+        </button>
+        <button id="nav-artifacts-telegram" class="sidebar-nav-item sidebar-subnav-item" data-pane="messages" onclick="showPane('messages',this)">
+            <span class="nav-icon">&#x2708;&#xFE0F;</span> Telegram
+        </button>
+        <button class="sidebar-nav-item" data-pane="rdl" onclick="showPane('rdl',this)">
+            <span class="nav-icon">&#x1F4CA;</span> Reportes RDL
+        </button>
+        <button id="nav-rdl-mail" class="sidebar-nav-item sidebar-subnav-item" data-pane="rdl" onclick="showPane('rdl',this)">
+            <span class="nav-icon">&#x1F4E7;</span> Correo RDL
+        </button>
+        <button id="nav-rdl-telegram" class="sidebar-nav-item sidebar-subnav-item" data-pane="rdl-telegram" onclick="showPane('rdl-telegram',this)">
+            <span class="nav-icon">&#x2708;&#xFE0F;</span> Telegram RDL
+        </button>
+        <button class="sidebar-nav-item" data-pane="rfc" onclick="showPane('rfc',this)">
+            <span class="nav-icon">&#x1F4CB;</span> RFC T&#xE9;cnico
+        </button>
+        <button class="sidebar-nav-item" data-pane="uat" onclick="showPane('uat',this)">
+            <span class="nav-icon">&#x2705;</span> VoBo UAT
+        </button>
+
+        <div class="sidebar-nav-section">Sistema</div>
+        <button class="sidebar-nav-item" onclick="openTemplatesPanel()">
+            <span class="nav-icon">&#x1F4D1;</span> Plantillas
+        </button>
+        <button class="sidebar-nav-item" data-pane="history" onclick="showPane('history',this); loadHistory();">
+            <span class="nav-icon">&#x1F4C2;</span> Historial
+        </button>
+
+        <div class="sidebar-nav-section">Preferencias</div>
+        <button class="theme-toggle-btn" onclick="toggleDarkMode()" title="Cambiar tema">
+            <span class="nav-icon" id="theme-toggle-icon">&#x1F319;</span> Modo Oscuro
+        </button>
+    </nav>
+    <div class="sidebar-user" th:if="${currentUser}">
+        <div class="sidebar-user-avatar" th:text="${#strings.substring(currentUser,0,1).toUpperCase()}">U</div>
+        <div class="sidebar-user-info">
+            <div class="sidebar-user-name" th:text="${currentUser}">usuario</div>
+            <form th:action="@{/logout}" method="post" class="sidebar-logout-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                <button type="submit" class="sidebar-logout-btn" title="Cerrar sesión">&#x23FB; Cerrar sesión</button>
+            </form>
+        </div>
+    </div>
+    <div class="sidebar-footer">
+        <img src="/images/logo-qa.png" alt="QA" onerror="this.style.display='none'">
+    </div>
+</aside>
+
+</body>
+</html>
