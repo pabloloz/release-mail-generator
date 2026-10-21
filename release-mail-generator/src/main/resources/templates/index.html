@@ -3064,13 +3064,17 @@
         <div class="dashboard-hero">
             <div class="dashboard-hero-content">
                 <span class="dash-version">v1.1</span>
-                <div class="dash-badge">&#x1F3E2; Megacable &mdash; Equipo QA &amp; Liberaciones</div>
-                <h1>Release Notifier QA</h1>
-                <p class="dash-welcome" th:if="${currentUser}">&#x1F44B; Hola, <strong th:text="${currentUser}">usuario</strong></p>
-                <p>Plataforma de gesti&#xF3;n de liberaciones, documentaci&#xF3;n t&#xE9;cnica y validaciones para equipos de QA, Desarrollo y Operaciones.</p>
-                <div class="dash-hero-actions">
-                    <button type="button" class="dash-hero-btn dash-hero-btn-primary" onclick="showPane('rfc',null)">&#x1F4CB; Nuevo RFC</button>
-                    <button type="button" class="dash-hero-btn dash-hero-btn-secondary" onclick="showPane('uat',null)">&#x2705; Generar VoBo</button>
+                <div class="dash-hero-top">
+                    <div class="dash-hero-text">
+                        <div class="dash-badge">&#x1F3E2; Megacable &mdash; Equipo QA &amp; Liberaciones</div>
+                        <h1>Release Notifier QA</h1>
+                        <p class="dash-welcome" th:if="${currentUser}">&#x1F44B; Hola, <strong th:text="${currentUser}">usuario</strong></p>
+                        <p>Plataforma de gesti&#xF3;n de liberaciones, documentaci&#xF3;n t&#xE9;cnica y validaciones para equipos de QA, Desarrollo y Operaciones.</p>
+                    </div>
+                    <div class="dash-hero-actions">
+                        <button type="button" class="dash-hero-btn dash-hero-btn-primary" onclick="showPane('rfc',null)">&#x1F4CB; Nuevo RFC</button>
+                        <button type="button" class="dash-hero-btn dash-hero-btn-secondary" onclick="showPane('uat',null)">&#x2705; Generar VoBo</button>
+                    </div>
                 </div>
             </div>
         </div>

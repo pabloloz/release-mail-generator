@@ -173,7 +173,9 @@
 
 /* ── Dashboard: Hero ───────────────────────────────────────────────────── */
 .dashboard-hero {
-    background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 100%);
+    /* Tercer stop oscurece de nuevo el lado derecho (en vez de terminar en el
+       azul mas brillante), para un degradado mas suave/calmado en esa zona. */
+    background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 55%, var(--primary-darker) 100%);
     padding: 32px 0 28px; flex-shrink: 0; position: relative; overflow: hidden;
 }
 .dashboard-hero::before {
@@ -209,8 +211,13 @@
    de la ventana. */
 .dash-version { position: absolute; top: -8px; right: 0; font-size: .66rem; color: rgba(255,255,255,.65); z-index: 1; }
 
+/* Fila superior: texto a la izquierda, acciones rápidas alineadas a la
+   derecha en la misma fila que el título (en móvil se apilan, ver media). */
+.dash-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.dash-hero-text { flex: 1; min-width: 0; }
+
 /* ── Dashboard: Acciones rápidas del hero ──────────────────────────────── */
-.dash-hero-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+.dash-hero-actions { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; flex-shrink: 0; }
 .dash-hero-btn {
     border: none; border-radius: 8px; padding: 9px 18px;
     font-size: .84rem; font-weight: 600; font-family: inherit;
@@ -222,6 +229,12 @@
 .dash-hero-btn-secondary { background: rgba(255,255,255,.14); color: white; border: 1px solid rgba(255,255,255,.3); }
 .dash-hero-btn-secondary:hover { background: rgba(255,255,255,.22); transform: translateY(-1px); }
 .dash-hero-btn:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+
+/* Móvil: los botones quedan debajo del texto en vez de a la derecha. */
+@media (max-width: 700px) {
+    .dash-hero-top { flex-direction: column; }
+    .dash-hero-actions { width: 100%; }
+}
 
 /* ── Dashboard: Body / secciones ───────────────────────────────────────── */
 .dashboard-body { background: var(--bg); padding: 36px 0 48px; flex: 1; }
