@@ -101,7 +101,7 @@
 .gs-input-wrap { position: relative; }
 .gs-icon {
     position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
-    font-size: .72rem; pointer-events: none; z-index: 1;
+    font-size: .72rem; color: rgba(255,255,255,.4); pointer-events: none; z-index: 1;
 }
 .gs-input {
     width: 100%; border: 1px solid rgba(255,255,255,.12); border-radius: 8px;
@@ -294,6 +294,12 @@
 .kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); transform: translateY(-2px); }
 .kpi-card:active { transform: translateY(0) scale(.98); }
 .kpi-icon { font-size: 1.4rem; margin-bottom: 6px; }
+.kpi-blue .kpi-icon { color: #2563eb; }
+.kpi-green .kpi-icon { color: #059669; }
+.kpi-indigo .kpi-icon { color: #4f46e5; }
+.kpi-amber .kpi-icon { color: #d97706; }
+.kpi-purple .kpi-icon { color: #7c3aed; }
+.kpi-slate .kpi-icon { color: #475569; }
 .kpi-value {
     font-size: 1.6rem; font-weight: 800; letter-spacing: -.03em;
     line-height: 1.1; margin-bottom: 2px;
@@ -538,6 +544,17 @@
     .dash-hero-btn:hover {
         transform: none !important;
     }
+}
+
+/* ── Iconos: sprite SVG inline (ver fragments/icon-sprite.html) ──────────
+   .icon se usa en <svg class="icon"><use href="#icon-xxx"></use></svg>;
+   1em hereda el tamaño de fuente del elemento contenedor (nav-icon,
+   module-card-icon, kpi-icon, etc.), igual que hacía el emoji que
+   reemplaza. stroke="currentColor" ya viene en cada <symbol>, así que el
+   color también se hereda del texto circundante sin CSS adicional. */
+.icon {
+    width: 1em; height: 1em; display: inline-block;
+    vertical-align: -0.125em; flex-shrink: 0;
 }
 
 /* ── Responsive: KPIs / dos columnas ────────────────────────────────────── */
