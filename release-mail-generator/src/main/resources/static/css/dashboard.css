@@ -171,8 +171,8 @@
 
 /* ── Dashboard: Hero ───────────────────────────────────────────────────── */
 .dashboard-hero {
-    background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 55%, #3b82f6 100%);
-    padding: 48px 48px 40px; flex-shrink: 0; position: relative; overflow: hidden;
+    background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary) 100%);
+    padding: 32px 0 28px; flex-shrink: 0; position: relative; overflow: hidden;
 }
 .dashboard-hero::before {
     content: ''; position: absolute; top: -40%; right: -10%; width: 400px; height: 400px;
@@ -184,7 +184,13 @@
     background: radial-gradient(circle, rgba(255,255,255,.05) 0%, transparent 70%);
     border-radius: 50%;
 }
-.dashboard-hero-content { position: relative; z-index: 1; max-width: 680px; }
+/* Contenedor unificado: MISMO max-width/margin/padding que .dashboard-body-inner,
+   para que el borde izquierdo del hero y el de las tarjetas siempre coincidan,
+   sin importar el ancho de viewport (1280px, 1440px, 1920px, etc.). */
+.dashboard-hero-content {
+    position: relative; z-index: 1;
+    max-width: 1200px; margin: 0 auto; padding: 0 48px; box-sizing: border-box;
+}
 .dashboard-hero h1 { font-size: 1.5rem; font-weight: 700; color: white; margin: 0 0 6px; letter-spacing: -.03em; }
 .dashboard-hero p { color: rgba(255,255,255,.8); margin: 0; font-size: .86rem; line-height: 1.6; }
 .dash-welcome { color: rgba(255,255,255,.95) !important; font-size: .88rem !important; font-weight: 500; margin: 0 0 10px !important; }
@@ -196,11 +202,28 @@
     color: rgba(255,255,255,.9); margin-bottom: 14px; letter-spacing: .03em;
     backdrop-filter: blur(4px);
 }
-.dash-version { position: absolute; top: 16px; right: 24px; font-size: .66rem; color: rgba(255,255,255,.4); z-index: 1; }
+/* Posicionado dentro de .dashboard-hero-content (ya tiene position:relative),
+   para que quede alineado con el mismo contenedor de 1200px, no con el borde
+   de la ventana. */
+.dash-version { position: absolute; top: -8px; right: 0; font-size: .66rem; color: rgba(255,255,255,.65); z-index: 1; }
+
+/* ── Dashboard: Acciones rápidas del hero ──────────────────────────────── */
+.dash-hero-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+.dash-hero-btn {
+    border: none; border-radius: 8px; padding: 9px 18px;
+    font-size: .84rem; font-weight: 600; font-family: inherit;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: background .15s, transform .1s, box-shadow .15s;
+}
+.dash-hero-btn-primary { background: white; color: var(--primary-darker); }
+.dash-hero-btn-primary:hover { background: #f1f5f9; transform: translateY(-1px); }
+.dash-hero-btn-secondary { background: rgba(255,255,255,.14); color: white; border: 1px solid rgba(255,255,255,.3); }
+.dash-hero-btn-secondary:hover { background: rgba(255,255,255,.22); transform: translateY(-1px); }
+.dash-hero-btn:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 
 /* ── Dashboard: Body / secciones ───────────────────────────────────────── */
-.dashboard-body { background: var(--bg); padding: 36px 48px 48px; flex: 1; }
-.dashboard-body-inner { max-width: 880px; margin: 0 auto; }
+.dashboard-body { background: var(--bg); padding: 36px 0 48px; flex: 1; }
+.dashboard-body-inner { max-width: 1200px; margin: 0 auto; padding: 0 48px; box-sizing: border-box; }
 .dash-section-title { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 16px; }
 
 /* ── Dashboard: Tarjetas de módulos ────────────────────────────────────── */
@@ -418,13 +441,17 @@
     .sidebar-nav-item > *:not(.nav-icon) { display: none; }
     .sidebar-footer img { height: 20px; }
     .module-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
-    .dashboard-hero { padding: 32px 20px 28px; }
-    .dashboard-body { padding: 24px 20px 32px; }
+    .dashboard-hero { padding: 24px 0 20px; }
+    .dashboard-hero-content { padding: 0 24px; }
+    .dashboard-body { padding: 24px 0 32px; }
+    .dashboard-body-inner { padding: 0 24px; }
     .sidebar-search { display: none; }
     .gs-results { left: 56px; width: 340px; }
 }
 @media (max-width: 520px) {
     .module-grid { grid-template-columns: 1fr; }
+    .dashboard-hero-content { padding: 0 16px; }
+    .dashboard-body-inner { padding: 0 16px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
