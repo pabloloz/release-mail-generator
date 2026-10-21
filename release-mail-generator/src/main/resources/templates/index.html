@@ -440,8 +440,10 @@
                 const pct = isZero ? 4 : Math.max((d.count / max) * 100, 4);
                 const dt = new Date(d.day + 'T12:00:00');
                 const dayLabel = dayNames[dt.getDay()] + ' ' + dt.getDate();
-                // Etiqueta de fecha solo cada 2 días, para que no se amontonen en móvil.
-                const showLabel = i % 2 === 0;
+                // Etiqueta de fecha cada 2 días, pero el último día (hoy) siempre
+                // se muestra — si no, el patrón alterno puede ocultar justo la
+                // etiqueta de hoy y dar la impresión de que el rango no llega a hoy.
+                const showLabel = i % 2 === 0 || i === fullDays.length - 1;
                 const fullDate = dt.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
                 const tooltipText = fullDate + ' — ' + d.count + (d.count === 1 ? ' documento' : ' documentos');
                 return '<div class="chart-bar-col" tabindex="0" title="' + tooltipText + '" aria-label="' + tooltipText + '">'
