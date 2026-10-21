@@ -447,7 +447,7 @@
                 const fullDate = dt.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
                 const tooltipText = fullDate + ' — ' + d.count + (d.count === 1 ? ' documento' : ' documentos');
                 return '<div class="chart-bar-col" tabindex="0" title="' + tooltipText + '" aria-label="' + tooltipText + '">'
-                    + '<span class="chart-bar-value">' + d.count + '</span>'
+                    + '<span class="chart-bar-value">' + (isZero ? '' : d.count) + '</span>'
                     + '<div class="chart-bar' + (isZero ? ' chart-bar-zero' : '') + '" style="height:' + pct + 'px;"></div>'
                     + '<span class="chart-bar-label">' + (showLabel ? dayLabel : '') + '</span>'
                     + '<span class="chart-bar-tooltip" aria-hidden="true">' + tooltipText + '</span>'
