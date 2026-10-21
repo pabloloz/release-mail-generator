@@ -22,7 +22,7 @@
     <!-- Sidebar Search -->
     <div class="sidebar-search">
         <div class="gs-input-wrap">
-            <span class="gs-icon" aria-hidden="true">&#x1F50D;</span>
+            <span class="gs-icon" aria-hidden="true"><svg class="icon"><use href="#icon-search"></use></svg></span>
             <input type="text" id="globalSearchInput" class="gs-input"
                    placeholder="Buscar..." aria-label="Buscar" autocomplete="off" spellcheck="false"
                    oninput="onGlobalSearch()" onfocus="onGlobalSearchFocus()" />
@@ -34,40 +34,40 @@
     <nav class="sidebar-nav">
         <div class="sidebar-nav-section">Plataforma</div>
         <button class="sidebar-nav-item" data-pane="dashboard" onclick="showPane('dashboard',this)">
-            <span class="nav-icon">&#x229E;</span> Dashboard
+            <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-dashboard"></use></svg></span> Dashboard
         </button>
         <div class="sidebar-nav-section">M&#xF3;dulos</div>
         <button class="sidebar-nav-item" data-pane="releases" onclick="showPane('releases',this)">
-            <span class="nav-icon">&#x1F4E6;</span> Artefactos
+            <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-package"></use></svg></span> Artefactos
         </button>
         <button id="nav-artifacts-mail" class="sidebar-nav-item sidebar-subnav-item" data-pane="releases" onclick="showPane('releases',this)">
-            <span class="nav-icon">&#x1F4E7;</span> Correo de Liberación
+            <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-mail"></use></svg></span> Correo de Liberación
         </button>
         <button id="nav-artifacts-telegram" class="sidebar-nav-item sidebar-subnav-item" data-pane="messages" onclick="showPane('messages',this)">
-            <span class="nav-icon">&#x2708;&#xFE0F;</span> Telegram
+            <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-send"></use></svg></span> Telegram
         </button>
         <button class="sidebar-nav-item" data-pane="rdl" onclick="showPane('rdl',this)">
-            <span class="nav-icon">&#x1F4CA;</span> Reportes RDL
+            <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-chart"></use></svg></span> Reportes RDL
         </button>
         <button id="nav-rdl-mail" class="sidebar-nav-item sidebar-subnav-item" data-pane="rdl" onclick="showPane('rdl',this)">
-            <span class="nav-icon">&#x1F4E7;</span> Correo RDL
+            <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-mail"></use></svg></span> Correo RDL
         </button>
         <button id="nav-rdl-telegram" class="sidebar-nav-item sidebar-subnav-item" data-pane="rdl-telegram" onclick="showPane('rdl-telegram',this)">
-            <span class="nav-icon">&#x2708;&#xFE0F;</span> Telegram RDL
+            <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-send"></use></svg></span> Telegram RDL
         </button>
         <button class="sidebar-nav-item" data-pane="rfc" onclick="showPane('rfc',this)">
-            <span class="nav-icon">&#x1F4CB;</span> RFC T&#xE9;cnico
+            <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-clipboard"></use></svg></span> RFC T&#xE9;cnico
         </button>
         <button class="sidebar-nav-item" data-pane="uat" onclick="showPane('uat',this)">
-            <span class="nav-icon">&#x2705;</span> VoBo UAT
+            <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg></span> VoBo UAT
         </button>
 
         <div class="sidebar-nav-section">Sistema</div>
         <button class="sidebar-nav-item" onclick="openTemplatesPanel()">
-            <span class="nav-icon">&#x1F4D1;</span> Plantillas
+            <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-bookmark"></use></svg></span> Plantillas
         </button>
         <button class="sidebar-nav-item" data-pane="history" onclick="showPane('history',this); loadHistory();">
-            <span class="nav-icon">&#x1F4C2;</span> Historial
+            <span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-folder"></use></svg></span> Historial
         </button>
 
         <div class="sidebar-nav-section">Preferencias</div>
