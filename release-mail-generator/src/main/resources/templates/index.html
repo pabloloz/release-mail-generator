@@ -395,6 +395,7 @@
         function animateKpi(id, target) {
             const el = document.getElementById(id);
             if (!el) return;
+            el.classList.toggle('kpi-value-zero', target === 0);
             if (target === 0) { el.textContent = '0'; return; }
             let current = 0;
             const step = Math.max(1, Math.ceil(target / 20));
@@ -471,6 +472,17 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            // Tarjetas KPI: usan data-type/data-label (en vez de onclick con comillas
+            // anidadas) para poder generarse desde el fragmento fragments/kpi-card.html.
+            const kpiGrid = document.getElementById('kpiGrid');
+            if (kpiGrid) {
+                kpiGrid.addEventListener('click', (e) => {
+                    const card = e.target.closest('.kpi-card');
+                    if (!card) return;
+                    openKpiDrawer(card.dataset.type, card.dataset.label);
+                });
+            }
+
             const now = new Date();
             document.getElementById('anio').value = now.getFullYear();
             document.getElementById('semana').value = getISOWeek(now);
@@ -3086,36 +3098,12 @@
                 <!-- KPI Cards -->
                 <div class="dash-section-title">Indicadores</div>
                 <div class="kpi-grid" id="kpiGrid">
-                    <div class="kpi-card kpi-blue" onclick="openKpiDrawer('RFC','RFCs Creados')" style="cursor:pointer;">
-                        <div class="kpi-icon">&#x1F4CB;</div>
-                        <div class="kpi-value" id="kpiRfc">—</div>
-                        <div class="kpi-label">RFCs Creados</div>
-                    </div>
-                    <div class="kpi-card kpi-green" onclick="openKpiDrawer('UAT','VoBos Generados')" style="cursor:pointer;">
-                        <div class="kpi-icon">&#x2705;</div>
-                        <div class="kpi-value" id="kpiUat">—</div>
-                        <div class="kpi-label">VoBos Generados</div>
-                    </div>
-                    <div class="kpi-card kpi-indigo" onclick="openKpiDrawer('RELEASE','Correos de Liberaci&#xF3;n')" style="cursor:pointer;">
-                        <div class="kpi-icon">&#x1F4E7;</div>
-                        <div class="kpi-value" id="kpiRelease">—</div>
-                        <div class="kpi-label">Correos de Liberaci&#xF3;n</div>
-                    </div>
-                    <div class="kpi-card kpi-amber" onclick="openKpiDrawer('RDL','Reportes RDL')" style="cursor:pointer;">
-                        <div class="kpi-icon">&#x1F4CA;</div>
-                        <div class="kpi-value" id="kpiRdl">—</div>
-                        <div class="kpi-label">Reportes RDL</div>
-                    </div>
-                    <div class="kpi-card kpi-purple" onclick="openKpiDrawer('TELEGRAM,RDL_TELEGRAM','Mensajes Telegram')" style="cursor:pointer;">
-                        <div class="kpi-icon">&#x2708;&#xFE0F;</div>
-                        <div class="kpi-value" id="kpiTelegram">—</div>
-                        <div class="kpi-label">Mensajes Telegram</div>
-                    </div>
-                    <div class="kpi-card kpi-slate" onclick="openKpiDrawer('EXPORTS','Exportaciones')" style="cursor:pointer;">
-                        <div class="kpi-icon">&#x1F4C4;</div>
-                        <div class="kpi-value" id="kpiExports">—</div>
-                        <div class="kpi-label">Exportaciones</div>
-                    </div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRfc','blue','RFC','RFCs Creados','📋')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiUat','green','UAT','VoBos Generados','✅')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRelease','indigo','RELEASE','Correos de Liberación','📧')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRdl','amber','RDL','Reportes RDL','📊')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiTelegram','purple','TELEGRAM,RDL_TELEGRAM','Mensajes Telegram','✈️')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiExports','slate','EXPORTS','Exportaciones','📄')}"></div>
                 </div>
 
                 <!-- Activity Chart + Recent -->

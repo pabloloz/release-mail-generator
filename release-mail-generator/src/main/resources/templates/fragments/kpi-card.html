@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Fragmento de tarjeta KPI — Etapa 3.
+  Parámetros: id (string, el mismo id que ya usa animateKpi/getElementById,
+  ej. 'kpiRfc'), tone (blue/green/indigo/amber/purple/slate -> .kpi-{tone}),
+  type (tipo(s) de documento para el drawer, ej. 'RFC' o 'TELEGRAM,RDL_TELEGRAM'),
+  label (texto visible y título del drawer), icon (emoji, por ahora).
+
+  En vez de onclick="openKpiDrawer('TELEGRAM,RDL_TELEGRAM','...')" (que
+  requeriría anidar comillas dentro de th:onclick), se usan data-type/data-label
+  y un listener delegado en #kpiGrid (ver <script> en index.html) que llama a
+  openKpiDrawer(type, label) — mismo comportamiento, sin concatenar comillas.
+-->
+<div class="kpi-card" th:fragment="kpi(id, tone, type, label, icon)"
+     th:classappend="'kpi-' + ${tone}"
+     th:data-type="${type}" th:data-label="${label}">
+    <div class="kpi-icon" th:text="${icon}">📋</div>
+    <div class="kpi-value" th:id="${id}">—</div>
+    <div class="kpi-label" th:text="${label}">Label</div>
+</div>
+
+</body>
+</html>

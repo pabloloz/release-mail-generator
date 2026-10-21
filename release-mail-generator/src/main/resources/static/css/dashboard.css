@@ -281,7 +281,7 @@
 }
 .kpi-card {
     background: white; border: 1px solid var(--border); border-radius: 12px;
-    padding: 18px 20px; position: relative; overflow: hidden;
+    padding: 18px 20px; position: relative; overflow: hidden; cursor: pointer;
     transition: box-shadow .15s, transform .12s;
 }
 .kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); transform: translateY(-2px); }
@@ -309,6 +309,9 @@
 .kpi-purple::after { background: #7c3aed; }
 .kpi-slate .kpi-value { color: #475569; }
 .kpi-slate::after { background: #475569; }
+/* Si el valor es 0, color neutro en vez del color del tono (se aplica
+   despues de las reglas de tono para ganar por orden de declaracion). */
+.kpi-value.kpi-value-zero { color: var(--text-muted); }
 
 /* ── Dashboard: Drawer de detalle de KPI ───────────────────────────────── */
 .kpi-drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 9998; opacity: 0; pointer-events: none; transition: opacity .2s; }
