@@ -308,6 +308,7 @@
         const DASH_ACTION_LABELS = { CREATED: 'Creado', MODIFIED: 'Modificado', EXPORTED: 'Exportado', RESTORED: 'Restaurado' };
 
         async function loadDashboardData() {
+            showDashboardSkeletons();
             try {
                 const resp = await fetch('/history/api/dashboard');
                 if (!resp.ok) return;
@@ -321,6 +322,7 @@
                 animateKpi('kpiRdl', c.RDL || 0);
                 animateKpi('kpiTelegram', (c.TELEGRAM || 0) + (c.RDL_TELEGRAM || 0));
                 animateKpi('kpiExports', data.exports || 0);
+                document.getElementById('kpiGrid')?.setAttribute('aria-busy', 'false');
 
                 // Chart
                 renderMiniChart(data.chart || []);
@@ -328,6 +330,46 @@
                 // Recent activity
                 renderRecentActivity(data.recent || []);
             } catch (e) { /* silent — dashboard is informational */ }
+        }
+
+        /**
+         * Skeletons (placeholders animados) mientras /history/api/dashboard responde.
+         * Se reutilizan tanto en la carga inicial como al reintentar tras un error.
+         */
+        function showDashboardSkeletons() {
+            const kpiGrid = document.getElementById('kpiGrid');
+            if (kpiGrid) {
+                kpiGrid.setAttribute('aria-busy', 'true');
+                kpiGrid.querySelectorAll('.kpi-value').forEach(el => el.classList.add('skeleton'));
+            }
+            renderChartSkeleton();
+            renderRecentSkeleton();
+        }
+
+        function renderChartSkeleton() {
+            const container = document.getElementById('dashChart');
+            if (!container) return;
+            container.setAttribute('aria-busy', 'true');
+            // Alturas variadas solo para que el placeholder se vea como una gráfica real.
+            const heights = [38, 62, 28, 74, 50, 20, 84, 42, 66, 32, 56, 24, 70, 46];
+            container.innerHTML = heights.map(h =>
+                '<div class="chart-bar-col"><div class="chart-bar skeleton" style="height:' + h + 'px;"></div></div>'
+            ).join('');
+        }
+
+        function renderRecentSkeleton() {
+            const container = document.getElementById('dashRecent');
+            if (!container) return;
+            container.setAttribute('aria-busy', 'true');
+            container.innerHTML = Array.from({ length: 4 }).map(() =>
+                '<div class="recent-item">'
+                + '<span class="recent-icon skeleton" style="width:26px;height:26px;border-radius:50%;display:inline-block;"></span>'
+                + '<div class="recent-text">'
+                + '<div class="skeleton" style="width:65%;height:11px;border-radius:4px;margin-bottom:6px;"></div>'
+                + '<div class="skeleton" style="width:35%;height:9px;border-radius:4px;"></div>'
+                + '</div>'
+                + '</div>'
+            ).join('');
         }
 
         // ── KPI Drawer ───────────────────────────────────────────
@@ -395,6 +437,7 @@
         function animateKpi(id, target) {
             const el = document.getElementById(id);
             if (!el) return;
+            el.classList.remove('skeleton');
             el.classList.toggle('kpi-value-zero', target === 0);
             if (target === 0) { el.textContent = '0'; return; }
             let current = 0;
@@ -428,6 +471,7 @@
             const container = document.getElementById('dashChart');
             const totalEl = document.getElementById('chartTotal');
             if (!container) return;
+            container.setAttribute('aria-busy', 'false');
 
             const fullDays = buildFull14Days(chartData);
             const max = Math.max(...fullDays.map(d => d.count), 1);
@@ -458,6 +502,7 @@
         function renderRecentActivity(items) {
             const container = document.getElementById('dashRecent');
             if (!container) return;
+            container.setAttribute('aria-busy', 'false');
             if (!items.length) {
                 container.innerHTML = '<div class="dash-empty-state">'
                     + '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
@@ -3128,7 +3173,7 @@
 
                 <!-- KPI Cards -->
                 <div class="dash-section-title">Indicadores</div>
-                <div class="kpi-grid" id="kpiGrid">
+                <div class="kpi-grid" id="kpiGrid" aria-live="polite" aria-busy="true">
                     <div th:replace="~{fragments/kpi-card :: kpi('kpiRfc','blue','RFC','RFCs Creados','📋')}"></div>
                     <div th:replace="~{fragments/kpi-card :: kpi('kpiUat','green','UAT','VoBos Generados','✅')}"></div>
                     <div th:replace="~{fragments/kpi-card :: kpi('kpiRelease','indigo','RELEASE','Correos de Liberación','📧')}"></div>
@@ -3145,7 +3190,7 @@
                             <div class="dash-section-title" style="margin-bottom:0;">Actividad (&#xFA;ltimos 14 d&#xED;as)</div>
                             <span class="kpi-label" id="chartTotal"></span>
                         </div>
-                        <div class="dash-chart-wrapper" id="dashChart">
+                        <div class="dash-chart-wrapper" id="dashChart" aria-live="polite" aria-busy="true">
                             <div class="dash-chart-empty">Sin datos a&#xFA;n. Genera un documento para ver actividad.</div>
                         </div>
                     </div>
@@ -3155,7 +3200,7 @@
                         <div class="dash-panel-header">
                             <div class="dash-section-title" style="margin-bottom:0;">Actividad reciente</div>
                         </div>
-                        <div id="dashRecent" class="dash-recent-list">
+                        <div id="dashRecent" class="dash-recent-list" aria-live="polite" aria-busy="true">
                             <div class="dash-chart-empty">Sin actividad reciente.</div>
                         </div>
                     </div>
