@@ -79,14 +79,14 @@
         <div class="sidebar-user-avatar" th:text="${#strings.substring(currentUser,0,1).toUpperCase()}">U</div>
         <div class="sidebar-user-info">
             <div class="sidebar-user-name" th:text="${currentUser}">usuario</div>
-            <form th:action="@{/logout}" method="post" class="sidebar-logout-form">
-                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-                <button type="submit" class="sidebar-logout-btn" title="Cerrar sesión">&#x23FB; Cerrar sesión</button>
-            </form>
+            <div class="sidebar-user-row">
+                <form th:action="@{/logout}" method="post" class="sidebar-logout-form">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                    <button type="submit" class="sidebar-logout-btn" title="Cerrar sesión">&#x23FB; Cerrar sesión</button>
+                </form>
+                <img src="/images/logo-qa.png" alt="QA" title="Release Notifier QA" class="sidebar-qa-badge" onerror="this.style.display='none'">
+            </div>
         </div>
-    </div>
-    <div class="sidebar-footer">
-        <img src="/images/logo-qa.png" alt="QA" title="Release Notifier QA" onerror="this.style.display='none'">
     </div>
 </aside>
 

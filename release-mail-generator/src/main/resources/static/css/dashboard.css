@@ -50,10 +50,6 @@
 }
 .sidebar-subnav-item .nav-icon { font-size: .78rem; }
 .nav-icon { font-size: .9rem; flex-shrink: 0; width: 18px; text-align: center; }
-/* Logo QA: marca discreta alineada a la izquierda, igual que el bloque de
-   usuario justo arriba (misma indentación, sin fondo ni forma de botón). */
-.sidebar-footer { padding: 10px 14px; border-top: 1px solid rgba(255,255,255,.1); display: flex; align-items: center; justify-content: flex-start; }
-.sidebar-footer img { height: 22px; width: auto; object-fit: contain; opacity: .7; }
 .sidebar-nav-item { transition: background .15s, color .15s, transform .08s ease; }
 .sidebar-nav-item:active { transform: scale(.97); }
 
@@ -83,6 +79,9 @@
     color: white; font-size: .78rem; font-weight: 600; margin-bottom: 1px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* Fila con el botón de cerrar sesión y el logo QA (antes aislado al fondo
+   del sidebar) en el mismo renglon, dentro del bloque de usuario. */
+.sidebar-user-row { display: flex; align-items: center; gap: 8px; }
 .sidebar-logout-form { margin: 0; }
 .sidebar-logout-btn {
     border: none; background: transparent; color: rgba(255,255,255,.5);
@@ -90,6 +89,7 @@
     display: inline-flex; align-items: center; gap: 4px; transition: color .15s;
 }
 .sidebar-logout-btn:hover { color: #fca5a5; }
+.sidebar-qa-badge { height: 16px; width: auto; object-fit: contain; opacity: .55; margin-left: auto; flex-shrink: 0; }
 
 /* ── Global Search (dentro del sidebar) ───────────────────────────────── */
 .sidebar-search {
@@ -441,7 +441,6 @@
     .sidebar-brand img { max-width: 42px; height: 42px; }
     .sidebar-nav-item { justify-content: center; padding: 9px 8px; gap: 0; }
     .sidebar-nav-item > *:not(.nav-icon) { display: none; }
-    .sidebar-footer img { height: 20px; }
     .module-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
     .dashboard-hero { padding: 24px 0 20px; }
     .dashboard-hero-content { padding: 0 24px; }
@@ -461,7 +460,6 @@
    ══════════════════════════════════════════════════════════════════════════ */
 [data-theme="dark"] .sidebar { background: #020617; }
 [data-theme="dark"] .sidebar-brand { border-bottom-color: rgba(255,255,255,.06); }
-[data-theme="dark"] .sidebar-footer { border-top-color: rgba(255,255,255,.06); }
 
 [data-theme="dark"] .gs-results { background: #1e293b; border-color: #334155; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
 [data-theme="dark"] .gs-group-header { background: #0f172a; border-bottom-color: #334155; }
