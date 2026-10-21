@@ -292,26 +292,23 @@
     line-height: 1.1; margin-bottom: 2px;
 }
 .kpi-label { font-size: .7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
-.kpi-card::after {
-    content: ''; position: absolute; top: 0; right: 0;
-    width: 60px; height: 60px; border-radius: 0 12px 0 60px;
-    opacity: .08;
-}
 .kpi-blue .kpi-value { color: #2563eb; }
-.kpi-blue::after { background: #2563eb; }
 .kpi-green .kpi-value { color: #059669; }
-.kpi-green::after { background: #059669; }
 .kpi-indigo .kpi-value { color: #4f46e5; }
-.kpi-indigo::after { background: #4f46e5; }
 .kpi-amber .kpi-value { color: #d97706; }
-.kpi-amber::after { background: #d97706; }
 .kpi-purple .kpi-value { color: #7c3aed; }
-.kpi-purple::after { background: #7c3aed; }
 .kpi-slate .kpi-value { color: #475569; }
-.kpi-slate::after { background: #475569; }
 /* Si el valor es 0, color neutro en vez del color del tono (se aplica
    despues de las reglas de tono para ganar por orden de declaracion). */
 .kpi-value.kpi-value-zero { color: var(--text-muted); }
+/* Hover sutil: elevacion (ya definida arriba en .kpi-card:hover) + borde de
+   acento con el color de cada tono, en vez del circulo decorativo de fondo. */
+.kpi-blue:hover { border-color: #2563eb; }
+.kpi-green:hover { border-color: #059669; }
+.kpi-indigo:hover { border-color: #4f46e5; }
+.kpi-amber:hover { border-color: #d97706; }
+.kpi-purple:hover { border-color: #7c3aed; }
+.kpi-slate:hover { border-color: #475569; }
 
 /* ── Dashboard: Drawer de detalle de KPI ───────────────────────────────── */
 .kpi-drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 9998; opacity: 0; pointer-events: none; transition: opacity .2s; }
@@ -521,7 +518,6 @@
 
 [data-theme="dark"] .kpi-card { background: #1e293b; border-color: var(--border); }
 [data-theme="dark"] .kpi-card:hover { box-shadow: 0 6px 24px rgba(37,99,235,.15); border-color: #3b82f6; }
-[data-theme="dark"] .kpi-card::after { opacity: .12; }
 [data-theme="dark"] .dash-panel { background: #1e293b; border-color: var(--border); }
 [data-theme="dark"] .dash-panel-header { border-bottom-color: var(--border); }
 [data-theme="dark"] .recent-item { border-bottom-color: var(--border); }
