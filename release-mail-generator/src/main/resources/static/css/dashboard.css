@@ -89,7 +89,10 @@
     display: inline-flex; align-items: center; gap: 4px; transition: color .15s;
 }
 .sidebar-logout-btn:hover { color: #fca5a5; }
-.sidebar-qa-badge { height: 16px; width: auto; object-fit: contain; opacity: .55; margin-left: auto; flex-shrink: 0; }
+/* El logo-qa.png es un circulo rojo/naranja (icono de laptop+check); a 16px
+   se ve como un punto rojo que parece un indicador de error junto al boton
+   de cerrar sesion. grayscale lo neutraliza sin perder el icono. */
+.sidebar-qa-badge { height: 16px; width: auto; object-fit: contain; opacity: .6; margin-left: auto; flex-shrink: 0; filter: grayscale(1); }
 
 /* ── Global Search (dentro del sidebar) ───────────────────────────────── */
 .sidebar-search {
