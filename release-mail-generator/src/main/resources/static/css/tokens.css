@@ -1,0 +1,104 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Design Tokens — Release Notifier QA
+   ──────────────────────────────────────────────────────────────────────────
+   Fuente de verdad para colores, espaciado, radios y sombras del Dashboard.
+
+   IMPORTANTE (Etapa 1): los nombres y valores de las variables de abajo son
+   una copia EXACTA de las que ya existían inline en templates/index.html
+   (tanto el bloque `:root` como el `[data-theme="dark"]`), para que mover el
+   CSS a este archivo no cambie la apariencia actual. Los "tokens nuevos" al
+   final (espaciado/radios/sombras/semánticos adicionales) se agregan sin
+   aplicarse todavía a ningún componente — se usarán en etapas siguientes.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    --primary:        #2563eb;
+    --primary-dark:   #1d4ed8;
+    --primary-darker: #1e3a8a;
+    --primary-light:  #eff6ff;
+    --primary-ring:   rgba(37,99,235,.18);
+    --success:        #059669;
+    --success-hover:  #047857;
+    --danger:         #dc2626;
+    --danger-light:   #fef2f2;
+    --danger-border:  #fecaca;
+    --purple:         #7c3aed;
+    --purple-hover:   #6d28d9;
+    --border:         #e2e8f0;
+    --bg:             #f1f5f9;
+    --bg-section:     #f8fafc;
+    --text:           #0f172a;
+    --text-muted:     #64748b;
+    --text-label:     #374151;
+    --shadow-md:      0 4px 24px rgba(0,0,0,.09);
+    --radius:         14px;
+    --radius-sm:      10px;
+    --radius-xs:      7px;
+}
+
+/* ── Dark Mode Overrides (misma lista de variables redefinidas) ─────────── */
+[data-theme="dark"] {
+    --primary-light:  #1e3a5f;
+    --primary-ring:   rgba(59,130,246,.25);
+    --border:         #334155;
+    --bg:             #0f172a;
+    --bg-section:     #1e293b;
+    --text:           #e2e8f0;
+    --text-muted:     #94a3b8;
+    --text-label:     #cbd5e1;
+    --shadow-md:      0 4px 24px rgba(0,0,0,.32);
+    --danger-light:   #3b1c1c;
+    --danger-border:  #7f1d1d;
+    color-scheme: dark;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Tokens nuevos (Etapa 1: definidos pero NO aplicados aún — no cambian nada
+   visualmente). Se usarán al migrar componentes en etapas siguientes.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+    /* Fondos por nivel de superficie */
+    --surface:         #ffffff;
+    --surface-elevated: #ffffff;
+
+    /* Texto deshabilitado */
+    --text-disabled:   #94a3b8;
+
+    /* Color de acento (alias semántico de --primary, para componentes nuevos) */
+    --accent:          var(--primary);
+
+    /* Colores semánticos adicionales (éxito/error ya existían como --success/--danger) */
+    --warning:         #d97706;
+    --warning-light:   #fffbeb;
+    --warning-border:  #fde68a;
+    --info:            #0284c7;
+    --info-light:      #f0f9ff;
+    --info-border:     #bae6fd;
+
+    /* Escala de espaciado */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-6: 24px;
+    --space-8: 32px;
+
+    /* Radios (alias de los ya existentes, con un nombre "lg" adicional) */
+    --radius-lg: 18px;
+
+    /* Sombras adicionales */
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.08);
+    --shadow-lg: 0 10px 40px rgba(0,0,0,.14);
+}
+
+[data-theme="dark"] {
+    --surface:          #1e293b;
+    --surface-elevated: #243144;
+    --text-disabled:    #475569;
+    --warning-light:    #3f2d0f;
+    --warning-border:   #92610c;
+    --info-light:       #0c2d3f;
+    --info-border:      #075985;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.25), 0 1px 2px rgba(0,0,0,.3);
+    --shadow-lg: 0 10px 40px rgba(0,0,0,.45);
+}
