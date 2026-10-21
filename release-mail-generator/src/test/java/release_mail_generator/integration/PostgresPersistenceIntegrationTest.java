@@ -120,7 +120,7 @@ class PostgresPersistenceIntegrationTest {
             historyService.saveVersion("RFC", ref, "Documento de prueba PG", "QA",
                     "<p>contenido de prueba</p>", "CREATED", "HTML");
 
-            List<DocumentVersion> versions = historyService.listVersionsOf("RFC", ref);
+            List<DocumentVersionRepository.DocumentVersionSummary> versions = historyService.listVersionsOf("RFC", ref);
             assertThat(versions).hasSize(1);
             assertThat(versions.get(0).getContentHash()).isNotBlank();
 

@@ -16,7 +16,7 @@ public class DocumentHistoryController {
 
     private final DocumentHistoryService historyService;
 
-    /** Lista versiones con paginación, filtro y ordenamiento. */
+    /** Lista versiones con paginación, filtro y ordenamiento — resuelto a nivel de base de datos. */
     @GetMapping("/api")
     public ResponseEntity<Map<String, Object>> list(
             @RequestParam(required = false) String type,
@@ -25,47 +25,23 @@ public class DocumentHistoryController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "newest") String sort) {
 
-        List<DocumentVersionRepository.DocumentVersionSummary> all;
-        if (q != null && !q.isBlank()) {
-            all = historyService.searchSummaries(q);
-        } else if (type != null && !type.isBlank() && !"ALL".equals(type)) {
-            all = historyService.listByTypeSummaries(type);
-        } else {
-            all = historyService.listAllSummaries();
-        }
-
-        // Sort
-        Comparator<DocumentVersionRepository.DocumentVersionSummary> cmp = switch (sort) {
-            case "oldest" -> Comparator.comparing(DocumentVersionRepository.DocumentVersionSummary::getCreatedAt);
-            case "title"  -> Comparator.comparing(v -> v.getTitle() != null ? v.getTitle().toLowerCase() : "", Comparator.naturalOrder());
-            case "type"   -> Comparator.comparing(DocumentVersionRepository.DocumentVersionSummary::getDocumentType);
-            default       -> Comparator.comparing(DocumentVersionRepository.DocumentVersionSummary::getCreatedAt).reversed();
-        };
-        all = all.stream().sorted(cmp).toList();
-
-        int total = all.size();
-        size = Math.max(1, Math.min(size, 100));
-        int totalPages = (int) Math.ceil((double) total / size);
-        page = Math.max(1, Math.min(page, Math.max(1, totalPages)));
-
-        int from = (page - 1) * size;
-        int to = Math.min(from + size, total);
-        List<Map<String, Object>> items = all.subList(from, to).stream().map(this::toSummary).toList();
+        DocumentHistoryService.PageResult pageResult = historyService.findPage(type, q, sort, page, size);
+        List<Map<String, Object>> items = pageResult.items().stream().map(this::toSummary).toList();
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("items", items);
-        result.put("page", page);
-        result.put("size", size);
-        result.put("total", total);
-        result.put("totalPages", totalPages);
+        result.put("page", pageResult.page());
+        result.put("size", pageResult.size());
+        result.put("total", pageResult.total());
+        result.put("totalPages", pageResult.totalPages());
         return ResponseEntity.ok(result);
     }
 
-    /** Versiones de un documento específico. */
+    /** Versiones de un documento específico (proyección ligera, sin contenido). */
     @GetMapping("/api/versions")
     public ResponseEntity<List<Map<String, Object>>> versions(
             @RequestParam String type, @RequestParam String ref) {
-        List<DocumentVersion> versions = historyService.listVersionsOf(type, ref);
+        List<DocumentVersionRepository.DocumentVersionSummary> versions = historyService.listVersionsOf(type, ref);
         return ResponseEntity.ok(versions.stream().map(this::toSummary).toList());
     }
 

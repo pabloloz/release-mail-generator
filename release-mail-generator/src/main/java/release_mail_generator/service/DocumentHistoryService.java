@@ -1,6 +1,9 @@
 package release_mail_generator.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import release_mail_generator.model.DocumentVersion;
 import release_mail_generator.repository.DocumentVersionRepository;
@@ -79,8 +82,60 @@ public class DocumentHistoryService {
         return repo.searchSummary(query.trim());
     }
 
-    public List<DocumentVersion> listVersionsOf(String type, String ref) {
-        return repo.findVersions(type, ref);
+    /** Resultado de una página del historial, listo para que el controller lo serialice. */
+    public record PageResult(List<DocumentVersionRepository.DocumentVersionSummary> items,
+                              int page, int size, long total, int totalPages) { }
+
+    /**
+     * Listado paginado del historial a nivel de base de datos (sin cargar todos los registros
+     * en memoria). Combina filtro por tipo y búsqueda si ambos vienen presentes, y aplica el
+     * orden solicitado (newest/oldest/title/type) con desempate estable por id.
+     *
+     * <p>Páginas: 1-indexadas. {@code size} se acota entre 1 y 100. Si {@code page} queda fuera
+     * de rango (menor a 1, o mayor al total de páginas disponibles), se ajusta ("clamp") a la
+     * página válida más cercana (1 o la última), igual que el comportamiento previo de la UI —
+     * nunca se lanza un error por un número de página fuera de rango.</p>
+     */
+    public PageResult findPage(String type, String q, String sort, int page, int size) {
+        String normalizedType = (type == null || type.isBlank() || "ALL".equalsIgnoreCase(type)) ? null : type;
+        String normalizedQ = (q == null || q.isBlank()) ? null : q.trim();
+        int safeSize = Math.max(1, Math.min(size, 100));
+        Sort sortObj = buildSort(sort);
+
+        int initialIndex = Math.max(0, page - 1);
+        Page<DocumentVersionRepository.DocumentVersionSummary> result =
+                repo.findPage(normalizedType, normalizedQ, PageRequest.of(initialIndex, safeSize, sortObj));
+
+        long total = result.getTotalElements();
+        int totalPages = result.getTotalPages();
+        int safePage = Math.max(1, Math.min(page, Math.max(1, totalPages)));
+
+        if (safePage - 1 != result.getNumber()) {
+            result = repo.findPage(normalizedType, normalizedQ, PageRequest.of(safePage - 1, safeSize, sortObj));
+        }
+
+        return new PageResult(result.getContent(), safePage, safeSize, total, totalPages);
+    }
+
+    /**
+     * Mapea los 4 órdenes soportados por la UI (newest/oldest/title/type) a un {@link Sort} de
+     * Spring Data, siempre con desempate estable por {@code id} para que el orden no cambie
+     * entre páginas cuando hay valores repetidos (misma fecha, mismo título, etc.).
+     * "title" usa {@code ignoreCase()} para igualar el comportamiento previo (comparación
+     * insensible a mayúsculas hecha en memoria con {@code toLowerCase()}).
+     */
+    private Sort buildSort(String sort) {
+        Sort.Order primary = switch (sort) {
+            case "oldest" -> Sort.Order.asc("createdAt");
+            case "title"  -> Sort.Order.asc("title").ignoreCase();
+            case "type"   -> Sort.Order.asc("documentType");
+            default       -> Sort.Order.desc("createdAt"); // "newest"
+        };
+        return Sort.by(primary, Sort.Order.asc("id"));
+    }
+
+    public List<DocumentVersionRepository.DocumentVersionSummary> listVersionsOf(String type, String ref) {
+        return repo.findVersionsSummary(type, ref);
     }
 
     public Optional<DocumentVersion> findById(String id) {
