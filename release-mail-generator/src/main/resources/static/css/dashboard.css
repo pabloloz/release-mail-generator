@@ -379,6 +379,10 @@
 .dash-two-col {
     display: grid; grid-template-columns: 1fr 1fr;
     gap: 16px; margin-bottom: 28px;
+    /* Sin esto, el grid estira ambos paneles a la misma altura (la del panel
+       más alto, actividad reciente) y la gráfica queda con mucho aire arriba
+       de las barras. Cada panel toma solo la altura que necesita su contenido. */
+    align-items: start;
 }
 .dash-panel {
     background: white; border: 1px solid var(--border);
@@ -393,8 +397,8 @@
 
 /* ── Dashboard: Mini gráfica de barras ──────────────────────────────────── */
 .dash-chart-wrapper {
-    padding: 18px; flex: 1; display: flex;
-    align-items: flex-end; gap: 4px; min-height: 140px;
+    padding: 14px 18px; flex: 1; display: flex;
+    align-items: flex-end; gap: 4px; min-height: 120px;
 }
 .dash-chart-empty {
     width: 100%; text-align: center; color: var(--text-muted);
