@@ -50,8 +50,10 @@
 }
 .sidebar-subnav-item .nav-icon { font-size: .78rem; }
 .nav-icon { font-size: .9rem; flex-shrink: 0; width: 18px; text-align: center; }
-.sidebar-footer { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.1); display: flex; align-items: center; justify-content: center; }
-.sidebar-footer img { height: 42px; width: auto; object-fit: contain; border-radius: 50%; opacity: .88; }
+/* Logo QA: marca discreta alineada a la izquierda, igual que el bloque de
+   usuario justo arriba (misma indentación, sin fondo ni forma de botón). */
+.sidebar-footer { padding: 10px 14px; border-top: 1px solid rgba(255,255,255,.1); display: flex; align-items: center; justify-content: flex-start; }
+.sidebar-footer img { height: 22px; width: auto; object-fit: contain; opacity: .7; }
 .sidebar-nav-item { transition: background .15s, color .15s, transform .08s ease; }
 .sidebar-nav-item:active { transform: scale(.97); }
 
