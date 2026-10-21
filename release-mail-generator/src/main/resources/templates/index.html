@@ -457,7 +457,15 @@
             const container = document.getElementById('dashRecent');
             if (!container) return;
             if (!items.length) {
-                container.innerHTML = '<div class="dash-chart-empty" style="padding:30px;">Sin actividad reciente.</div>';
+                container.innerHTML = '<div class="dash-empty-state">'
+                    + '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+                    + '<path d="M9 3h6a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1h2V4a1 1 0 0 1 1-1z"></path>'
+                    + '<path d="M9 3.5v2h6v-2"></path>'
+                    + '<path d="M8 12h8"></path>'
+                    + '<path d="M8 16h5"></path>'
+                    + '</svg>'
+                    + '<p>Sin actividad reciente.<br>Genera un documento para verla aquí.</p>'
+                    + '</div>';
                 return;
             }
             container.innerHTML = items.map(v => {
