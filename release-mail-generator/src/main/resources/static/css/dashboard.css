@@ -488,6 +488,23 @@
     .skeleton { animation: none; }
 }
 
+/* ── Dashboard: Estado de error (fetch fallido) ──────────────────────────── */
+.dash-error-state {
+    display: none; /* se activa por JS (style.display) al fallar el fetch */
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 36px 20px; margin-bottom: 20px; text-align: center;
+    background: white; border: 1px solid var(--border); border-radius: 12px;
+    color: var(--text-muted);
+}
+.dash-error-state svg { color: #d97706; }
+.dash-error-state p { margin: 0; font-size: .82rem; line-height: 1.5; max-width: 420px; }
+.dash-retry-btn {
+    border: none; background: var(--primary); color: white; font-weight: 600;
+    font-size: .8rem; padding: 8px 18px; border-radius: 8px; cursor: pointer;
+    font-family: inherit; transition: background .15s, transform .1s;
+}
+.dash-retry-btn:hover { background: var(--primary-dark); transform: translateY(-1px); }
+
 /* ── Responsive: KPIs / dos columnas ────────────────────────────────────── */
 @media (max-width: 900px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
@@ -553,6 +570,7 @@
 [data-theme="dark"] .recent-item:hover { background: #0f172a; }
 [data-theme="dark"] .chart-bar { background: #60a5fa; }
 [data-theme="dark"] .skeleton { background-color: #334155; background-image: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent); }
+[data-theme="dark"] .dash-error-state { background: #1e293b; border-color: var(--border); }
 
 [data-theme="dark"] .kpi-drawer { background: #1e293b; }
 [data-theme="dark"] .kpi-drawer-header { border-color: #334155; }

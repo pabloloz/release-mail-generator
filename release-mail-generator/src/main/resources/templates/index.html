@@ -311,7 +311,15 @@
             showDashboardSkeletons();
             try {
                 const resp = await fetch('/history/api/dashboard');
-                if (!resp.ok) return;
+                // Sin un AuthenticationEntryPoint propio para /history/api/**, una sesión
+                // expirada no responde 401: Spring Security redirige a /login (form login) y
+                // fetch sigue esa redirección, aterrizando en el HTML de login con status 200.
+                // resp.redirected + resp.url son la forma de detectar ese caso desde el cliente.
+                if ((resp.redirected && resp.url.indexOf('/login') > -1) || resp.status === 401 || resp.status === 403) {
+                    showDashboardError('session');
+                    return;
+                }
+                if (!resp.ok) { showDashboardError('network'); return; }
                 const data = await resp.json();
                 const c = data.counts || {};
 
@@ -329,7 +337,7 @@
 
                 // Recent activity
                 renderRecentActivity(data.recent || []);
-            } catch (e) { /* silent — dashboard is informational */ }
+            } catch (e) { showDashboardError('network'); }
         }
 
         /**
@@ -337,13 +345,46 @@
          * Se reutilizan tanto en la carga inicial como al reintentar tras un error.
          */
         function showDashboardSkeletons() {
+            const errorState = document.getElementById('dashboardErrorState');
             const kpiGrid = document.getElementById('kpiGrid');
+            const dashTwoCol = document.getElementById('dashTwoCol');
+            if (errorState) errorState.style.display = 'none';
             if (kpiGrid) {
+                kpiGrid.style.display = '';
                 kpiGrid.setAttribute('aria-busy', 'true');
                 kpiGrid.querySelectorAll('.kpi-value').forEach(el => el.classList.add('skeleton'));
             }
+            if (dashTwoCol) dashTwoCol.style.display = '';
             renderChartSkeleton();
             renderRecentSkeleton();
+        }
+
+        /**
+         * Reemplaza siempre al skeleton (nunca quedan juntos): oculta KPI grid +
+         * gráfica/actividad y muestra el bloque de error con un mensaje distinto
+         * según la causa (sesión expirada vs red/servidor) y un botón de acción.
+         */
+        function showDashboardError(kind) {
+            const errorState = document.getElementById('dashboardErrorState');
+            const msgEl = document.getElementById('dashboardErrorMessage');
+            const retryBtn = document.getElementById('dashboardRetryBtn');
+            const kpiGrid = document.getElementById('kpiGrid');
+            const dashTwoCol = document.getElementById('dashTwoCol');
+            if (!errorState || !msgEl || !retryBtn) return;
+
+            if (kind === 'session') {
+                msgEl.textContent = 'Tu sesión expiró. Vuelve a iniciar sesión para ver el dashboard.';
+                retryBtn.textContent = 'Iniciar sesión';
+                retryBtn.onclick = () => { window.location.href = '/login'; };
+            } else {
+                msgEl.textContent = 'No se pudo cargar el dashboard. Revisa tu conexión e intenta de nuevo.';
+                retryBtn.textContent = 'Reintentar';
+                retryBtn.onclick = () => loadDashboardData();
+            }
+
+            if (kpiGrid) kpiGrid.style.display = 'none';
+            if (dashTwoCol) dashTwoCol.style.display = 'none';
+            errorState.style.display = 'flex';
         }
 
         function renderChartSkeleton() {
@@ -3173,6 +3214,15 @@
 
                 <!-- KPI Cards -->
                 <div class="dash-section-title">Indicadores</div>
+                <div id="dashboardErrorState" class="dash-error-state">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 9v4"></path>
+                        <path d="M12 17h.01"></path>
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    </svg>
+                    <p id="dashboardErrorMessage" aria-live="polite"></p>
+                    <button type="button" class="dash-retry-btn" id="dashboardRetryBtn">Reintentar</button>
+                </div>
                 <div class="kpi-grid" id="kpiGrid" aria-live="polite" aria-busy="true">
                     <div th:replace="~{fragments/kpi-card :: kpi('kpiRfc','blue','RFC','RFCs Creados','📋')}"></div>
                     <div th:replace="~{fragments/kpi-card :: kpi('kpiUat','green','UAT','VoBos Generados','✅')}"></div>
@@ -3183,7 +3233,7 @@
                 </div>
 
                 <!-- Activity Chart + Recent -->
-                <div class="dash-two-col">
+                <div class="dash-two-col" id="dashTwoCol">
                     <!-- Mini Chart -->
                     <div class="dash-panel">
                         <div class="dash-panel-header">
