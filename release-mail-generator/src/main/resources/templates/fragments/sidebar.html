@@ -82,7 +82,7 @@
             <div class="sidebar-user-row">
                 <form th:action="@{/logout}" method="post" class="sidebar-logout-form">
                     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-                    <button type="submit" class="sidebar-logout-btn" title="Cerrar sesión">&#x23FB; Cerrar sesión</button>
+                    <button type="submit" class="sidebar-logout-btn" title="Cerrar sesión"><svg class="icon" aria-hidden="true"><use href="#icon-logout"></use></svg> Cerrar sesión</button>
                 </form>
                 <img src="/images/logo-qa.png" alt="QA" title="Release Notifier QA" class="sidebar-qa-badge" onerror="this.style.display='none'">
             </div>
