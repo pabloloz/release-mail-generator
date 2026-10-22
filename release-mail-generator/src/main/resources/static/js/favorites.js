@@ -53,7 +53,7 @@
                 + '<div class="fav-item-title">' + esc(f.title) + '</div>'
                 + '<div class="fav-item-type">' + esc(f.type) + '</div>'
                 + '</div>'
-                + '<button class="fav-item-remove" onclick="event.stopPropagation();removeFavorite(\'' + esc(f.type) + '\',\'' + esc(f.id) + '\')" title="Quitar" aria-label="Quitar de favoritos">✕</button>'
+                + '<button class="fav-item-remove" onclick="event.stopPropagation();removeFavorite(\'' + esc(f.type) + '\',\'' + esc(f.id) + '\')" title="Quitar" aria-label="Quitar de favoritos"><svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>'
                 + '</div>';
         }).join('');
     };
