@@ -46,11 +46,11 @@
             warnings: []
         },
         uat: {
-            required: [
-                { check: function () { return getVal('uatRfcNumber'); }, label: 'Número de RFC', field: 'uatRfcNumber' },
-                { check: function () { return getVal('uatRfcName'); }, label: 'Nombre del RFC', field: 'uatRfcName' }
-            ],
+            // VoBo UAT: ninguna regla bloquea la generación; todo se reporta como aviso
+            required: [],
             warnings: [
+                { check: function () { return getVal('uatRfcNumber'); }, label: 'Número de RFC', field: 'uatRfcNumber' },
+                { check: function () { return getVal('uatRfcName'); }, label: 'Nombre del cambio', field: 'uatRfcName' },
                 { check: function () { return getVal('uatRequerimientos') || getEditorContent(); }, label: 'Requerimientos o evidencias (recomendado)' }
             ]
         }
