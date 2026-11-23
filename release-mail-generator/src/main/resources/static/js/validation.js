@@ -51,7 +51,7 @@
             warnings: [
                 { check: function () { return getVal('uatRfcNumber'); }, label: 'Número de RFC', field: 'uatRfcNumber' },
                 { check: function () { return getVal('uatRfcName'); }, label: 'Nombre del cambio', field: 'uatRfcName' },
-                { check: function () { return getVal('uatRequerimientos') || getEditorContent(); }, label: 'Requerimientos o evidencias (recomendado)' }
+                { check: function () { return (typeof window.uatHasRequirements === 'function' && window.uatHasRequirements()) || getEditorContent(); }, label: 'Requerimientos (recomendado)' }
             ]
         }
     };

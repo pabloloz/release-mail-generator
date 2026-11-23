@@ -51,35 +51,11 @@
             pane: 'uat',
             clearFn: 'clearUatForm',
             collect: function () {
-                return {
-                    uatRfcNumber: gv('uatRfcNumber'),
-                    uatRfcName: gv('uatRfcName'),
-                    uatSaludo: gv('uatSaludo'),
-                    uatAdjunto: gv('uatAdjunto'),
-                    uatRequerimientos: gv('uatRequerimientos'),
-                    reqImages: typeof getReqImagesData === 'function' ? getReqImagesData() : [],
-                    uatNota: gv('uatNota'),
-                    uatCierre: gv('uatCierre'),
-                    uatEditorHtml: (document.getElementById('uatRichEditor') || {}).innerHTML || ''
-                };
+                return typeof collectUatState === 'function' ? collectUatState() : {};
             },
             restore: function (d) {
-                setv('uatRfcNumber', d.uatRfcNumber);
-                setv('uatRfcName', d.uatRfcName);
-                setv('uatSaludo', d.uatSaludo);
-                setv('uatAdjunto', d.uatAdjunto);
-                setv('uatRequerimientos', d.uatRequerimientos);
-                setv('uatNota', d.uatNota);
-                setv('uatCierre', d.uatCierre);
-                // Restore requirements images
-                if (typeof clearReqImages === 'function') clearReqImages();
-                var images = d.reqImages || (d.reqImageData ? [d.reqImageData] : []);
-                images.forEach(function(uri) {
-                    if (uri && typeof addReqImage === 'function') addReqImage(uri, 'Imagen de plantilla');
-                });
-                // Restore rich editor content
-                var editor = document.getElementById('uatRichEditor');
-                if (editor) editor.innerHTML = d.uatEditorHtml || '';
+                // Acepta el formato v2 y las plantillas legacy (uatRfcNumber, uatEditorHtml, ...)
+                if (typeof restoreUatState === 'function') restoreUatState(d);
             }
         },
         rdl: {
@@ -371,7 +347,8 @@
         mod.restore(tpl.data);
         setState(tpl.module, {
             id: tpl.id, name: tpl.name,
-            snapshot: JSON.stringify(tpl.data),
+            // UAT restaura de forma síncrona y migra las plantillas legacy: la referencia es lo ya restaurado
+            snapshot: tpl.module === 'uat' ? JSON.stringify(mod.collect()) : JSON.stringify(tpl.data),
             savedAt: tpl.updatedAt || tpl.createdAt
         });
         if (typeof _originalShowPane === 'function') _originalShowPane(tpl.module, null);

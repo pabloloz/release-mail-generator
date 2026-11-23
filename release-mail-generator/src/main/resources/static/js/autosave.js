@@ -69,30 +69,14 @@
             label: 'VoBo UAT',
             pane: 'uat',
             collect: function () {
-                return {
-                    uatRfcNumber: v('uatRfcNumber'),
-                    uatRfcName: v('uatRfcName'),
-                    uatSaludo: v('uatSaludo'),
-                    uatAdjunto: v('uatAdjunto'),
-                    uatRequerimientos: v('uatRequerimientos'),
-                    uatNota: v('uatNota'),
-                    uatCierre: v('uatCierre'),
-                    uatEditorHtml: (document.getElementById('uatRichEditor') || {}).innerHTML || ''
-                };
+                return typeof collectUatState === 'function' ? collectUatState() : {};
             },
             restore: function (d) {
-                sv('uatRfcNumber', d.uatRfcNumber);
-                sv('uatRfcName', d.uatRfcName);
-                sv('uatSaludo', d.uatSaludo);
-                sv('uatAdjunto', d.uatAdjunto);
-                sv('uatRequerimientos', d.uatRequerimientos);
-                sv('uatNota', d.uatNota);
-                sv('uatCierre', d.uatCierre);
-                var editor = document.getElementById('uatRichEditor');
-                if (editor && d.uatEditorHtml) editor.innerHTML = d.uatEditorHtml;
+                // Acepta el formato v2 y los borradores legacy
+                if (typeof restoreUatState === 'function') restoreUatState(d);
             },
             isEmpty: function (d) {
-                return !d.uatRfcNumber && !d.uatRfcName && !d.uatRequerimientos;
+                return typeof uatStateIsEmpty === 'function' ? uatStateIsEmpty(d) : true;
             }
         }
     };
