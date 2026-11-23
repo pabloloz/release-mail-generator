@@ -133,6 +133,11 @@ public class UatEmailService {
         return "<p style=\"margin:" + margin + ";" + FONT + "\">" + inner + "</p>";
     }
 
+    /** Como p(), pero con div: el contenido libre del editor puede traer sus propios p/ul. */
+    private String freeBlock(String margin, String innerHtml) {
+        return "<div style=\"margin:" + margin + ";" + FONT + "\">" + innerHtml + "</div>";
+    }
+
     private String multiline(String text) {
         return esc(text.replace("\r\n", "\n").replace("\r", "\n").replaceAll("\n{3,}", "\n\n")).replace("\n", "<br>");
     }
@@ -146,10 +151,11 @@ public class UatEmailService {
         StringBuilder h = new StringBuilder();
         h.append(p("0 0 8px 0", esc(m.greeting())));
 
-        StringBuilder intro = new StringBuilder("Solicito su apoyo para validar el VoBo del <b>");
+        boolean hasTarget = !m.rfcLabel().isEmpty() || !m.rfcName().isEmpty();
+        StringBuilder intro = new StringBuilder(hasTarget ? "Solicito su apoyo para validar el VoBo del <b>" : "Solicito su apoyo para validar el VoBo");
         intro.append(esc(m.rfcLabel()));
-        if (!m.rfcName().isEmpty()) intro.append(" &ndash; ").append(esc(m.rfcName()));
-        intro.append("</b>");
+        if (!m.rfcName().isEmpty()) intro.append(m.rfcLabel().isEmpty() ? "" : " &ndash; ").append(esc(m.rfcName()));
+        if (hasTarget) intro.append("</b>");
         if (m.dateText() != null) intro.append(", programado para el ").append(esc(m.dateText()));
         intro.append(".");
         if (!m.attachment().isEmpty()) intro.append("<br>").append(esc(m.attachment()));
@@ -162,7 +168,7 @@ public class UatEmailService {
         if (hasReqs) {
             h.append(p("16px 0 4px 0", "<b>Requerimientos:</b>"));
             if (!m.requirementsIntro().isEmpty()) h.append(p("0 0 8px 0", multiline(m.requirementsIntro())));
-            if (!m.legacyRequirements().isEmpty()) h.append(p("0 0 8px 0", textToHtml(m.legacyRequirements())));
+            if (!m.legacyRequirements().isEmpty()) h.append(freeBlock("0 0 8px 0", textToHtml(m.legacyRequirements())));
             for (String img : m.legacyRequirementImages()) h.append(imgP(img, EMAIL_IMG_MAX_WIDTH, "4px 0 10px 0"));
             for (UatMailModel.Req q : m.requirements()) {
                 String title = q.title().isEmpty() ? q.number() + "." : q.number() + ". " + esc(q.title());
@@ -192,13 +198,13 @@ public class UatEmailService {
         }
         // Contenido libre del editor enriquecido: va aparte, sin el título de los ejemplos
         for (UatBlock b : m.legacyBlocks()) {
-            if (notBlank(b.getTexto())) h.append(p("12px 0 8px 0", textToHtml(b.getTexto())));
+            if (notBlank(b.getTexto())) h.append(freeBlock("12px 0 8px 0", textToHtml(b.getTexto())));
             h.append(imgP(safeImgSrc(b.getImagenBase64()), EMAIL_IMG_MAX_WIDTH, "4px 0 10px 0"));
         }
 
         if (!m.note().isEmpty()) {
             h.append(p("16px 0 4px 0", "<b>NOTA:</b>"));
-            h.append(p("0 0 8px 0", textToHtml(m.note())));
+            h.append(freeBlock("0 0 8px 0", textToHtml(m.note())));
         }
 
         h.append(p("16px 0 6px 0", "<b>Favor de validar con el m&oacute;dulo " + esc(m.module()) + ".</b>"));
@@ -214,8 +220,9 @@ public class UatEmailService {
     private String renderText(UatMailModel m) {
         StringBuilder t = new StringBuilder();
         t.append(m.greeting()).append("\n\n");
-        t.append("Solicito su apoyo para validar el VoBo del ").append(m.rfcLabel());
-        if (!m.rfcName().isEmpty()) t.append(" \u2013 ").append(m.rfcName());
+        t.append("Solicito su apoyo para validar el VoBo");
+        if (!m.rfcLabel().isEmpty() || !m.rfcName().isEmpty()) t.append(" del ").append(m.rfcLabel());
+        if (!m.rfcName().isEmpty()) t.append(m.rfcLabel().isEmpty() ? "" : " \u2013 ").append(m.rfcName());
         if (m.dateText() != null) t.append(", programado para el ").append(m.dateText());
         t.append(".\n");
         if (!m.attachment().isEmpty()) t.append(m.attachment()).append("\n");

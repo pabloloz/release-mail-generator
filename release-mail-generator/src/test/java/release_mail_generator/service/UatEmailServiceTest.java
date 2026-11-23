@@ -273,6 +273,7 @@ class UatEmailServiceTest {
         r.setBlocks(List.of(b));
         String html = service.generateEmail(r);
         assertTrue(html.contains("Texto de requerimientos antiguo"), html);
+        assertFalse(html.matches("(?s).*<p[^>]*>\\s*<(p|ul|ol)[ >].*"), "no anida p/ul dentro de p: " + html);
         assertTrue(html.contains("Contenido libre <b>avanzado</b>"), html);
         int libre = html.indexOf("Contenido libre <b>avanzado</b>");
         assertTrue(libre > html.indexOf("Suscriptor: 513"), "el contenido libre va despues de los ejemplos");
@@ -313,6 +314,16 @@ class UatEmailServiceTest {
         UatEmailService.Preview avisos = service.preview(vacio);
         assertEquals(3, avisos.warnings().size(), avisos.warnings().toString());
         assertTrue(avisos.html().contains("RFC abc"), "avisa pero genera igual");
+    }
+
+    @Test
+    void sinRfcNiNombreLaIntroNoQuedaConHuecos() {
+        UatRequest r = new UatRequest();
+        r.setRecipient("equipo de UAT");
+        String html = service.generateEmail(r);
+        assertTrue(html.contains("validar el VoBo."), html);
+        assertFalse(html.contains("VoBo del"), html);
+        assertTrue(service.generateEmailPlainText(r).contains("validar el VoBo."));
     }
 
     @Test
