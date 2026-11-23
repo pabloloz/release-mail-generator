@@ -173,7 +173,7 @@ public class UatEmailService {
             }
         }
 
-        if (!m.examples().isEmpty() || !m.legacyBlocks().isEmpty()) {
+        if (!m.examples().isEmpty()) {
             h.append(p("16px 0 4px 0", "<b>Ejemplos de validaci&oacute;n:</b>"));
             for (UatMailModel.Example e : m.examples()) {
                 if (e.heading() != null) h.append(p("8px 0 2px 0", "<b>" + esc(e.heading()) + "</b>"));
@@ -189,10 +189,11 @@ public class UatEmailService {
                 }
                 if (!e.image().isEmpty()) h.append(imgP(e.image(), EMAIL_IMG_MAX_WIDTH, "6px 0 10px 0"));
             }
-            for (UatBlock b : m.legacyBlocks()) {
-                if (notBlank(b.getTexto())) h.append(p("0 0 8px 0", textToHtml(b.getTexto())));
-                h.append(imgP(safeImgSrc(b.getImagenBase64()), EMAIL_IMG_MAX_WIDTH, "4px 0 10px 0"));
-            }
+        }
+        // Contenido libre del editor enriquecido: va aparte, sin el título de los ejemplos
+        for (UatBlock b : m.legacyBlocks()) {
+            if (notBlank(b.getTexto())) h.append(p("12px 0 8px 0", textToHtml(b.getTexto())));
+            h.append(imgP(safeImgSrc(b.getImagenBase64()), EMAIL_IMG_MAX_WIDTH, "4px 0 10px 0"));
         }
 
         if (!m.note().isEmpty()) {
@@ -233,7 +234,7 @@ public class UatEmailService {
                 for (String b : q.bullets()) t.append("   * ").append(b).append("\n");
             }
         }
-        if (!m.examples().isEmpty() || !m.legacyBlocks().isEmpty()) {
+        if (!m.examples().isEmpty()) {
             t.append("\nEjemplos de validaci\u00f3n:\n");
             for (UatMailModel.Example e : m.examples()) {
                 if (e.heading() != null) t.append(e.heading()).append("\n");
@@ -244,8 +245,8 @@ public class UatEmailService {
                     t.append("\n");
                 }
             }
-            for (UatBlock b : m.legacyBlocks()) if (notBlank(b.getTexto())) t.append(htmlToText(b.getTexto())).append("\n");
         }
+        for (UatBlock b : m.legacyBlocks()) if (notBlank(b.getTexto())) t.append("\n").append(htmlToText(b.getTexto())).append("\n");
         if (!m.note().isEmpty()) t.append("\nNOTA:\n").append(htmlToText(m.note())).append("\n");
         t.append("\nFavor de validar con el m\u00f3dulo ").append(m.module()).append(".\n");
         for (UatMailModel.Step s : m.steps()) t.append(s.number()).append(". ").append(s.text()).append("\n");
@@ -552,7 +553,7 @@ public class UatEmailService {
             }
         }
 
-        if (!m.examples().isEmpty() || !m.legacyBlocks().isEmpty()) {
+        if (!m.examples().isEmpty()) {
             addPara(doc, "Ejemplos de validaci\u00f3n:", boldF, 6);
             for (UatMailModel.Example e : m.examples()) {
                 if (e.heading() != null) addPara(doc, e.heading(), boldF, 2);
@@ -564,11 +565,11 @@ public class UatEmailService {
                 if (lines.length() > 0) addPara(doc, lines.toString(), bodyF, 6);
                 if (!e.image().isEmpty()) addSmartImage(doc, writer, e.image(), pageW, 320, 0);
             }
-            for (UatBlock b : m.legacyBlocks()) {
-                if (notBlank(b.getTexto())) addPara(doc, htmlToText(b.getTexto()), bodyF, 6);
-                String img = safeImgSrc(b.getImagenBase64());
-                if (!img.isEmpty()) addSmartImage(doc, writer, img, pageW, 320, 0);
-            }
+        }
+        for (UatBlock b : m.legacyBlocks()) {
+            if (notBlank(b.getTexto())) addPara(doc, htmlToText(b.getTexto()), bodyF, 6);
+            String img = safeImgSrc(b.getImagenBase64());
+            if (!img.isEmpty()) addSmartImage(doc, writer, img, pageW, 320, 0);
         }
 
         if (!m.note().isEmpty()) {

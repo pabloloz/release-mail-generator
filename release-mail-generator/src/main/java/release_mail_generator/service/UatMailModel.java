@@ -101,11 +101,12 @@ record UatMailModel(
                     }
                 }
                 String image = HtmlSanitizer.safeImageDataUri(e.getImage());
-                if (!pairs.isEmpty() || !image.isEmpty()) raw.add(new Example(null, pairs, image));
+                if (!pairs.isEmpty() || !image.isEmpty()) raw.add(new Example(clean(e.getTitle()), pairs, image));
             }
             for (int i = 0; i < raw.size(); i++) {
                 Example e = raw.get(i);
-                examples.add(new Example(raw.size() > 1 ? "Ejemplo " + (i + 1) + ":" : null, e.pairs(), e.image()));
+                String heading = !e.heading().isEmpty() ? e.heading() : (raw.size() > 1 ? "Ejemplo " + (i + 1) + ":" : null);
+                examples.add(new Example(heading, e.pairs(), e.image()));
             }
         }
 

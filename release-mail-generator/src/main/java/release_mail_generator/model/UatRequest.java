@@ -54,6 +54,7 @@ public class UatRequest {
 
     @Data
     public static class Example {
+        private String title;        // Encabezado editable; si está vacío y hay varios: "Ejemplo N:"
         private List<KeyValue> pairs = new ArrayList<>();
         private String image;        // data URI
     }

@@ -274,6 +274,28 @@ class UatEmailServiceTest {
         String html = service.generateEmail(r);
         assertTrue(html.contains("Texto de requerimientos antiguo"), html);
         assertTrue(html.contains("Contenido libre <b>avanzado</b>"), html);
+        int libre = html.indexOf("Contenido libre <b>avanzado</b>");
+        assertTrue(libre > html.indexOf("Suscriptor: 513"), "el contenido libre va despues de los ejemplos");
+        assertEquals(html.lastIndexOf("Ejemplos de validaci&oacute;n:"), html.indexOf("Ejemplos de validaci&oacute;n:"));
+        r.setValidationExamples(new ArrayList<>());
+        assertFalse(service.generateEmail(r).contains("Ejemplos de validaci&oacute;n:"),
+                "el contenido libre no se mezcla bajo el titulo de ejemplos");
+    }
+
+    @Test
+    void encabezadoDeEjemploEditable() {
+        UatRequest r = casoReal();
+        r.getValidationExamples().get(0).setTitle("Ejemplo: Suscriptor 513");
+        String html = service.generateEmail(r);
+        assertTrue(html.contains("<b>Ejemplo: Suscriptor 513</b>"), html);
+        UatRequest.Example otro = new UatRequest.Example();
+        UatRequest.KeyValue kv = new UatRequest.KeyValue();
+        kv.setKey("Plaza"); kv.setValue("7");
+        otro.setPairs(List.of(kv));
+        r.getValidationExamples().add(otro);
+        html = service.generateEmail(r);
+        assertTrue(html.contains("<b>Ejemplo: Suscriptor 513</b>"), html);
+        assertTrue(html.contains("<b>Ejemplo 2:</b>"), "sin titulo usa el numerado por defecto: " + html);
     }
 
     @Test
