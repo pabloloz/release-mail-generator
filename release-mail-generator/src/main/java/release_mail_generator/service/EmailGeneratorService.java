@@ -40,6 +40,8 @@ import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Collectors;
 
+import static release_mail_generator.util.EmailHtmlKit.*;
+
 @Service
 public class EmailGeneratorService {
 
@@ -72,11 +74,11 @@ public class EmailGeneratorService {
     }
 
     private static final Set<String> ALLOWED_DISTRIBUTION_MODULES = Set.of(
-        "Cartera", "Servicios", "Control", "Hightech", "Equipos", "Ventas"
+        "Cartera", "Servicios", "Control", "Hightech", "Equipos", "Ventas", "Wirelink"
     );
 
     private static final Set<String> ALLOWED_TELEGRAM_MODULES = Set.of(
-        "Cartera", "Servicios", "Control", "Hightech", "Equipos", "Ventas", "Citrix", "DLL", "WinterX", "DLL C#"
+        "Cartera", "Servicios", "Control", "Hightech", "Equipos", "Ventas", "Wirelink", "Citrix", "DLL", "WinterX", "DLL C#"
     );
 
     private List<String> normalizedDistributionModules(ReleaseRequest r) {
@@ -118,8 +120,42 @@ public class EmailGeneratorService {
         return v;
     }
 
+    /** Versión de la DLL C#: solo aplica si el artefacto está marcado (el campo se oculta al desmarcarlo). */
+    private String dllCsharpVersion(ReleaseRequest r) {
+        return r.isHasDllCsharp() ? clean(r.getVersionDllCsharp()) : "";
+    }
+
+    /**
+     * Convierte bloques "Ticket: N" / "SP: nombre" (separados por línea en blanco) en líneas para Telegram,
+     * con icono por línea: 🎫 para el ticket y 📂 para cada procedimiento (sin el prefijo "SP:").
+     */
+    private List<String> telegramSpLines(String raw) {
+        List<String> out = new ArrayList<>();
+        if (raw == null || raw.isBlank()) return out;
+        boolean pendingBlank = false;
+        for (String line : raw.split("\\r?\\n", -1)) {
+            String l = clean(line);
+            if (l.isEmpty()) {
+                pendingBlank = !out.isEmpty();
+                continue;
+            }
+            if (pendingBlank) {
+                out.add("");
+                pendingBlank = false;
+            }
+            if (l.regionMatches(true, 0, "ticket", 0, 6)) {
+                out.add("\uD83C\uDFAB " + l);
+            } else {
+                if (l.regionMatches(true, 0, "sp:", 0, 3)) l = clean(l.substring(3));
+                if (!l.isEmpty()) out.add("\uD83D\uDCC2 " + l);
+            }
+        }
+        return out;
+    }
+
     public String generateTelegramMessage(ReleaseRequest r) {
         StringBuilder msg = new StringBuilder();
+        msg.append("```\n");
 
         List<String> actionModules = cleanList(r.getTelegramModules()).stream()
             .filter(ALLOWED_TELEGRAM_MODULES::contains)
@@ -130,31 +166,45 @@ public class EmailGeneratorService {
             fallback.addAll(normalizedDistributionModules(r));
             if (r.isHasCitrix()) fallback.add("Citrix");
             if (r.isHasDll()) fallback.add("DLL");
+            if (r.isHasDllCsharp()) fallback.add("DLL C#");
             if (r.isHasWinterX()) fallback.add("WinterX");
             actionModules = new ArrayList<>(fallback);
         }
 
+        // ── Acción / Módulos ──
         if (!actionModules.isEmpty()) {
-            msg.append("Acción: actualizar módulos ")
-               .append(String.join(", ", actionModules))
-               .append("\n\n");
+            msg.append("Acci\u00f3n: Actualizar m\u00f3dulos\n");
+            actionModules.forEach(m -> msg.append("\uD83D\uDCE6 ").append(m).append("\n"));
+            msg.append("\n");
         }
 
+        // ── Stored Procedures ──
+        String sps = clean(r.getTelegramSps());
+        if (sps.isEmpty()) sps = clean(r.getSpsTickets());
+        List<String> spLines = telegramSpLines(sps);
+        if (!spLines.isEmpty()) {
+            msg.append("Actualizar SP:\n");
+            spLines.forEach(l -> msg.append(l).append("\n"));
+            msg.append("\n");
+        }
+
+        // ── Scripts ──
         List<String> scripts = cleanList(r.getTelegramScripts());
         if (scripts.isEmpty()) scripts = linesFromText(r.getScripts());
         if (!scripts.isEmpty()) {
-            msg.append("Ejecutar scripts:\n");
-            scripts.forEach(s -> msg.append(s).append("\n"));
+            msg.append("Ejecutar Scripts:\n");
+            scripts.forEach(s -> msg.append("\uD83D\uDCC4 ").append(s).append("\n"));
             msg.append("\n");
         }
 
+        // ── Nota ──
         String notes = clean(r.getTelegramNotes());
         if (notes.isEmpty()) notes = clean(r.getNotes());
         if (!notes.isEmpty()) {
-            msg.append("Nota: ").append(notes).append("\n");
-            msg.append("\n");
+            msg.append("\u26A0\uFE0F Nota: ").append(notes).append("\n\n");
         }
 
+        // ── Fecha y versiones ──
         String publishDate = formatDateEs(r.getPublishDate());
         if (!publishDate.isEmpty()) {
             msg.append("Publicar: ").append(publishDate).append("\n");
@@ -163,8 +213,9 @@ public class EmailGeneratorService {
         String versionModule = clean(r.getTelegramVersionModule());
         if (versionModule.isEmpty()) versionModule = clean(r.getVersion());
         String versionDll = clean(r.getTelegramVersionDllCsharp());
-        if (!versionModule.isEmpty()) msg.append("Versión Módulo: ").append(versionModule).append("\n");
-        if (!versionDll.isEmpty()) msg.append("Versión DLL C#: ").append(versionDll).append("\n");
+        if (versionDll.isEmpty()) versionDll = dllCsharpVersion(r);
+        if (!versionModule.isEmpty()) msg.append("\uD83C\uDFF7\uFE0F Versi\u00f3n M\u00f3dulo: ").append(versionModule).append("\n");
+        if (!versionDll.isEmpty()) msg.append("\uD83C\uDFF7\uFE0F Versi\u00f3n DLL C#: ").append(versionDll).append("\n");
         if (!publishDate.isEmpty() || !versionModule.isEmpty() || !versionDll.isEmpty()) {
             msg.append("\n");
         }
@@ -184,16 +235,18 @@ public class EmailGeneratorService {
         }
         List<String> changes = collectedChanges.isEmpty() ? linesFromText(r.getProjects()) : collectedChanges;
 
+        // ── Cambios ──
         if (!changes.isEmpty()) {
-            msg.append("Cambios Reléase\n");
-            changes.forEach(c -> msg.append(c).append("\n"));
+            msg.append("Cambios Release:\n");
+            changes.forEach(c -> msg.append("\u2705 ").append(c).append("\n"));
             msg.append("\n");
         }
 
+        // ── Rollback y branches ──
         String rollback = clean(r.getTelegramRollbackVersion());
         if (rollback.isEmpty()) rollback = clean(r.getRollbackVersion());
         if (!rollback.isEmpty()) {
-            msg.append("Versión Rollback: ").append(rollback).append("\n");
+            msg.append("\u21A9\uFE0F Versi\u00f3n Rollback: ").append(rollback).append("\n");
         }
 
         String branchModules = clean(r.getTelegramBranchModules());
@@ -203,10 +256,11 @@ public class EmailGeneratorService {
         String dllRepo = clean(r.getTelegramBranchDllRepoUrl());
         String dllBranch = clean(r.getTelegramBranchDllName());
 
-        if (!branchModules.isEmpty()) msg.append("Branch compilación Modulos: ").append(branchModules).append("\n");
-        if (!branchWinter.isEmpty()) msg.append("Branch compilación winterx: ").append(branchWinter).append("\n");
+        final String branchIcon = "\uD83C\uDF3F ";
+        if (!branchModules.isEmpty()) msg.append(branchIcon).append("Branch compilaci\u00f3n M\u00f3dulos: ").append(branchModules).append("\n");
+        if (!branchWinter.isEmpty()) msg.append(branchIcon).append("Branch compilaci\u00f3n WinterX: ").append(branchWinter).append("\n");
         if (!dllRepo.isEmpty() || !dllBranch.isEmpty()) {
-            msg.append("Branch compilación DLL c#: ");
+            msg.append(branchIcon).append("Branch compilaci\u00f3n DLL C#: ");
             if (!dllRepo.isEmpty()) msg.append(dllRepo);
             if (!dllBranch.isEmpty()) {
                 if (!dllRepo.isEmpty()) msg.append("  ");
@@ -218,9 +272,11 @@ public class EmailGeneratorService {
         String releaseUrl = clean(r.getTelegramReleaseUrl());
         if (releaseUrl.isEmpty()) releaseUrl = clean(r.getReleaseUrl());
         if (!releaseUrl.isEmpty()) {
-            msg.append("Release Publicación: ").append(releaseUrl).append("\n");
+            if (msg.length() > 4) msg.append("\n");
+            msg.append("\uD83D\uDD17 Release Publicaci\u00f3n: ").append(releaseUrl).append("\n");
         }
 
+        msg.append("```");
         return msg.toString().trim();
     }
 
@@ -239,204 +295,298 @@ public class EmailGeneratorService {
      * Las rutas UNC (\\servidor\...) se convierten a file://servidor/...
      */
     private String pathLink(String raw) {
+        return pathLink(raw, "#0563C1", "");
+    }
+
+    private String pathLink(String raw, String color) {
+        return pathLink(raw, color, "");
+    }
+
+    private String pathLink(String raw, String color, String extraStyle) {
         if (raw == null || raw.isBlank()) return "";
         String path = raw.trim();
         String href;
         if (path.startsWith("\\\\")) {
-            // UNC → file://servidor/ruta  (el href también se escapa)
-            href = "file://" + esc(path.substring(2).replace('\\', '/'));
+            // UNC → file://servidor/ruta  (el href también se escapa; '#' se codifica porque
+            // en una URL inicia el fragmento y truncaría rutas como "...\DLL C#")
+            href = "file://" + esc(path.substring(2).replace('\\', '/').replace("#", "%23"));
         } else {
             href = esc(path);
         }
-        return "<a href=\"" + href + "\" style=\"color: #0563C1;\">" + esc(path) + "</a>";
+        return "<a href=\"" + href + "\" style=\"color: " + color + ";" + (extraStyle.isEmpty() ? "" : " " + extraStyle)
+            + "\">" + esc(path) + "</a>";
+    }
+
+    /** Color de acento y neutros del correo de liberación. */
+    private static final String MAIL_BLUE = "#2F6DB5";
+    private static final String MAIL_FONT = "font-family: 'Segoe UI', Calibri, Arial, sans-serif; line-height: 1.5;";
+    private static final String MAIL_MONO = "font-family: Consolas, 'Courier New', monospace; font-size: 12px; font-weight: normal;";
+    private static final String MAIL_REPO = "https://github.com/Megacable-IT/storedproc.git";
+
+    private static final java.util.regex.Pattern TIME_12H = java.util.regex.Pattern.compile(
+        "\\b(\\d{1,2})(?::(\\d{2}))?\\s*([ap])\\.?\\s?m\\b", java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final java.util.regex.Pattern TIME_24H = java.util.regex.Pattern.compile(
+        "\\b(\\d{1,2}):(\\d{2})\\b(?!\\s*[ap]\\.?\\s?m\\b)(?:\\s*(?:hrs?\\b\\.?|h\\b))?", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    private record MailComponent(String name, String detail, String path) {}
+    private record MailSp(String ticket, List<String> scripts) {}
+    private record ReleaseMailData(String subject, List<String> componentNames, List<String[]> rows,
+                                   List<MailComponent> components, List<MailSp> sps, boolean hasScripts,
+                                   String scriptsPath, List<String> scriptFiles, List<String> projects,
+                                   List<String[]> branches, String releaseUrl, String notes) {}
+
+    /** Unifica los horarios del texto al formato "11:00 pm" (acepta "11pm", "11:00 PM", "23:00 hrs", etc.). */
+    String normalizeTimes(String text) {
+        if (text == null || text.isEmpty()) return "";
+        String twelve = TIME_12H.matcher(text).replaceAll(m -> {
+            int h = Integer.parseInt(m.group(1));
+            if (h < 1 || h > 12) return java.util.regex.Matcher.quoteReplacement(m.group());
+            String minutes = m.group(2) != null ? m.group(2) : "00";
+            return h + ":" + minutes + " " + m.group(3).toLowerCase() + "m";
+        });
+        return TIME_24H.matcher(twelve).replaceAll(m -> {
+            int h = Integer.parseInt(m.group(1));
+            if (h > 23) return java.util.regex.Matcher.quoteReplacement(m.group());
+            String suffix = h < 12 ? "am" : "pm";
+            int h12 = h % 12 == 0 ? 12 : h % 12;
+            return h12 + ":" + m.group(2) + " " + suffix;
+        });
+    }
+
+    /** Reúne y normaliza los datos del correo de liberación (los comparten la versión HTML y la de texto). */
+    private ReleaseMailData releaseMailData(ReleaseRequest r) {
+        List<String> modules = normalizedDistributionModules(r);
+        boolean hasSps = r.getSpsTickets() != null && !r.getSpsTickets().isBlank();
+        String version = clean(r.getVersion());
+        String versionDll = dllCsharpVersion(r);
+        String rollback = clean(r.getRollbackVersion());
+        String publishDate = formatDateEs(clean(r.getPublishDate()));
+
+        StringBuilder subject = new StringBuilder("Solicitud de liberación");
+        if (!version.isEmpty()) subject.append(' ').append(version);
+        if (!publishDate.isEmpty()) subject.append(" – ").append(publishDate);
+
+        List<String[]> rows = new ArrayList<>();
+        if (!publishDate.isEmpty()) rows.add(new String[]{"Fecha de publicación", publishDate});
+        if (!version.isEmpty()) rows.add(new String[]{"Versión", version});
+        if (!versionDll.isEmpty()) rows.add(new String[]{"Versión DLL C#", versionDll});
+        if (!rollback.isEmpty()) rows.add(new String[]{"Rollback", rollback});
+
+        List<MailComponent> components = new ArrayList<>();
+        if (r.isHasModules()) components.add(new MailComponent("Módulos", String.join(", ", modules), clean(r.getPathModules())));
+        if (r.isHasCitrix()) components.add(new MailComponent("Citrix", "", clean(r.getPathCitrix())));
+        if (r.isHasDll()) components.add(new MailComponent("SFyCWSDLL", "", clean(r.getPathDll())));
+        if (r.isHasDllCsharp()) components.add(new MailComponent("DLL C#", "", clean(r.getPathDllCsharp())));
+        if (r.isHasWinterX()) components.add(new MailComponent("WinterX", "", clean(r.getPathWinterX())));
+
+        List<String> componentNames = new ArrayList<>();
+        components.forEach(c -> componentNames.add(c.name() + (c.detail().isEmpty() ? "" : " (" + c.detail() + ")")));
+        if (r.isHasScripts()) componentNames.add("Scripts");
+        if (hasSps) componentNames.add("SP's @DBAs TI");
+
+        List<MailSp> sps = hasSps ? parseSpBlocks(r.getSpsTickets()) : List.of();
+
+        List<String[]> branches = new ArrayList<>();
+        if (!clean(r.getBranchModules()).isEmpty()) branches.add(new String[]{"Módulos", clean(r.getBranchModules())});
+        if (!clean(r.getBranchWinter()).isEmpty()) branches.add(new String[]{"WinterX", clean(r.getBranchWinter())});
+
+        return new ReleaseMailData(subject.toString(), componentNames, rows, components, sps, r.isHasScripts(),
+            clean(r.getPathScripts()), r.isHasScripts() ? linesFromText(r.getScripts()) : List.of(),
+            linesFromText(r.getProjects()), branches, clean(r.getReleaseUrl()), normalizeTimes(clean(r.getNotes())));
+    }
+
+    /** Separa el texto "Ticket: N" / "SP: nombre" en bloques; cada ticket nuevo o línea en blanco inicia otro. */
+    private List<MailSp> parseSpBlocks(String raw) {
+        List<MailSp> blocks = new ArrayList<>();
+        String ticket = "";
+        List<String> scripts = new ArrayList<>();
+        for (String line : raw.split("\\r?\\n", -1)) {
+            String l = line.trim();
+            String lower = l.toLowerCase();
+            boolean isTicket = lower.startsWith("ticket") || lower.startsWith("n°");
+            if (l.isEmpty() || (isTicket && (!ticket.isEmpty() || !scripts.isEmpty()))) {
+                if (!ticket.isEmpty() || !scripts.isEmpty()) blocks.add(new MailSp(ticket, scripts));
+                ticket = "";
+                scripts = new ArrayList<>();
+                if (l.isEmpty()) continue;
+            }
+            if (isTicket) {
+                int colon = l.indexOf(':');
+                ticket = colon >= 0 ? l.substring(colon + 1).trim() : l;
+            } else if (lower.startsWith("sp:")) {
+                scripts.add(l.substring(l.indexOf(':') + 1).trim());
+            } else {
+                scripts.add(l);
+            }
+        }
+        if (!ticket.isEmpty() || !scripts.isEmpty()) blocks.add(new MailSp(ticket, scripts));
+        return blocks;
+    }
+
+    private String contextSentence(ReleaseMailData d) {
+        return "Solicitando su apoyo para la distribución de "
+            + (d.componentNames().isEmpty() ? "los artefactos indicados" : String.join(", ", d.componentNames()))
+            + "; a continuación se mencionan las rutas donde se encontrará lo necesario para el cambio.";
+    }
+
+    // ── Piezas HTML del correo de liberación: solo p, b, a, br y span con estilos en línea; sin tablas, fondos ni color de texto ──
+
+    private static String mailP(String style, String html) {
+        String size = style.contains("font-size") ? "" : " font-size: 13px;";
+        return "<p style=\"" + MAIL_FONT + size + " " + style + "\">" + html + "</p>";
+    }
+
+    /** Párrafo de cuerpo con margen inferior explícito. */
+    private static String mailBody(String html) {
+        return mailP("margin: 0 0 6px 0;", html);
+    }
+
+    /** Título de sección: 15 px, negritas y azul, con emoji al inicio y 18 px de margen superior. */
+    private String mailSection(String emoji, String title) {
+        return mailP("margin: 18px 0 6px 0; font-size: 15px; font-weight: bold; color: " + MAIL_BLUE + ";",
+            emoji + "&nbsp;" + esc(title));
+    }
+
+    private static String mailLink(String hrefEscaped, String textEscaped) {
+        return "<a href=\"" + hrefEscaped + "\" style=\"color: " + MAIL_BLUE + ";\">" + textEscaped + "</a>";
+    }
+
+    /** Texto técnico (rutas, scripts, branches) en Consolas 12 px. */
+    private static String mailMono(String textEscaped) {
+        return "<span style=\"" + MAIL_MONO + "\">" + textEscaped + "</span>";
+    }
+
+    private static String mailBullet(String contentHtml) {
+        return "&#8226; " + contentHtml;
+    }
+
+    /** Enlace en Consolas 12 px (repositorio). */
+    private static String mailMonoLink(String urlEscaped) {
+        return "<a href=\"" + urlEscaped + "\" style=\"color: " + MAIL_BLUE + "; " + MAIL_MONO + "\">" + urlEscaped + "</a>";
+    }
+
+    /** Componente: "• Nombre" en negritas y, debajo, "Se encuentra en la siguiente ubicación:" con la ruta como hipervínculo. */
+    private String mailDistributionItem(String name, String path) {
+        StringBuilder sb = new StringBuilder(mailBullet("<b>" + esc(name) + "</b>"));
+        if (!path.isEmpty()) {
+            sb.append("<br>Se encuentra en la siguiente ubicación: ").append(pathLink(path, MAIL_BLUE, MAIL_MONO));
+        }
+        return sb.toString();
     }
 
     public String generateEmail(ReleaseRequest r) {
-        StringBuilder html = new StringBuilder();
-        List<String> selectedDistributionModules = normalizedDistributionModules(r);
-        String selectedModulesLabel = selectedDistributionModules.isEmpty()
-            ? "Sin módulos seleccionados"
-            : String.join(", ", selectedDistributionModules);
+        ReleaseMailData d = releaseMailData(r);
+        StringBuilder h = new StringBuilder();
 
-        html.append("<div style=\"font-family: Calibri, Arial, sans-serif; font-size: 11pt;"
-                  + " color: #000000; line-height: 1.5;\">");
+        // ── Asunto, saludo y contexto ─────────────────────────────────────────
+        h.append(mailP("margin: 0 0 12px 0;", "<b>Asunto:</b> " + esc(d.subject())));
+        h.append(mailP("margin: 0 0 8px 0;", "Buen día Operaciones:"));
+        h.append(mailBody(esc(contextSentence(d))));
 
-        // ── Saludo ────────────────────────────────────────────────────────────
-        html.append("<p style=\"margin: 0 0 10px 0;\"><b>Buen día Operaciones:</b></p>");
-
-        // ── Párrafo de introducción dinámico ──────────────────────────────────
-        boolean hasSps = r.getSpsTickets() != null && !r.getSpsTickets().isBlank();
-
-        List<String> introItems = new ArrayList<>();
-        if (r.isHasModules()) {
-            introItems.add("<b>Módulos (" + esc(selectedModulesLabel) + ")</b>");
-        }
-        if (r.isHasCitrix())  introItems.add("<b>Citrix</b>");
-        if (r.isHasDll())     introItems.add("<b><i>SFyCWSDLL</i></b>");
-        if (r.isHasWinterX()) introItems.add("<b><i>WinterX</i></b>");
-        if (r.isHasScripts()) introItems.add("<b>Scripts</b>");
-        if (hasSps)           introItems.add("<b><i>SP's @DBAs TI</i></b>");
-
-        html.append("<p style=\"margin: 0 0 12px 0;\">")
-            .append("Solicitando su apoyo para la distribución de ")
-            .append(introItems.isEmpty() ? "los artefactos indicados" : String.join(", ", introItems))
-            .append("; a continuación se mencionan las rutas donde se encontrará")
-            .append(" lo necesario para el cambio.</p>");
-
-        // ── Lista de artefactos ───────────────────────────────────────────────
-        boolean hasAny = r.isHasModules() || r.isHasCitrix() || r.isHasDll()
-                      || r.isHasWinterX() || r.isHasScripts() || hasSps;
-
-        if (hasAny) {
-            html.append("<ul style=\"margin: 0 0 12px 0; padding-left: 24px;\">");
-
-            if (r.isHasModules()) {
-                html.append("<li style=\"margin-bottom: 8px;\">")
-                    .append("<b>Módulos</b><br>")
-                    .append("Se encuentra en la siguiente ubicación:&nbsp;")
-                    .append(pathLink(clean(r.getPathModules())))
-                    .append("</li>");
+        // ── Distribución: componentes en orden, nombre en negritas y su ubicación ──
+        boolean scriptsListed = d.hasScripts() && (!d.scriptsPath().isEmpty() || !d.scriptFiles().isEmpty());
+        if (!d.components().isEmpty() || scriptsListed || !d.sps().isEmpty()) {
+            h.append(mailSection("\uD83D\uDCE6", "Distribución"));
+            for (MailComponent c : d.components()) {
+                h.append(mailBody(mailDistributionItem(c.name(), c.path())));
             }
-            if (r.isHasCitrix()) {
-                html.append("<li style=\"margin-bottom: 8px;\">")
-                    .append("<b>Citrix</b><br>")
-                    .append("Se encuentra en la siguiente ubicación:&nbsp;")
-                    .append(pathLink(clean(r.getPathCitrix())))
-                    .append("</li>");
+            if (scriptsListed) {
+                StringBuilder scripts = new StringBuilder(mailDistributionItem("Scripts", d.scriptsPath()));
+                d.scriptFiles().forEach(s -> scripts.append("<br>").append(mailBullet(mailMono(esc(s)))));
+                h.append(mailBody(scripts.toString()));
             }
-            if (r.isHasDll()) {
-                html.append("<li style=\"margin-bottom: 8px;\">")
-                    .append("<b><i>SFyCWSDLL</i></b><br>")
-                    .append("Se encuentra en la siguiente ubicación:&nbsp;")
-                    .append(pathLink(clean(r.getPathDll())))
-                    .append("</li>");
+            if (!d.sps().isEmpty()) {
+                StringBuilder sps = new StringBuilder(mailBullet("<b>SP's @DBAs TI</b>"));
+                sps.append("<br>Se encuentra en la ubicación: ").append(mailMonoLink(MAIL_REPO))
+                   .append("; los scripts correspondientes se encuentran adjuntos en este correo.");
+                for (MailSp sp : d.sps()) {
+                    if (!sp.ticket().isEmpty()) sps.append("<br>Ticket: ").append(esc(sp.ticket()));
+                    sp.scripts().forEach(s -> sps.append("<br>").append(mailBullet(mailMono(esc(s)))));
+                }
+                h.append(mailBody(sps.toString()));
             }
-            if (r.isHasWinterX()) {
-                html.append("<li style=\"margin-bottom: 8px;\">")
-                    .append("<b><i>WinterX</i></b><br>")
-                    .append("Se encuentra en la siguiente ubicación:&nbsp;")
-                    .append(pathLink(clean(r.getPathWinterX())))
-                    .append("</li>");
-            }
-
-            // SPs (antes de Scripts, como en el ejemplo)
-            if (hasSps) {
-                html.append("<li style=\"margin-bottom: 8px;\">")
-                    .append("<b><i>SP's @DBAs TI</i></b><br>")
-                    .append("Se encuentra en la ubicación:&nbsp;")
-                    .append("<a href=\"https://github.com/Megacable-IT/storedproc.git\"")
-                    .append(" style=\"color: #0563C1;\">")
-                    .append("https://github.com/Megacable-IT/storedproc.git</a>")
-                    .append("; los scripts correspondientes se encuentran adjuntos en este correo.")
-                    .append("<br><br>");
-
-                Arrays.stream(r.getSpsTickets().trim().split("\n\n"))
-                    .map(String::trim)
-                    .filter(blk -> !blk.isEmpty())
-                    .forEach(block -> {
-                        for (String line : block.split("\n")) {
-                            line = line.trim();
-                            if (line.isEmpty()) continue;
-                            String lower = line.toLowerCase();
-                            if (lower.startsWith("ticket") || lower.startsWith("n°")) {
-                                html.append("<b>").append(esc(line)).append("</b><br>");
-                            } else if (lower.startsWith("sp:")) {
-                                String spName = line.substring(line.indexOf(':') + 1).trim();
-                                html.append("<span style=\"color: #7030A0;\">")
-                                    .append(esc(spName)).append("</span><br>");
-                            } else {
-                                html.append(esc(line)).append("<br>");
-                            }
-                        }
-                        html.append("<br>");
-                    });
-
-                html.append("</li>");
-            }
-
-            if (r.isHasScripts() && r.getScripts() != null && !r.getScripts().isBlank()) {
-                html.append("<li style=\"margin-bottom: 8px;\">")
-                    .append("<b>Scripts</b><br>")
-                    .append("Se encuentra en la siguiente ubicación:&nbsp;")
-                    .append(pathLink(clean(r.getPathScripts())))
-                    .append("<br>");
-
-                Arrays.stream(r.getScripts().split("\n"))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .forEach(script -> html.append(esc(script)).append("<br>"));
-
-                html.append("</li>");
-            }
-
-            html.append("</ul>");
         }
 
-        // ── Versión / Fecha ───────────────────────────────────────────────────
-        boolean hasVersion  = r.getVersion()         != null && !r.getVersion().isBlank();
-        boolean hasRollback = r.getRollbackVersion() != null && !r.getRollbackVersion().isBlank();
-        boolean hasDate     = r.getPublishDate()     != null && !r.getPublishDate().isBlank();
-
-        if (hasVersion || hasRollback || hasDate) {
-            html.append("<p style=\"margin: 0 0 12px 0;\">");
-            if (hasVersion)  html.append("<b>Versión:</b>&nbsp;").append(esc(r.getVersion().trim())).append("<br>");
-            if (hasRollback) html.append("<b>Rollback:</b>&nbsp;").append(esc(r.getRollbackVersion().trim())).append("<br>");
-            if (hasDate)     html.append("<b>Publicar:</b>&nbsp;").append(esc(formatDateEs(r.getPublishDate().trim()))).append("<br>");
-            html.append("</p>");
+        // ── Datos de la liberación (incluye el enlace al release) ─────────────
+        List<String> data = new ArrayList<>();
+        d.rows().forEach(row -> data.add("<b>" + esc(row[0]) + ":</b> " + esc(row[1])));
+        if (!d.releaseUrl().isEmpty()) data.add("<b>Release:</b> " + mailLink(esc(d.releaseUrl()), esc(d.releaseUrl())));
+        if (!data.isEmpty()) {
+            h.append(mailSection("\uD83D\uDCCB", "Datos de la liberación"));
+            h.append(mailBody(String.join("<br>", data)));
         }
 
-        // ── Branches ──────────────────────────────────────────────────────────
-        boolean hasBranchM = r.getBranchModules() != null && !r.getBranchModules().isBlank();
-        boolean hasBranchW = r.getBranchWinter()  != null && !r.getBranchWinter().isBlank();
-        if (hasBranchM || hasBranchW) {
-            int branchCount = (hasBranchM ? 1 : 0) + (hasBranchW ? 1 : 0);
-            String branchTitle = branchCount == 1 ? "Branch de Compilación" : "Branches de Compilación";
-            html.append("<p style=\"margin: 0 0 12px 0;\"><b>")
-                .append(branchTitle)
-                .append(":</b><br>");
-            if (hasBranchM) html.append("<b>Módulos:</b>&nbsp;").append(esc(r.getBranchModules().trim())).append("<br>");
-            if (hasBranchW) html.append("<b>WinterX:</b>&nbsp;").append(esc(r.getBranchWinter().trim())).append("<br>");
-            html.append("</p>");
+        // ── Branches de compilación ───────────────────────────────────────────
+        if (!d.branches().isEmpty()) {
+            h.append(mailSection("\uD83C\uDF3F", "Branches de compilación"));
+            h.append(mailBody(d.branches().stream()
+                .map(b -> "<b>" + esc(b[0]) + ":</b> " + mailMono(esc(b[1]))).collect(Collectors.joining("<br>"))));
         }
 
-        // ── Proyectos / RFCs ──────────────────────────────────────────────────
-        if (r.getProjects() != null && !r.getProjects().isBlank()) {
-            html.append("<p style=\"margin: 0 0 12px 0;\"><b>Proyectos:</b><br>");
-            Arrays.stream(r.getProjects().split("\n"))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .forEach(p -> html.append(esc(p)).append("<br>"));
-            html.append("</p>");
+        // ── Proyectos ─────────────────────────────────────────────────────────
+        if (!d.projects().isEmpty()) {
+            h.append(mailSection("\uD83D\uDCDD", "Proyectos"));
+            h.append(mailBody(d.projects().stream().map(p -> mailBullet(esc(p))).collect(Collectors.joining("<br>"))));
         }
 
-        // ── Release URL ───────────────────────────────────────────────────────
-        if (r.getReleaseUrl() != null && !r.getReleaseUrl().isBlank()) {
-            html.append("<p style=\"margin: 0 0 12px 0;\">")
-                .append("<b>Release:</b>&nbsp;")
-                .append("<a href=\"").append(esc(r.getReleaseUrl().trim()))
-                .append("\" style=\"color: #0563C1;\">")
-                .append(esc(r.getReleaseUrl().trim()))
-                .append("</a></p>");
+        // ── Nota importante: es la "Nota Especial" capturada; se resalta en negritas ──
+        if (!d.notes().isEmpty()) {
+            h.append(mailSection("\u26A0\uFE0F", "Nota importante"));
+            h.append(mailBody("<b>" + esc(d.notes()).replace("\n", "<br>") + "</b>"));
         }
 
-        // ── Notas ─────────────────────────────────────────────────────────────
-        if (r.getNotes() != null && !r.getNotes().isBlank()) {
-            html.append("<p style=\"margin: 0 0 12px 0; background-color: #FFF8E1;"
-                      + " padding: 8px 12px; border-left: 4px solid #FFC107;\">")
-                .append("<b>NOTA IMPORTANTE:</b><br>")
-                .append(esc(r.getNotes().trim()).replace("\n", "<br>"))
-                .append("</p>");
-        }
-
-        // ── Despedida ─────────────────────────────────────────────────────────
-        html.append("<p style=\"margin: 0;\">")
-            .append("Quedo a sus órdenes para cualquier duda o aclaración.<br>")
-            .append("<b>Saludos.</b></p>");
-
-        html.append("</div>");
-        return html.toString();
+        // ── Cierre ────────────────────────────────────────────────────────────
+        h.append(mailP("margin: 18px 0 0 0;", "Quedo atento a cualquier duda.<br>Saludos."));
+        return h.toString();
     }
 
+    /** Versión en texto plano del correo (sin formato ni emojis), con la misma información y orden. */
+    public String generateEmailPlainText(ReleaseRequest r) {
+        ReleaseMailData d = releaseMailData(r);
+        StringBuilder t = new StringBuilder();
+        t.append("Asunto: ").append(d.subject()).append("\n\n");
+        t.append("Buen día Operaciones:\n").append(contextSentence(d)).append("\n");
+
+        boolean scriptsListed = d.hasScripts() && (!d.scriptsPath().isEmpty() || !d.scriptFiles().isEmpty());
+        if (!d.components().isEmpty() || scriptsListed || !d.sps().isEmpty()) {
+            t.append("\nDISTRIBUCIÓN\n");
+            for (MailComponent c : d.components()) {
+                t.append("• ").append(c.name()).append("\n");
+                if (!c.path().isEmpty()) t.append("Se encuentra en la siguiente ubicación: ").append(c.path()).append("\n");
+            }
+            if (scriptsListed) {
+                t.append("• Scripts\n");
+                if (!d.scriptsPath().isEmpty()) t.append("Se encuentra en la siguiente ubicación: ").append(d.scriptsPath()).append("\n");
+                d.scriptFiles().forEach(s -> t.append("• ").append(s).append("\n"));
+            }
+            if (!d.sps().isEmpty()) {
+                t.append("• SP's @DBAs TI\nSe encuentra en la ubicación: ").append(MAIL_REPO)
+                 .append("; los scripts correspondientes se encuentran adjuntos en este correo.\n");
+                for (MailSp sp : d.sps()) {
+                    if (!sp.ticket().isEmpty()) t.append("Ticket: ").append(sp.ticket()).append("\n");
+                    sp.scripts().forEach(s -> t.append("• ").append(s).append("\n"));
+                }
+            }
+        }
+
+        List<String> data = new ArrayList<>();
+        d.rows().forEach(row -> data.add(row[0] + ": " + row[1]));
+        if (!d.releaseUrl().isEmpty()) data.add("Release: " + d.releaseUrl());
+        if (!data.isEmpty()) t.append("\nDATOS DE LA LIBERACIÓN\n").append(String.join("\n", data)).append("\n");
+
+        if (!d.branches().isEmpty()) {
+            t.append("\nBRANCHES DE COMPILACIÓN\n");
+            d.branches().forEach(b -> t.append(b[0]).append(": ").append(b[1]).append("\n"));
+        }
+        if (!d.projects().isEmpty()) {
+            t.append("\nPROYECTOS\n");
+            d.projects().forEach(p -> t.append("• ").append(p).append("\n"));
+        }
+        if (!d.notes().isEmpty()) t.append("\nNOTA IMPORTANTE\n").append(d.notes()).append("\n");
+
+        t.append("\nQuedo atento a cualquier duda.\nSaludos.\n");
+        return t.toString();
+    }
     // ════════════════════════════════════════════════════════════════════════
     //  GENERADOR DE CORREO — REPORTES RDL
     // ════════════════════════════════════════════════════════════════════════
@@ -445,30 +595,33 @@ public class EmailGeneratorService {
         StringBuilder html = new StringBuilder();
 
         // ── Filtrar entradas vacías ───────────────────────────────────────────
-        List<RdlItem> allRdls = r.getRdls();
-        if (allRdls == null) allRdls = new ArrayList<>();
         List<RdlItem> rdlList = new ArrayList<>();
-        for (RdlItem item : allRdls) {
-            if (item == null) continue;
-            if ((item.getRdlReportName() != null && !item.getRdlReportName().isBlank())
-             || (item.getRdlUrlMegang()   != null && !item.getRdlUrlMegang().isBlank())
-             || (item.getRdlPathMegang()  != null && !item.getRdlPathMegang().isBlank())) {
-                rdlList.add(item);
+        if (r.getRdls() != null) {
+            for (RdlItem item : r.getRdls()) {
+                if (item == null) continue;
+                if (!clean(item.getRdlReportName()).isEmpty()
+                 || !clean(item.getRdlUrlMegang()).isEmpty()
+                 || !clean(item.getRdlPathMegang()).isEmpty()) {
+                    rdlList.add(item);
+                }
             }
         }
         boolean multi = rdlList.size() > 1;
+        boolean anyHasSp = rdlList.stream().anyMatch(RdlItem::isHasRdlSp);
 
-        html.append("<div style=\"font-family: Calibri, Arial, sans-serif; font-size: 11pt;"
-                  + " color: #000000; line-height: 1.5;\">");
+        // ── Encabezado y datos clave ──────────────────────────────────────────
+        html.append(header("MEGACABLE · QA &amp; LIBERACIONES", ICON_CHART, "Liberación de Reportes RDL", ""));
 
-        // ── Saludo ────────────────────────────────────────────────────────────
+        List<String[]> facts = new ArrayList<>();
+        String releaseDate = clean(r.getRdlReleaseDate());
+        if (!releaseDate.isEmpty()) facts.add(new String[]{ICON_CALENDAR + "&nbsp;Fecha de liberación", esc(releaseDate)});
+        if (!rdlList.isEmpty()) facts.add(new String[]{ICON_CHART + "&nbsp;Reportes", String.valueOf(rdlList.size())});
+        facts.add(new String[]{ICON_DESKTOP + "&nbsp;Servidores", "MEGANG-612 · NTRS02"});
+        html.append(facts(facts));
+
+        // ── Saludo e introducción ─────────────────────────────────────────────
         html.append("<p style=\"margin: 0 0 10px 0;\"><b>Buen día Operaciones/dba's:</b></p>");
-
-        // ── Párrafo de introducción ───────────────────────────────────────────
-        boolean anyHasSp = false;
-        for (RdlItem chk : rdlList) { if (chk.isHasRdlSp()) { anyHasSp = true; break; } }
-
-        html.append("<p style=\"margin: 0 0 12px 0;\">")
+        html.append("<p style=\"margin: 0 0 14px 0;\">")
             .append("Solicitando su apoyo para cargar RDL en los servidores ")
             .append("<b>NTRS02</b> y <b>MEGANG-612</b> (configurar el data source)");
         if (anyHasSp) {
@@ -476,197 +629,104 @@ public class EmailGeneratorService {
         }
         html.append("<br>a continuación, les comparto las rutas para el cambio:</p>");
 
-        // ── Sección por cada RDL ──────────────────────────────────────────────
+        // ── Un bloque de tarjetas por cada RDL ────────────────────────────────
         for (int i = 0; i < rdlList.size(); i++) {
-            RdlItem item = rdlList.get(i);
-
-            boolean hasUrlMegang  = item.getRdlUrlMegang()  != null && !item.getRdlUrlMegang().isBlank();
-            boolean hasUrlNtrs02  = item.getRdlUrlNtrs02()  != null && !item.getRdlUrlNtrs02().isBlank();
-            boolean hasPathMegang = item.getRdlPathMegang() != null && !item.getRdlPathMegang().isBlank();
-            boolean hasPathNtrs02 = item.getRdlPathNtrs02() != null && !item.getRdlPathNtrs02().isBlank();
-            boolean hasName       = item.getRdlReportName() != null && !item.getRdlReportName().isBlank();
-
-            // Cabecera de separación cuando hay múltiples RDL's
-            if (multi) {
-                String title = hasName ? esc(item.getRdlReportName().trim()) : ("RDL " + (i + 1));
-                html.append("<p class=\"rdl-hdr\" style=\"margin: 16px 0 8px 0; padding: 6px 12px;"
-                          + " background: #eff6ff; border-left: 4px solid #2563eb;"
-                          + " border-radius: 4px;\">")
-                    .append("<b>").append(i + 1).append(". ").append(title).append("</b></p>");
-            }
-
-            if (hasUrlMegang) {
-                html.append("<p style=\"margin: 0 0 4px 0;\"><b>Ruta para el RDL del server MEGANG-612 :</b></p>")
-                    .append("<p style=\"margin: 0 0 12px 0;\">")
-                    .append("<a href=\"").append(esc(item.getRdlUrlMegang().trim()))
-                    .append("\" style=\"color: #0563C1;\">")
-                    .append(esc(item.getRdlUrlMegang().trim()))
-                    .append("</a></p>");
-            }
-
-            if (hasUrlNtrs02) {
-                html.append("<p style=\"margin: 0 0 4px 0;\"><b>Rutas para el RDL del server NTRS02:</b></p>")
-                    .append("<p style=\"margin: 0 0 12px 0;\">")
-                    .append("<a href=\"").append(esc(item.getRdlUrlNtrs02().trim()))
-                    .append("\" style=\"color: #0563C1;\">")
-                    .append(esc(item.getRdlUrlNtrs02().trim()))
-                    .append("</a></p>");
-            }
-
-            // Data source: se muestra en cada RDL
-            html.append("<p style=\"margin: 0 0 8px 0;\">")
-                .append("<b>Data source:</b> especificar el <b>MegaCarteraDRP</b></p>");
-            String img = getMegaCarteraDrpImg();
-            if (!img.isEmpty()) {
-                html.append("<p style=\"margin: 0 0 16px 0;\">")
-                    .append("<img src=\"data:image/png;base64,").append(img).append("\"")
-                    .append(" alt=\"MegaCarteraDRP\"")
-                    .append(" style=\"max-width:320px; border:1px solid #e2e8f0; border-radius:4px;\">")
-                    .append("</p>");
-            } else {
-                html.append("<br>");
-            }
-
-            if (hasPathMegang || hasPathNtrs02) {
-                html.append("<p style=\"margin: 0 0 10px 0;\"><b>Ruta RDL's&nbsp; Archivos :</b></p>");
-
-                if (hasPathMegang) {
-                    html.append("<p style=\"margin: 0 0 10px 0;\">")
-                        .append("<b>Ruta rdl MEGANG-612:</b><br>")
-                        .append(pathLink(clean(item.getRdlPathMegang())));
-                    if (hasName) {
-                        html.append("<br><b>NOMBRE :</b>&nbsp;")
-                            .append(esc(item.getRdlReportName().trim()));
-                    }
-                    html.append("</p>");
-                }
-
-                if (hasPathNtrs02) {
-                    html.append("<p style=\"margin: 0 0 14px 0;\">")
-                        .append("<b>Ruta rdl NTRS02:</b><br>")
-                        .append(pathLink(clean(item.getRdlPathNtrs02())));
-                    if (hasName) {
-                        html.append("<br><b>NOMBRE :</b>&nbsp;")
-                            .append(esc(item.getRdlReportName().trim()));
-                    }
-                    html.append("</p>");
-                }
-            }
-
-            // ── SP @DBAs TI (por RDL, opcional) ──────────────────────────────────────
-            if (item.isHasRdlSp()) {
-                String[] spNames = (item.getRdlSpName() != null && !item.getRdlSpName().isBlank())
-                    ? Arrays.stream(item.getRdlSpName().trim().split("\\r?\\n"))
-                            .map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new)
-                    : new String[0];
-                String[] tickets = (item.getRdlSpTicket() != null && !item.getRdlSpTicket().isBlank())
-                    ? Arrays.stream(item.getRdlSpTicket().trim().split("\\r?\\n"))
-                            .map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new)
-                    : new String[0];
-
-                int maxLen = Math.max(spNames.length, tickets.length);
-                String spHeader = maxLen > 1 ? "Ejecutar SP's @DBAs TI :" : "Ejecutar SP @DBAs TI :";
-
-                html.append("<p style=\"margin: 0 0 4px 0;\"><b>").append(spHeader).append("</b></p>")
-                    .append("<p style=\"margin: 0 0 14px 0;\">")
-                    .append("<b>Ruta SP Github:</b>&nbsp;")
-                    .append("<a href=\"https://github.com/Megacable-IT/storedproc\"")
-                    .append(" style=\"color: #0563C1;\">https://github.com/Megacable-IT/storedproc</a><br>");
-
-                if (maxLen <= 1) {
-                    // Caso simple: un SP y/o un ticket
-                    if (spNames.length > 0) {
-                        html.append("<b>Nombre del SP:</b>&nbsp;")
-                            .append(esc(spNames[0])).append("<br>");
-                    }
-                    if (tickets.length > 0) {
-                        html.append("<b>Numero de ticket del VoBo:</b>&nbsp;")
-                            .append(esc(tickets[0])).append("<br>");
-                    }
-                } else {
-                    // Caso múltiple: cada SP emparejado con su ticket por posición
-                    html.append("<b>SP's a ejecutar:</b><br>");
-                    for (int j = 0; j < maxLen; j++) {
-                        String sp     = j < spNames.length ? spNames[j] : "";
-                        String ticket = j < tickets.length ? tickets[j] : "";
-                        html.append("&nbsp;&nbsp;").append(j + 1).append(".&nbsp;");
-                        if (!sp.isEmpty()) {
-                            html.append("<span style=\"color:#7030A0;\">").append(esc(sp)).append("</span>");
-                        }
-                        if (!sp.isEmpty() && !ticket.isEmpty()) {
-                            html.append("&nbsp;&mdash;&nbsp;<b>Ticket VoBo:</b>&nbsp;").append(esc(ticket));
-                        } else if (!ticket.isEmpty()) {
-                            html.append("<b>Ticket VoBo:</b>&nbsp;").append(esc(ticket));
-                        }
-                        html.append("<br>");
-                    }
-                }
-                html.append("</p>");
-            }
-
-            // ── Scripts ─────────────────────────────────────────────────────────────
-            if (item.isHasRdlScript() && item.getRdlScriptName() != null && !item.getRdlScriptName().isBlank()) {
-                String[] scripts = item.getRdlScriptName().trim().split("\\r?\\n");
-                html.append("<p style=\"margin: 0 0 4px 0;\"><b>Ejecutar Script").append(scripts.length > 1 ? "s" : "").append(":</b></p>")
-                    .append("<p style=\"margin: 0 0 14px 0;\">");
-                for (String script : scripts) {
-                    String s = script.trim();
-                    if (s.isEmpty()) continue;
-                    html.append("<span style=\"color:#7030A0;\">").append(esc(s)).append("</span><br>");
-                }
-                if (item.getRdlScriptPath() != null && !item.getRdlScriptPath().isBlank()) {
-                    html.append("<b>Ubicaci\u00f3n:</b>&nbsp;")
-                        .append(pathLink(item.getRdlScriptPath().trim())).append("<br>");
-                }
-                html.append("</p>");
-            }
-
-
-            // ── Proyecto / RFC (por RDL) ──────────────────────────────────────────────
-            if (item.getRdlProject() != null && !item.getRdlProject().isBlank()) {
-                html.append("<p style=\"margin: 0 0 12px 0;\">")
-                    .append("<b>Proyecto:</b><br>")
-                    .append(esc(item.getRdlProject().trim()))
-                    .append("</p>");
-            }
+            html.append(rdlItemHtml(rdlList.get(i), i, multi));
         }
-
-        // Si no hay RDL's igual se muestra el data source
         if (rdlList.isEmpty()) {
-            html.append("<p style=\"margin: 0 0 8px 0;\">")
-                .append("<b>Data source:</b> especificar el <b>MegaCarteraDRP</b></p>");
-            String img = getMegaCarteraDrpImg();
-            if (!img.isEmpty()) {
-                html.append("<p style=\"margin: 0 0 16px 0;\">")
-                    .append("<img src=\"data:image/png;base64,").append(img).append("\"")
-                    .append(" alt=\"MegaCarteraDRP\"")
-                    .append(" style=\"max-width:320px; border:1px solid #e2e8f0; border-radius:4px;\">")
-                    .append("</p>");
-            } else {
-                html.append("<br>");
+            html.append(dataSourceCard());
+        }
+
+        // ── Release URL (Jira) ────────────────────────────────────────────────
+        String releaseUrl = clean(r.getRdlReleaseUrl());
+        if (!releaseUrl.isEmpty()) {
+            String body = button(esc(releaseUrl), ICON_LINK + "&nbsp; Abrir release")
+                + "<div style=\"padding-top: 6px; font-size: 9.5pt; word-break: break-all;\">"
+                + plainLink(releaseUrl) + "</div>";
+            html.append(card(ICON_LINK, "Release", "#2563eb", body));
+        }
+
+        return wrap(html.toString());
+    }
+
+    private String plainLink(String url) {
+        return "<a href=\"" + esc(url) + "\" style=\"color: #0563C1;\">" + esc(url) + "</a>";
+    }
+
+    private String dataSourceCard() {
+        StringBuilder body = new StringBuilder("Especificar el <b>MegaCarteraDRP</b>");
+        String img = getMegaCarteraDrpImg();
+        if (!img.isEmpty()) {
+            body.append("<div style=\"padding-top: 8px;\"><img src=\"data:image/png;base64,").append(img)
+                .append("\" alt=\"MegaCarteraDRP\" style=\"max-width: 320px; border: 1px solid #e2e8f0;\"></div>");
+        }
+        return card(ICON_DB, "Data source", "#0ea5e9", body.toString());
+    }
+
+    /** Tarjetas de un RDL: rutas web, data source, archivos, SP, scripts y proyecto. */
+    private String rdlItemHtml(RdlItem item, int index, boolean multi) {
+        StringBuilder html = new StringBuilder();
+        String name = clean(item.getRdlReportName());
+        String urlMegang = clean(item.getRdlUrlMegang());
+        String urlNtrs02 = clean(item.getRdlUrlNtrs02());
+        String pathMegang = clean(item.getRdlPathMegang());
+        String pathNtrs02 = clean(item.getRdlPathNtrs02());
+
+        if (multi) {
+            html.append(banner((index + 1) + ". " + (name.isEmpty() ? "RDL " + (index + 1) : esc(name))));
+        }
+
+        if (!urlMegang.isEmpty() || !urlNtrs02.isEmpty()) {
+            StringBuilder body = new StringBuilder();
+            if (!urlMegang.isEmpty()) body.append(labeled("Ruta para el RDL del server MEGANG-612 :", plainLink(urlMegang)));
+            if (!urlNtrs02.isEmpty()) body.append(labeled("Rutas para el RDL del server NTRS02:", plainLink(urlNtrs02)));
+            String title = (!multi && !name.isEmpty()) ? esc(name) : "Rutas del reporte";
+            html.append(card(ICON_LINK, title, "#2563eb", body.toString()));
+        }
+
+        html.append(dataSourceCard());
+
+        if (!pathMegang.isEmpty() || !pathNtrs02.isEmpty()) {
+            String nameLine = name.isEmpty() ? ""
+                : "<div style=\"padding-top: 2px;\"><b>NOMBRE :</b>&nbsp;" + esc(name) + "</div>";
+            StringBuilder body = new StringBuilder();
+            if (!pathMegang.isEmpty()) body.append(labeled("Ruta rdl MEGANG-612:", pathLink(pathMegang))).append(nameLine);
+            if (!pathNtrs02.isEmpty()) body.append(labeled("Ruta rdl NTRS02:", pathLink(pathNtrs02))).append(nameLine);
+            html.append(card(ICON_FOLDER, "Ruta RDL's Archivos", "#f59e0b", body.toString()));
+        }
+
+        if (item.isHasRdlSp()) {
+            List<String> spNames = linesFromText(item.getRdlSpName());
+            List<String> tickets = linesFromText(item.getRdlSpTicket());
+            int maxLen = Math.max(spNames.size(), tickets.size());
+            StringBuilder body = new StringBuilder(
+                labeled("Ruta SP Github:", plainLink("https://github.com/Megacable-IT/storedproc")));
+            body.append(spacer(6));
+            for (int j = 0; j < maxLen; j++) {
+                String sp = j < spNames.size() ? spNames.get(j) : "";
+                String ticket = j < tickets.size() ? tickets.get(j) : "";
+                StringBuilder line = new StringBuilder();
+                if (!sp.isEmpty()) line.append(ICON_DB).append("&nbsp; ").append(code(esc(sp))).append(" &nbsp;");
+                if (!ticket.isEmpty()) line.append(pill(ICON_TICKET + "&nbsp;Ticket VoBo: " + esc(ticket), "#fef3c7", "#92400e"));
+                body.append("<div style=\"padding: 3px 0;\">").append(line).append("</div>");
             }
+            String title = maxLen > 1 ? "Ejecutar SP's @DBAs TI" : "Ejecutar SP @DBAs TI";
+            html.append(card(ICON_DB, title, "#8b5cf6", body.toString()));
         }
 
-        // ── Fecha de Liberación (global) ───────────────────────────────────────────────────
-        if (r.getRdlReleaseDate() != null && !r.getRdlReleaseDate().isBlank()) {
-            html.append("<p style=\"margin: 16px 0 8px 0;\">")
-                .append("<b>Fecha Liberación:</b>&nbsp;")
-                .append(esc(r.getRdlReleaseDate().trim()))
-                .append("</p>");
+        if (item.isHasRdlScript() && !clean(item.getRdlScriptName()).isEmpty()) {
+            List<String> scripts = linesFromText(item.getRdlScriptName());
+            StringBuilder body = new StringBuilder();
+            scripts.forEach(s -> body.append(iconLine(ICON_FILE, code(esc(s)))));
+            if (!clean(item.getRdlScriptPath()).isEmpty()) {
+                body.append(labeled("Ubicación:", pathLink(clean(item.getRdlScriptPath()))));
+            }
+            html.append(card(ICON_SCRIPT, scripts.size() > 1 ? "Ejecutar Scripts" : "Ejecutar Script", "#d97706", body.toString()));
         }
 
-        // ── Release URL (Jira) ─────────────────────────────────────────────────────────
-        if (r.getRdlReleaseUrl() != null && !r.getRdlReleaseUrl().isBlank()) {
-            html.append("<p style=\"margin: 0 0 12px 0;\">")
-                .append("<b>Release:</b>&nbsp;")
-                .append("<a href=\"")
-                .append(esc(r.getRdlReleaseUrl().trim()))
-                .append("\" style=\"color: #0563C1;\">")
-                .append(esc(r.getRdlReleaseUrl().trim()))
-                .append("</a></p>");
+        if (!clean(item.getRdlProject()).isEmpty()) {
+            html.append(card(ICON_PIN, "Proyecto", "#ef4444", esc(clean(item.getRdlProject()))));
         }
-
-        html.append("</div>");
         return html.toString();
     }
 
@@ -798,6 +858,8 @@ public class EmailGeneratorService {
         // Datos generales
         pdfSection(doc, secF, "Datos Generales");
         pdfLine(doc, boldF, bodyF, "Versión:", clean(r.getVersion()));
+        if (!dllCsharpVersion(r).isEmpty())
+            pdfLine(doc, boldF, bodyF, "Versión DLL C#:", dllCsharpVersion(r));
         pdfLine(doc, boldF, bodyF, "Rollback:", clean(r.getRollbackVersion()));
         pdfLine(doc, boldF, bodyF, "Fecha:", formatDateEs(r.getPublishDate()));
 
@@ -808,6 +870,7 @@ public class EmailGeneratorService {
             pdfLine(doc, boldF, bodyF, "Módulos:", String.join(", ", mods));
         if (r.isHasCitrix()) pdfLine(doc, boldF, monoF, "Citrix:", clean(r.getPathCitrix()));
         if (r.isHasDll())    pdfLine(doc, boldF, monoF, "SFyCWSDLL:", clean(r.getPathDll()));
+        if (r.isHasDllCsharp()) pdfLine(doc, boldF, monoF, "DLL C#:", clean(r.getPathDllCsharp()));
         if (r.isHasWinterX()) pdfLine(doc, boldF, monoF, "WinterX:", clean(r.getPathWinterX()));
         if (r.isHasScripts()) {
             pdfLine(doc, boldF, monoF, "Scripts:", clean(r.getPathScripts()));
@@ -858,6 +921,8 @@ public class EmailGeneratorService {
         md.append("## Datos Generales\n\n");
         md.append("| Campo | Valor |\n|-------|-------|\n");
         md.append("| Versión | ").append(clean(r.getVersion())).append(" |\n");
+        if (!dllCsharpVersion(r).isEmpty())
+            md.append("| Versión DLL C# | ").append(dllCsharpVersion(r)).append(" |\n");
         md.append("| Rollback | ").append(clean(r.getRollbackVersion())).append(" |\n");
         md.append("| Fecha | ").append(formatDateEs(r.getPublishDate())).append(" |\n\n");
 
@@ -867,6 +932,7 @@ public class EmailGeneratorService {
             md.append("- **Módulos:** ").append(String.join(", ", mods)).append("\n");
         if (r.isHasCitrix()) md.append("- **Citrix:** `").append(clean(r.getPathCitrix())).append("`\n");
         if (r.isHasDll())    md.append("- **SFyCWSDLL:** `").append(clean(r.getPathDll())).append("`\n");
+        if (r.isHasDllCsharp()) md.append("- **DLL C#:** `").append(clean(r.getPathDllCsharp())).append("`\n");
         if (r.isHasWinterX()) md.append("- **WinterX:** `").append(clean(r.getPathWinterX())).append("`\n");
         if (r.isHasScripts()) {
             md.append("- **Scripts:** `").append(clean(r.getPathScripts())).append("`\n");

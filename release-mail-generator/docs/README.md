@@ -180,7 +180,8 @@ sequenceDiagram
 | Publicación | URL de release | URL | Enlace al paquete |
 | Artefactos | Módulos | Checkbox + selección | Cartera, Servicios, Control, etc. |
 | Artefactos | Citrix | Checkbox | Incluye distribución Citrix |
-| Artefactos | DLL | Checkbox | Incluye DLL C# |
+| Artefactos | DLL (SFyCWSDLL) | Checkbox | Incluye la DLL SFyCWSDLL |
+| Artefactos | DLL C# | Checkbox + ruta + versión | Incluye la DLL C#; muestra ruta (`...\DLL C#`) y versión (ej. `26.6.11.2`), solo se usan si está marcada |
 | Artefactos | WinterX | Checkbox | Incluye WinterX |
 | Artefactos | Scripts SQL | Checkbox + texto | Scripts a ejecutar |
 | Branches | Branch Módulos | Texto | Nombre del branch |
@@ -216,32 +217,41 @@ flowchart LR
 
 #### Características
 
-- Importa datos automáticamente desde el formulario de correo.
-- Formato texto plano optimizado para Telegram.
+- Importa datos automáticamente desde el formulario de correo, incluida la DLL C# (módulo y versión; la versión solo si el artefacto está marcado). Branch y repositorio de la DLL C# se capturan solo en el formulario de Telegram, si se necesitan.
+- Formato texto plano en bloque de código, con secciones e iconos (misma estructura que Telegram RDL).
 - Incluye: acción, scripts, versiones, cambios, branches y rollback.
-- Módulos permitidos: Cartera, Servicios, Control, Hightech, Equipos, Ventas, Citrix, DLL, WinterX, DLL C#.
+- Módulos permitidos: Cartera, Servicios, Control, Hightech, Equipos, Ventas, Wirelink, Citrix, DLL, WinterX, DLL C#.
 
 #### Ejemplo de salida
 
+````
 ```
-Acción: actualizar módulos Cartera, Servicios, Control
+Acción: Actualizar módulos
+📦 Cartera
+📦 Servicios
+📦 DLL C#
 
-Ejecutar scripts:
-SP_ActualizarPromociones.sql
-SP_LimpiarCache.sql
+Ejecutar Scripts:
+📄 SP_ActualizarPromociones.sql
+📄 SP_LimpiarCache.sql
+
+⚠️ Nota: Favor de cambiar C# a las 11 pm
 
 Publicar: 22/06/2026
-Versión Módulo: 26.6.18
-Versión DLL C#: 26.6.11.2
+🏷️ Versión Módulo: 26.6.18
+🏷️ Versión DLL C#: 26.6.11.2
 
-Cambios Reléase
-RFC-24269 Promociones combinen con 120 Mbps
-RFC-24301 Ajuste de tarifas zona norte
+Cambios Release:
+✅ RFC-24269 Promociones combinen con 120 Mbps
+✅ RFC-24301 Ajuste de tarifas zona norte
 
-Versión Rollback: 26.6.17
+↩️ Versión Rollback: 26.6.17
+🌿 Branch compilación Módulos: release/26.6.18
+🌿 Branch compilación DLL C#: https://github.com/org/winterX.git  branch origin/release
 
-Branch compilación Modulos: release/26.6.18
+🔗 Release Publicación: https://jira/release/1
 ```
+````
 
 ---
 
@@ -601,6 +611,8 @@ La única entidad con persistencia en base de datos. Almacena la documentación 
   "hasModules": true,
   "hasCitrix": false,
   "hasDll": true,
+  "hasDllCsharp": true,
+  "versionDllCsharp": "26.6.11.2",
   "hasWinterX": false,
   "hasScripts": true,
   "distributionModules": ["Cartera", "Servicios"],

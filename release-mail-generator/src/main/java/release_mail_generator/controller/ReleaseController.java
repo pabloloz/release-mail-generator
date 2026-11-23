@@ -55,6 +55,7 @@ public class ReleaseController {
                 "Correo de Liberación" + (releaseRequest.getVersion() != null && !releaseRequest.getVersion().isBlank() ? " v" + releaseRequest.getVersion() : ""),
                 null, generatedEmail, "CREATED", "HTML");
         model.addAttribute("generatedEmail", generatedEmail);
+        model.addAttribute("generatedEmailText", emailGeneratorService.generateEmailPlainText(releaseRequest));
         model.addAttribute("releaseRequest", releaseRequest);
         model.addAttribute("activeTab", "releases");
         return "index";
@@ -114,6 +115,17 @@ public class ReleaseController {
                         ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build().toString())
                 .contentType(MediaType.parseMediaType("text/markdown; charset=UTF-8"))
                 .body(md);
+    }
+
+    @PostMapping(value = "/release/export/text", consumes = "application/json")
+    public ResponseEntity<byte[]> exportReleaseText(@RequestBody ReleaseRequest r) {
+        byte[] txt = emailGeneratorService.generateEmailPlainText(r).getBytes(StandardCharsets.UTF_8);
+        String filename = "Liberacion-" + sanitize(r.getVersion()) + ".txt";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build().toString())
+                .contentType(MediaType.parseMediaType("text/plain; charset=UTF-8"))
+                .body(txt);
     }
 
     @PostMapping(value = "/release/export/html", consumes = "application/json")

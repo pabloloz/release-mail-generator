@@ -18,6 +18,17 @@
             group.classList.toggle('visible', document.getElementById(cbId).checked);
             updatePaths();
         }
+        const ARTIFACT_PATH_SUFFIXES = {
+            pathModules: 'Modulos',
+            pathCitrix:  'Citrix',
+            pathDll:     'SFyCWSDLL',
+            pathDllCsharp: 'DLL C#',
+            pathWinterX: 'WinterX',
+            pathScripts: 'Scripts'
+        };
+        function buildPathBase(semana, anio) {
+            return `\\\\ntdesarrollo.evolution.corp\\sprints$\\RFC'S Semana ${semana} ${anio}\\`;
+        }
         function updatePaths() {
             const semanaEl = document.getElementById('semana');
             const anioEl = document.getElementById('anio');
@@ -28,17 +39,27 @@
             const semana = semanaEl.value.trim();
             const anio   = anioEl.value.trim();
             if (!semana || !anio) return;
-            const base = `\\\\ntdesarrollo.evolution.corp\\sprints$\\RFC'S Semana ${semana} ${anio}\\`;
-            const map = {
-                pathModules: 'Modulos',
-                pathCitrix:  'Citrix',
-                pathDll:     'SFyCWSDLL',
-                pathWinterX: 'WinterX',
-                pathScripts: 'Scripts'
-            };
-            for (const [name, suffix] of Object.entries(map)) {
+            const base = buildPathBase(semana, anio);
+            for (const [name, suffix] of Object.entries(ARTIFACT_PATH_SUFFIXES)) {
                 const input = document.querySelector(`[name="${name}"]`);
                 if (input) input.value = base + suffix;
+            }
+        }
+        // Tras restaurar un borrador, regenera solo las rutas con formato automático
+        // (otra semana/año o vacías); las editadas a mano se respetan.
+        function refreshStalePaths() {
+            const semana = document.getElementById('semana')?.value.trim();
+            const anio = document.getElementById('anio')?.value.trim();
+            if (!semana || !anio) return;
+            const base = buildPathBase(semana, anio);
+            const autoPath = /^\\\\ntdesarrollo\.evolution\.corp\\sprints\$\\RFC'S Semana \d+ \d+\\/;
+            for (const [name, suffix] of Object.entries(ARTIFACT_PATH_SUFFIXES)) {
+                const input = document.querySelector(`[name="${name}"]`);
+                if (!input) continue;
+                const value = input.value.trim();
+                if (value === '' || (autoPath.test(value) && value.endsWith('\\' + suffix))) {
+                    input.value = base + suffix;
+                }
             }
         }
         function getISOWeek(d) {
@@ -110,12 +131,15 @@
                 hasModules: !!form.querySelector('[name="hasModules"]')?.checked,
                 hasCitrix: !!form.querySelector('[name="hasCitrix"]')?.checked,
                 hasDll: !!form.querySelector('[name="hasDll"]')?.checked,
+                hasDllCsharp: !!form.querySelector('[name="hasDllCsharp"]')?.checked,
                 hasWinterX: !!form.querySelector('[name="hasWinterX"]')?.checked,
                 hasScripts: !!form.querySelector('[name="hasScripts"]')?.checked,
                 distributionModules: [...form.querySelectorAll('input[name="distributionModules"]:checked')].map(el => el.value),
                 pathModules: form.querySelector('[name="pathModules"]')?.value || '',
                 pathCitrix: form.querySelector('[name="pathCitrix"]')?.value || '',
                 pathDll: form.querySelector('[name="pathDll"]')?.value || '',
+                pathDllCsharp: form.querySelector('[name="pathDllCsharp"]')?.value || '',
+                versionDllCsharp: form.querySelector('[name="versionDllCsharp"]')?.value || '',
                 pathWinterX: form.querySelector('[name="pathWinterX"]')?.value || '',
                 pathScripts: form.querySelector('[name="pathScripts"]')?.value || '',
                 scripts: form.querySelector('[name="scripts"]')?.value || '',
@@ -153,6 +177,7 @@
             setCheck('hasModules', data.hasModules);
             setCheck('hasCitrix', data.hasCitrix);
             setCheck('hasDll', data.hasDll);
+            setCheck('hasDllCsharp', data.hasDllCsharp);
             setCheck('hasWinterX', data.hasWinterX);
             setCheck('hasScripts', data.hasScripts);
 
@@ -163,6 +188,8 @@
             setVal('pathModules', data.pathModules);
             setVal('pathCitrix', data.pathCitrix);
             setVal('pathDll', data.pathDll);
+            setVal('pathDllCsharp', data.pathDllCsharp);
+            setVal('versionDllCsharp', data.versionDllCsharp);
             setVal('pathWinterX', data.pathWinterX);
             setVal('pathScripts', data.pathScripts);
             setVal('scripts', data.scripts);
@@ -173,11 +200,12 @@
             setVal('releaseUrl', data.releaseUrl);
             setVal('notes', data.notes);
 
-            ['hasModules', 'hasCitrix', 'hasDll', 'hasWinterX', 'hasScripts'].forEach(id => {
+            ['hasModules', 'hasCitrix', 'hasDll', 'hasDllCsharp', 'hasWinterX', 'hasScripts'].forEach(id => {
                 const groupMap = {
                     hasModules: 'pathModulesGroup',
                     hasCitrix: 'pathCitrixGroup',
                     hasDll: 'pathDllGroup',
+                    hasDllCsharp: 'pathDllCsharpGroup',
                     hasWinterX: 'pathWinterXGroup',
                     hasScripts: 'pathScriptsGroup'
                 };
@@ -227,6 +255,7 @@
             };
 
             setById('telegramNotes', data.telegramNotes);
+            setById('telegramSps', data.telegramSps);
             setById('telegramPublishDate', data.publishDate);
             setById('telegramVersionModule', data.telegramVersionModule);
             setById('telegramVersionDllCsharp', data.telegramVersionDllCsharp);
@@ -626,6 +655,7 @@
             try {
                 const releaseDraft = JSON.parse(localStorage.getItem(RELEASE_FORM_DRAFT_KEY) || 'null');
                 if (releaseDraft) restoreReleaseFormData(releaseDraft);
+                refreshStalePaths();
             } catch (e) {}
 
             try {
@@ -839,7 +869,7 @@
                     }
                 }
                 // Booleans from checkboxes
-                ['hasModules','hasCitrix','hasDll','hasWinterX','hasScripts'].forEach(k => {
+                ['hasModules','hasCitrix','hasDll','hasDllCsharp','hasWinterX','hasScripts'].forEach(k => {
                     payload[k] = !!payload[k];
                 });
                 const resp = await fetch('/release/export/' + type, {
@@ -851,7 +881,7 @@
                 const blob = await resp.blob();
                 const cd = resp.headers.get('Content-Disposition') || '';
                 const m = cd.match(/filename[*]?=(?:UTF-8'')?["']?([^;"'\n]+)/i);
-                const ext = type === 'markdown' ? 'md' : type;
+                const ext = type === 'markdown' ? 'md' : (type === 'text' ? 'txt' : type);
                 const filename = m ? decodeURIComponent(m[1].trim()) : 'Liberacion.' + ext;
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a'); a.href = url; a.download = filename;
@@ -1261,14 +1291,16 @@
         async function copyEmail() {
             const el = document.getElementById('emailPreview');
             if (!el || !el.innerHTML.trim()) { showToast('No hay correo generado para copiar.', 'error'); return; }
+            // La parte text/plain usa la versión de texto plano generada por el servidor
+            const plain = document.getElementById('emailPlainText')?.value || el.innerText;
             try {
                 const htmlBlob = new Blob([el.innerHTML], { type: 'text/html' });
-                const textBlob = new Blob([el.innerText], { type: 'text/plain' });
+                const textBlob = new Blob([plain], { type: 'text/plain' });
                 await navigator.clipboard.write([
                     new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })
                 ]);
             } catch {
-                await navigator.clipboard.writeText(el.innerText);
+                await navigator.clipboard.writeText(plain);
             }
             showToast('\u2714 Correo copiado al portapapeles', 'success');
             pulseSuccess(document.querySelector('#pane-releases .btn-copy'));
@@ -1327,6 +1359,7 @@
             return {
                 telegramModules: modules,
                 telegramScripts: scripts,
+                telegramSps: document.getElementById('telegramSps')?.value || '',
                 telegramNotes: document.getElementById('telegramNotes')?.value || '',
                 publishDate: document.getElementById('telegramPublishDate')?.value || '',
                 telegramVersionModule: document.getElementById('telegramVersionModule')?.value || '',
@@ -1375,6 +1408,7 @@
                 modules.push(...selectedReleaseModules);
                 if (document.getElementById('hasCitrix')?.checked) modules.push('Citrix');
                 if (document.getElementById('hasDll')?.checked) modules.push('DLL');
+                if (document.getElementById('hasDllCsharp')?.checked) modules.push('DLL C#');
                 if (document.getElementById('hasWinterX')?.checked) modules.push('WinterX');
 
                 const publishDate = document.querySelector('input[name="publishDate"]')?.value || '';
@@ -1382,12 +1416,15 @@
                 const rollback = document.querySelector('input[name="rollbackVersion"]')?.value || '';
                 const branchModules = document.querySelector('input[name="branchModules"]')?.value || '';
                 const branchWinter = document.querySelector('input[name="branchWinter"]')?.value || '';
+                const versionDll = document.getElementById('hasDllCsharp')?.checked
+                    ? (document.querySelector('input[name="versionDllCsharp"]')?.value || '') : '';
                 const releaseUrl = document.querySelector('input[name="releaseUrl"]')?.value || '';
                 const notes = document.querySelector('textarea[name="notes"]')?.value || '';
                 const scriptsRaw = document.querySelector('textarea[name="scripts"]')?.value || '';
+                const spsRaw = document.querySelector('textarea[name="spsTickets"]')?.value || '';
                 const projectsRaw = document.querySelector('textarea[name="projects"]')?.value || '';
 
-                const hasSourceData = modules.length > 0 || publishDate || version || rollback || branchModules || branchWinter || releaseUrl || notes || scriptsRaw || projectsRaw;
+                const hasSourceData = modules.length > 0 || publishDate || version || rollback || branchModules || branchWinter || versionDll || releaseUrl || notes || scriptsRaw || spsRaw || projectsRaw;
                 if (!hasSourceData) {
                     showToast('No hay datos en Correo de Liberación para importar.', 'error');
                     return;
@@ -1403,8 +1440,10 @@
                 document.getElementById('telegramRollbackVersion').value = rollback;
                 document.getElementById('telegramBranchModules').value = branchModules;
                 document.getElementById('telegramBranchWinterX').value = branchWinter;
+                document.getElementById('telegramVersionDllCsharp').value = versionDll;
                 document.getElementById('telegramReleaseUrl').value = releaseUrl;
                 document.getElementById('telegramNotes').value = notes;
+                document.getElementById('telegramSps').value = spsRaw;
 
                 const scriptRows = scriptsRaw
                     .split(/\r?\n/)
@@ -1985,6 +2024,16 @@
             max-height: 500px;
             opacity: 1;
         }
+        /* Etiquetas de ancho fijo para que todos los campos de ruta queden alineados */
+        .artifact-row:not(.artifact-row-stack) > .artifact-check { width: 130px; }
+        .artifact-row:not(.artifact-row-stack) > .artifact-path > .form-control { width: 100%; }
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .module-grid .module-badge { justify-content: flex-start; }
 
         /* ── Buttons ─────────────────────────────────────────────────── */
         .btn-generate {
@@ -2134,7 +2183,7 @@
         }
         .email-toolbar .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
         #emailPreview, #rdlEmailPreview {
-            background: white; padding: 32px 36px;
+            background: white; padding: 32px 36px; overflow-x: auto;
             font-size: 14px; color: #1e293b; line-height: 1.6;
         }
         .email-preview-body {
@@ -3102,7 +3151,8 @@
 
         /* ── Email preview area ──────────────────────────────── */
         [data-theme="dark"] .email-wrapper { border-color: var(--border); }
-        [data-theme="dark"] #emailPreview,
+        /* El correo de liberación no define fondos ni color de texto: la vista previa los toma del tema */
+        [data-theme="dark"] #emailPreview { background: #1e293b !important; color: #e2e8f0 !important; }
         [data-theme="dark"] #rdlEmailPreview,
         [data-theme="dark"] #uatEmailPreview,
         [data-theme="dark"] .email-preview-body {
@@ -3110,7 +3160,6 @@
             color: #e2e8f0 !important;
         }
         /* Force email inline colors to inherit in dark mode */
-        [data-theme="dark"] #emailPreview *:not(a),
         [data-theme="dark"] #rdlEmailPreview *:not(a),
         [data-theme="dark"] #uatEmailPreview *:not(a),
         [data-theme="dark"] .email-preview-body *:not(a) {
@@ -3120,14 +3169,21 @@
             background: #1e3a5f !important;
             border-left-color: #3b82f6 !important;
         }
-        [data-theme="dark"] #emailPreview a,
         [data-theme="dark"] #rdlEmailPreview a,
         [data-theme="dark"] #uatEmailPreview a,
         [data-theme="dark"] .email-preview-body a {
             color: #60a5fa !important;
         }
+        /* Bloques del correo RDL (tarjetas, tira de datos, píldoras, botón y código) */
+        [data-theme="dark"] #rdlEmailPreview .rm-card,
+        [data-theme="dark"] #rdlEmailPreview .rm-surface {
+            background-color: #0f172a !important;
+            border-color: #334155 !important;
+        }
+        [data-theme="dark"] #rdlEmailPreview .rm-pill { background-color: #334155 !important; }
+        [data-theme="dark"] #rdlEmailPreview .rm-code { color: #c4b5fd !important; }
+        [data-theme="dark"] #rdlEmailPreview a.rm-btn { color: #ffffff !important; }
         [data-theme="dark"] .email-preview-body img,
-        [data-theme="dark"] #emailPreview img,
         [data-theme="dark"] #rdlEmailPreview img,
         [data-theme="dark"] #uatEmailPreview img {
             border-radius: 6px;
@@ -3273,7 +3329,7 @@
 
                 <!-- Module Cards -->
                 <div class="dash-section-title">M&#xF3;dulos</div>
-                <div class="module-grid">
+                <div class="dash-module-grid">
                     <div class="module-card" onclick="openArtifactsSubmenu('correo')">
                         <div class="module-card-icon"><svg class="icon" aria-hidden="true"><use href="#icon-mail"></use></svg></div>
                         <div class="module-card-title">Correos de Liberaci&#xF3;n</div>
@@ -3299,7 +3355,7 @@
                 <!-- Quick Actions -->
                 <div class="quick-actions">
                     <div class="quick-actions-title">Acciones r&#xE1;pidas</div>
-                    <div class="d-flex flex-wrap">
+                    <div class="quick-actions-grid">
                         <button class="quick-action-btn" onclick="openArtifactsSubmenu('correo')"><svg class="icon" aria-hidden="true"><use href="#icon-mail"></use></svg> Correo de Liberaci&#xF3;n</button>
                         <button class="quick-action-btn" onclick="openArtifactsSubmenu('telegram')"><svg class="icon" aria-hidden="true"><use href="#icon-send"></use></svg> Telegram</button>
                         <button class="quick-action-btn" onclick="showPane('rdl',null)"><svg class="icon" aria-hidden="true"><use href="#icon-chart"></use></svg> Reporte RDL</button>
@@ -3413,7 +3469,7 @@ Rollback: 26.7.3</div>
                 </div>
                 <div id="pathModulesGroup" class="artifact-path">
                     <label class="form-label">Módulos a distribuir</label>
-                    <div class="d-flex flex-wrap gap-2 mb-2">
+                    <div class="module-grid">
                         <label class="module-badge">
                             <input type="checkbox" name="distributionModules" value="Cartera">Cartera
                         </label>
@@ -3431,6 +3487,9 @@ Rollback: 26.7.3</div>
                         </label>
                         <label class="module-badge">
                             <input type="checkbox" name="distributionModules" value="Ventas">Ventas
+                        </label>
+                        <label class="module-badge">
+                            <input type="checkbox" name="distributionModules" value="Wirelink">Wirelink
                         </label>
                     </div>
                     <div id="modulesSelectionError" class="text-danger" style="display:none;font-size:.8rem;margin-bottom:8px;">
@@ -3465,6 +3524,22 @@ Rollback: 26.7.3</div>
 
             <div class="artifact-row">
                 <div class="artifact-check">
+                    <input type="checkbox" id="hasDllCsharp" name="hasDllCsharp" value="true" onchange="togglePath('hasDllCsharp','pathDllCsharpGroup')">
+                    <label for="hasDllCsharp">&nbsp;DLL C#</label>
+                </div>
+                <div id="pathDllCsharpGroup" class="artifact-path">
+                    <input type="text" class="form-control form-control-sm font-monospace mb-2" name="pathDllCsharp"
+                           placeholder="\\servidor\sprints$\RFC'S Semana 19 2026\DLL C#">
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0 text-nowrap" for="versionDllCsharp">Versión DLL C#</label>
+                        <input type="text" class="form-control form-control-sm font-monospace" id="versionDllCsharp" name="versionDllCsharp"
+                               style="max-width:200px;" placeholder="Ej: 26.6.11.2">
+                    </div>
+                </div>
+            </div>
+
+            <div class="artifact-row">
+                <div class="artifact-check">
                     <input type="checkbox" id="hasWinterX" name="hasWinterX" value="true" onchange="togglePath('hasWinterX','pathWinterXGroup')">
                     <label for="hasWinterX">&nbsp;WinterX</label>
                 </div>
@@ -3474,7 +3549,7 @@ Rollback: 26.7.3</div>
                 </div>
             </div>
 
-            <div class="artifact-row" style="flex-direction:column; align-items:stretch;">
+            <div class="artifact-row artifact-row-stack" style="flex-direction:column; align-items:stretch;">
                 <div class="artifact-check" style="padding-top:0;">
                     <input type="checkbox" id="hasScripts" name="hasScripts" value="true" onchange="togglePath('hasScripts','pathScriptsGroup')">
                     <label for="hasScripts">&nbsp;Scripts SQL</label>
@@ -3595,10 +3670,12 @@ No publicar en Citrix hasta confirmación de QA.</div>
                     <button class="btn-pdf" onclick="downloadReleaseExport('pdf')">&#x1F4E5; PDF</button>
                     <button class="btn-md" onclick="downloadReleaseExport('markdown')">&#x1F4C4; Markdown</button>
                     <button class="btn-html-export" onclick="downloadReleaseExport('html')">&#x1F310; HTML</button>
+                    <button class="btn-md" onclick="downloadReleaseExport('text')">&#x1F4DD; Texto</button>
                     <button class="btn-copy" onclick="copyEmail()">&#x1F4CB; Copiar</button>
                 </div>
             </div>
             <div id="emailPreview" th:utext="${generatedEmail}"></div>
+            <textarea id="emailPlainText" hidden th:text="${generatedEmailText}"></textarea>
         </div>
     </div>
 
@@ -3654,11 +3731,25 @@ No publicar en Citrix hasta confirmación de QA.</div>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="Hightech">Hightech</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="Equipos">Equipos</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="Ventas">Ventas</label>
+                <label class="module-badge"><input type="checkbox" name="telegramModules" value="Wirelink">Wirelink</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="Citrix">Citrix</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="DLL">DLL</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="WinterX">WinterX</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="DLL C#">DLL C#</label>
             </div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-label">🗄️ Stored Procedures (SP's) <button type="button" class="help-trigger" onclick="toggleHelp(this)" title="Ayuda">?</button></div>
+            <div class="help-popover">
+                <div class="help-popover-title">Stored Procedures</div>
+                <p><strong>¿Para qué sirve?</strong> Lista los SP's que deben actualizarse, agrupados por ticket. Aparecen en el mensaje como "Actualizar SP:" antes de los scripts.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Un bloque por ticket: <code>Ticket: [número]</code> y una línea <code>SP: [nombre]</code> por cada procedimiento. Separa bloques con línea en blanco. Al importar desde Correo de Liberación se copia el campo SPS's.</p>
+                <div class="help-example">Ticket: 129660496
+SP: [dbo].[mcab_promocion_importe_contratacion_obtener]</div>
+            </div>
+            <textarea class="form-control font-monospace" rows="4" id="telegramSps"
+                      placeholder="Ticket: 129660496&#10;SP: [dbo].[mcab_promocion_importe_contratacion_obtener]"></textarea>
         </div>
 
         <div class="section-block">
@@ -4431,7 +4522,7 @@ dbo.sp_reporte_facturacion.sql</div>
             </div>
             <!-- SP @DBAs TI (por RDL) -->
             <div class="col-12">
-                <div class="artifact-row" style="flex-direction:column; align-items:stretch; margin-bottom:0;">
+                <div class="artifact-row artifact-row-stack" style="flex-direction:column; align-items:stretch; margin-bottom:0;">
                     <div class="artifact-check" style="padding-top:0;">
                         <input type="checkbox" name="rdls[0].hasRdlSp" value="true" onchange="toggleEntryRdlSp(this)">
                         <label>&nbsp;Incluir ejecuci&#xF3;n de SP</label>
@@ -4454,7 +4545,7 @@ dbo.sp_reporte_facturacion.sql</div>
             </div>
             <!-- Scripts (múltiples) -->
             <div class="col-12">
-                <div class="artifact-row" style="flex-direction:column; align-items:stretch; margin-bottom:0;">
+                <div class="artifact-row artifact-row-stack" style="flex-direction:column; align-items:stretch; margin-bottom:0;">
                     <div class="artifact-check" style="padding-top:0;">
                         <input type="checkbox" name="rdls[0].hasRdlScript" value="true" onchange="toggleEntryRdlScript(this)">
                         <label>&nbsp;Incluir Scripts</label>

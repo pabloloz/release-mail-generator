@@ -67,6 +67,7 @@
         return document.getElementById('hasModules')?.checked
             || document.getElementById('hasCitrix')?.checked
             || document.getElementById('hasDll')?.checked
+            || document.getElementById('hasDllCsharp')?.checked
             || document.getElementById('hasWinterX')?.checked
             || document.getElementById('hasScripts')?.checked;
     }
