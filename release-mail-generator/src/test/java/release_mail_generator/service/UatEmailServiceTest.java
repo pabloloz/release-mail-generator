@@ -317,6 +317,40 @@ class UatEmailServiceTest {
     }
 
     @Test
+    void instruccionesPorDefectoSonIdenticasALosValoresExplicitos() {
+        UatRequest sinCampos = casoReal();
+        sinCampos.setValidationModule(null);
+        sinCampos.setValidationServer(null);
+        sinCampos.setValidationSteps(null);
+
+        UatRequest enBlanco = casoReal();
+        enBlanco.setValidationModule("   ");
+        enBlanco.setValidationServer("");
+        enBlanco.setValidationSteps(new ArrayList<>());
+
+        UatRequest explicito = casoReal();
+        explicito.setValidationModule("Servicios_UAT");
+        explicito.setValidationServer("MEGANG-384");
+        String[] textos = {"Entrar a la carpeta M\u00f3dulos SFYC UAT", "Ejecutar el m\u00f3dulo Servicios_UAT",
+                "En el campo Servidor seleccionar MEGANG-384"};
+        List<UatRequest.Step> pasos = new ArrayList<>();
+        for (int i = 0; i < textos.length; i++) {
+            UatRequest.Step s = new UatRequest.Step();
+            s.setText(textos[i]);
+            s.setImage("@step" + (i + 1));
+            pasos.add(s);
+        }
+        explicito.setValidationSteps(pasos);
+
+        String esperado = service.generateEmail(explicito);
+        assertEquals(esperado, service.generateEmail(sinCampos));
+        assertEquals(esperado, service.generateEmail(enBlanco));
+        assertEquals(service.generateEmailPlainText(explicito), service.generateEmailPlainText(sinCampos));
+        assertEquals(3, count(esperado, "<img"), "los 3 pasos conservan sus imagenes step1-3");
+        assertTrue(esperado.contains("Favor de validar con el m&oacute;dulo Servicios_UAT."), esperado);
+    }
+
+    @Test
     void sinRfcNiNombreLaIntroNoQuedaConHuecos() {
         UatRequest r = new UatRequest();
         r.setRecipient("equipo de UAT");

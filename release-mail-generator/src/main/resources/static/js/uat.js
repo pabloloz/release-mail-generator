@@ -12,11 +12,8 @@
 (function () {
     'use strict';
 
-    var DEFAULT_MODULE = 'Servicios_UAT';
-    var DEFAULT_SERVER = 'MEGANG-384';
     var DEFAULT_RECIPIENT = 'equipo de UAT';
     var DEFAULT_CIERRE = 'Quedo pendiente por cualquier duda o comentario.';
-    var LAST_KEY = 'rnq-uat-last';
     var SCHEMA_VERSION = 2;
     var PREVIEW_DELAY = 500;
 
@@ -27,7 +24,7 @@
     function setVal(id, v) { var e = $(id); if (e) e.value = v == null ? '' : v; }
 
     // ── Estado de las listas (los campos simples viven en el DOM) ──────────
-    var st = { related: [], requirements: [], examples: [], steps: [], saludoAuto: true, subjectEdited: false, legacyReqImages: [] };
+    var st = { related: [], requirements: [], examples: [], saludoAuto: true, subjectEdited: false, legacyReqImages: [] };
     var lastText = '';
     var lastHtml = '';
 
@@ -58,29 +55,6 @@
         return 'Buenas noches';
     }
 
-    function defaultSteps(module, server) {
-        return [
-            { id: nid(), text: 'Entrar a la carpeta M\u00f3dulos SFYC UAT', image: '@step1', auto: 'fixed' },
-            { id: nid(), text: 'Ejecutar el m\u00f3dulo ' + module, image: '@step2', auto: 'module' },
-            { id: nid(), text: 'En el campo Servidor seleccionar ' + server, image: '@step3', auto: 'server' }
-        ];
-    }
-
-    function loadLast() {
-        try { return JSON.parse(localStorage.getItem(LAST_KEY)) || null; } catch (e) { return null; }
-    }
-    function saveLast() {
-        try {
-            localStorage.setItem(LAST_KEY, JSON.stringify({
-                module: val('uatModule'), server: val('uatServer'),
-                // Solo se recuerdan las im\u00e1genes predeterminadas (token), nunca base64
-                steps: st.steps.map(function (s) {
-                    return { text: s.text, image: (s.image || '').charAt(0) === '@' ? s.image : '', auto: s.auto || '' };
-                })
-            }));
-        } catch (e) { /* cuota o modo privado: no es cr\u00edtico */ }
-    }
-
     // ── Chips de RFCs relacionados ─────────────────────────────────────────
     function addRelated(raw) {
         String(raw || '').split(/[\s,;]+/).forEach(function (part) {
@@ -106,10 +80,6 @@
     }
 
     // ── Control de imagen reutilizable ─────────────────────────────────────
-    function imageSrc(img) {
-        var m = /^@step([1-3])$/.exec(img || '');
-        return m ? '/images/uat/step' + m[1] + '.png' : img;
-    }
     function imageControl(idBase, getImg, setImg) {
         var box = h('div', { class: 'uat-img' });
         function paint() {
@@ -130,7 +100,7 @@
                 })
             ]));
             if (img) {
-                box.appendChild(h('img', { class: 'uat-img-thumb', src: imageSrc(img), alt: 'Miniatura de la imagen adjunta' }));
+                box.appendChild(h('img', { class: 'uat-img-thumb', src: img, alt: 'Miniatura de la imagen adjunta' }));
                 box.appendChild(h('button', {
                     type: 'button', class: 'tb-btn tb-btn-ghost uat-img-remove',
                     onclick: function () { setImg(''); paint(); schedulePreview(); }
@@ -294,38 +264,6 @@
         });
     }
 
-    function renderSteps() {
-        var box = $('uatStepList');
-        if (!box) return;
-        box.textContent = '';
-        st.steps.forEach(function (s, i) {
-            var text = h('input', { type: 'text', class: 'form-control', value: s.text, autocomplete: 'off' });
-            text.addEventListener('input', function () { s.text = text.value; s.auto = ''; });
-            var body = [
-                field(s, 'text', 'Texto del paso', text),
-                imageControl('uat-' + s.id, function () { return s.image; }, function (v) { s.image = v; })
-            ];
-            box.appendChild(card('step', st.steps, i, 'Paso ' + (i + 1), body, renderSteps));
-        });
-    }
-
-    /** Si el m\u00f3dulo o servidor cambian, los pasos que siguen siendo los predeterminados se actualizan. */
-    function syncAutoSteps() {
-        var module = val('uatModule') || DEFAULT_MODULE;
-        var server = val('uatServer') || DEFAULT_SERVER;
-        var changed = false;
-        st.steps.forEach(function (s) {
-            var t = s.auto === 'module' ? 'Ejecutar el m\u00f3dulo ' + module : s.auto === 'server' ? 'En el campo Servidor seleccionar ' + server : null;
-            if (t && t !== s.text) { s.text = t; changed = true; }
-        });
-        if (changed) {
-            document.querySelectorAll('#uatStepList .uat-item').forEach(function (node, i) {
-                var input = node.querySelector('input[type="text"]');
-                if (input && input !== document.activeElement) input.value = st.steps[i].text;
-            });
-        }
-    }
-
     // ── Recolecci\u00f3n ───────────────────────────────────────────────────────
     function formatUatRfcNumber(value) {
         var raw = (value || '').trim();
@@ -358,9 +296,6 @@
             validationExamples: st.examples.map(function (e) {
                 return { title: e.title, pairs: e.pairs.map(function (p) { return { key: p.key, value: p.value }; }), image: e.image || '' };
             }),
-            validationModule: val('uatModule'),
-            validationServer: val('uatServer'),
-            validationSteps: st.steps.map(function (s) { return { text: s.text, image: s.image || '' }; }),
             requerimientosImagenes: st.legacyReqImages.slice(),
             blocks: typeof collectEditorBlocks === 'function' ? collectEditorBlocks() : [],
             nota: val('uatNota'),
@@ -389,9 +324,6 @@
             examples: st.examples.map(function (e) {
                 return { title: e.title, pairs: e.pairs.map(function (p) { return { key: p.key, value: p.value }; }), image: e.image || '' };
             }),
-            module: val('uatModule'),
-            server: val('uatServer'),
-            steps: st.steps.map(function (s) { return { text: s.text, image: s.image || '', auto: s.auto || '' }; }),
             nota: val('uatNota'),
             cierre: val('uatCierre'),
             legacyHtml: editor ? editor.innerHTML : '',
@@ -417,7 +349,6 @@
             recipient: DEFAULT_RECIPIENT, subject: '', subjectEdited: false,
             adjunto: d.uatAdjunto || '', reqStart: '1', reqIntro: d.uatRequerimientos || '',
             requirements: [], examples: [],
-            module: DEFAULT_MODULE, server: DEFAULT_SERVER, steps: null,
             nota: d.uatNota || '', cierre: d.uatCierre || DEFAULT_CIERRE,
             legacyHtml: d.uatEditorHtml || '',
             legacyReqImages: Array.isArray(d.reqImages) ? d.reqImages : (d.reqImageData ? [d.reqImageData] : [])
@@ -438,8 +369,6 @@
         setVal('uatAdjunto', d.adjunto);
         setVal('uatReqStart', d.reqStart === '' || d.reqStart == null ? '1' : d.reqStart);
         setVal('uatRequerimientos', d.reqIntro);
-        setVal('uatModule', d.module || DEFAULT_MODULE);
-        setVal('uatServer', d.server || DEFAULT_SERVER);
         setVal('uatNota', d.nota);
         setVal('uatCierre', d.cierre || DEFAULT_CIERRE);
 
@@ -450,7 +379,6 @@
         st.related = (d.related || []).slice();
         st.requirements = withIds(d.requirements);
         st.examples = withIds(d.examples, function (e) { return { pairs: (e.pairs || []).map(function (p) { return { key: p.key, value: p.value }; }) }; });
-        st.steps = d.steps && d.steps.length ? withIds(d.steps) : defaultSteps(val('uatModule'), val('uatServer'));
         st.legacyReqImages = (d.legacyReqImages || []).slice();
 
         var editor = $('uatRichEditor');
@@ -461,7 +389,6 @@
         renderChips();
         renderRequirements();
         renderExamples();
-        renderSteps();
         schedulePreview(0);
     }
 
@@ -538,7 +465,6 @@
             clearTimeout(previewTimer);
             await refreshPreview();
             if (!lastHtml) $('uatEmailPreview').innerHTML = html;
-            saveLast();
             showToast('Correo VoBo UAT generado y guardado en el historial', 'success');
         } catch (err) { showToast('Error al generar el correo: ' + err.message, 'error'); }
         finally { if (btn) { btn.disabled = false; btn.innerHTML = orig; } }
@@ -578,7 +504,6 @@
                 sel.removeAllRanges();
             } catch (e) { await navigator.clipboard.writeText(lastText || el.innerText); }
         }
-        saveLast();
         showToast('\u2714 Correo VoBo UAT copiado al portapapeles', 'success');
     }
 
@@ -588,15 +513,11 @@
     }
 
     function resetForm() {
-        var last = loadLast();
-        var d = {
+        restoreUatState({
             schemaVersion: SCHEMA_VERSION, rfc: '', related: [], name: '', date: '', saludo: '', saludoAuto: true,
             recipient: DEFAULT_RECIPIENT, subject: '', subjectEdited: false, adjunto: '', reqStart: '1', reqIntro: '',
-            requirements: [], examples: [], module: last && last.module || DEFAULT_MODULE, server: last && last.server || DEFAULT_SERVER,
-            steps: last && last.steps && last.steps.length ? last.steps : null,
-            nota: '', cierre: DEFAULT_CIERRE, legacyHtml: '', legacyReqImages: []
-        };
-        restoreUatState(d);
+            requirements: [], examples: [], nota: '', cierre: DEFAULT_CIERRE, legacyHtml: '', legacyReqImages: []
+        });
     }
 
     function clearUatForm() { resetForm(); }
@@ -622,8 +543,6 @@
             st.subjectEdited = false; setVal('uatSubject', ''); schedulePreview(0);
         });
         $('uatReqStart').addEventListener('input', updateReqNumbers);
-        $('uatModule').addEventListener('input', syncAutoSteps);
-        $('uatServer').addEventListener('input', syncAutoSteps);
 
         var relInput = $('uatRelatedInput');
         relInput.addEventListener('keydown', function (e) {
@@ -656,24 +575,6 @@
             renderExamples();
             var f = document.querySelector('[data-id="' + e.id + '"] [data-field="pair-0-key"]');
             if (f) f.focus();
-        });
-        $('uatStepAdd').addEventListener('click', function () {
-            var s = { id: nid(), text: '', image: '', auto: '' };
-            st.steps.push(s);
-            renderSteps();
-            var f = document.querySelector('[data-id="' + s.id + '"] [data-field="text"]');
-            if (f) f.focus();
-        });
-        $('uatStepReset').addEventListener('click', function () {
-            st.steps = defaultSteps(val('uatModule') || DEFAULT_MODULE, val('uatServer') || DEFAULT_SERVER);
-            renderSteps();
-            schedulePreview();
-        });
-
-        $('uatSimDark').addEventListener('click', function () {
-            var on = $('uatEmailPreview').classList.toggle('uat-inbox-dark');
-            this.setAttribute('aria-pressed', on ? 'true' : 'false');
-            this.textContent = on ? '\u2600\ufe0f Fondo claro' : '\ud83c\udf19 Simular modo oscuro';
         });
         $('uatSubjectCopy').addEventListener('click', copySubject);
 

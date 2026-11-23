@@ -155,7 +155,6 @@
     cursor: pointer;
 }
 .uat-tool-btn:hover { border-color: var(--primary); }
-.uat-tool-btn[aria-pressed="true"] { background: rgba(37, 99, 235, .35); }
 
 .uat-subject-row {
     display: flex;
@@ -194,8 +193,6 @@
 }
 .uat-inbox a { color: #2f6db5; }
 .uat-inbox img { max-width: 100%; height: auto; }
-.uat-inbox.uat-inbox-dark { background: #1f1f1f; color: #e8e8e8; }
-.uat-inbox.uat-inbox-dark a { color: #6ea8e8; }
 
 .uat-preview-status { margin-top: 6px; min-height: 1.2em; font-size: .78rem; color: var(--text-muted); }
 

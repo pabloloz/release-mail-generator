@@ -4115,26 +4115,6 @@ dbo.sp_reporte_facturacion.sql</div>
             <button type="button" id="uatExAdd" class="tb-btn tb-btn-ghost uat-add" data-add="ex">&#xFF0B; Agregar ejemplo</button>
         </div>
 
-        <!-- INSTRUCCIONES DE VALIDACION -->
-        <div class="section-block">
-            <div class="section-label">&#x1F5A5;&#xFE0F; Instrucciones de validaci&#xF3;n</div>
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label" for="uatModule">M&#xF3;dulo</label>
-                    <input type="text" id="uatModule" class="form-control" autocomplete="off" placeholder="Servicios_UAT">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label" for="uatServer">Servidor</label>
-                    <input type="text" id="uatServer" class="form-control" autocomplete="off" placeholder="MEGANG-384">
-                </div>
-            </div>
-            <div id="uatStepList" class="uat-list"></div>
-            <div class="d-flex flex-wrap gap-2">
-                <button type="button" id="uatStepAdd" class="tb-btn tb-btn-ghost uat-add" data-add="step">&#xFF0B; Agregar paso</button>
-                <button type="button" id="uatStepReset" class="tb-btn tb-btn-ghost">&#x21BA; Restaurar pasos por defecto</button>
-            </div>
-        </div>
-
         <!-- CONTENIDO LIBRE (AVANZADO): editor rico legacy -->
         <details class="section-block uat-advanced" id="uatAdvanced">
             <summary class="section-label">&#x1F4DD; Contenido libre (avanzado) <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.72rem;">(opcional; se agrega despu&#xE9;s de los ejemplos)</span></summary>
@@ -4211,7 +4191,6 @@ dbo.sp_reporte_facturacion.sql</div>
             <div class="email-toolbar uat-preview-toolbar">
                 <span class="uat-preview-title">Correo VoBo UAT</span>
                 <div class="d-flex flex-wrap gap-2">
-                    <button type="button" id="uatSimDark" class="uat-tool-btn" aria-pressed="false">&#x1F319; Simular modo oscuro</button>
                     <button type="button" class="btn-pdf" onclick="downloadUatExport('pdf')">&#x1F4E5; PDF</button>
                     <button type="button" class="btn-md" onclick="downloadUatExport('markdown')">&#x1F4C4; Markdown</button>
                     <button type="button" class="btn-html-export" onclick="downloadUatExport('html')">&#x1F310; HTML</button>
