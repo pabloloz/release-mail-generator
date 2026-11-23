@@ -17,6 +17,7 @@ import com.lowagie.text.pdf.PdfWriter;
 import com.lowagie.text.pdf.draw.LineSeparator;
 import release_mail_generator.model.UatBlock;
 import release_mail_generator.model.UatRequest;
+import release_mail_generator.util.HtmlSanitizer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -367,8 +368,8 @@ public class UatEmailService {
         if (t.contains("<ul>") || t.contains("<ol>") || t.contains("<li>")
                 || t.contains("<b>") || t.contains("<strong>") || t.contains("<em>")
                 || t.contains("<br>") || t.contains("<p>") || t.contains("<br/>")) {
-            // Already HTML — sanitize dangerous elements but keep formatting
-            return sanitizeHtml(t);
+            // Already HTML — lista blanca de etiquetas y atributos
+            return HtmlSanitizer.sanitize(t);
         }
         // Plain text — escape and convert newlines
         t = t.replace("\r\n", "\n").replace("\r", "\n");
@@ -377,21 +378,9 @@ public class UatEmailService {
         return t.replace("\n", "<br>");
     }
 
-    /** Strips dangerous HTML elements (script, iframe, etc.) while keeping formatting tags. */
-    private String sanitizeHtml(String html) {
-        return html
-                .replaceAll("(?i)<script[^>]*>[\\s\\S]*?</script>", "")
-                .replaceAll("(?i)<iframe[^>]*>[\\s\\S]*?</iframe>", "")
-                .replaceAll("(?i)<object[^>]*>[\\s\\S]*?</object>", "")
-                .replaceAll("(?i)<embed[^>]*>", "")
-                .replaceAll("(?i)<form[^>]*>[\\s\\S]*?</form>", "")
-                .replaceAll("(?i)\\son\\w+\\s*=\\s*\"[^\"]*\"", "")  // Strip event handlers
-                .replaceAll("(?i)\\son\\w+\\s*=\\s*'[^']*'", "");
-    }
-    /** Only allow data:image/ URIs to prevent XSS via img src. */
+    /** Solo imágenes raster en data URI válidas; evita inyección vía el atributo src. */
     private String safeImgSrc(String v) {
-        if (v == null || v.isBlank()) return "";
-        return v.startsWith("data:image/") ? v : "";
+        return HtmlSanitizer.safeImageDataUri(v);
     }
     private void addPara(Document doc, String text, Font font, float spacingAfter) throws DocumentException {
         Paragraph p = new Paragraph(text, font);
