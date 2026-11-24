@@ -17,6 +17,7 @@ import com.lowagie.text.pdf.PdfWriter;
 import com.lowagie.text.pdf.draw.LineSeparator;
 import release_mail_generator.model.UatBlock;
 import release_mail_generator.model.UatRequest;
+import release_mail_generator.util.HtmlSanitizer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -83,16 +84,196 @@ public class UatEmailService {
                     w = maxW;
                 }
                 return "<img src=\"" + dataUri + "\" width=\"" + w + "\" height=\"" + h
-                     + "\" style=\"display:block;margin:12px 0;border:1px solid #d1d5db;"
-                     + "border-radius:4px;\">";
+                     + "\" style=\"display:block;margin:4px 0;border:1px solid #d1d5db;\">";
             }
         } catch (Exception ignored) {}
         // Fallback: no decoded dimensions, use style only
-        return "<img src=\"" + dataUri + "\" style=\"display:block;margin:12px 0;"
-             + "max-width:" + maxW + "px;height:auto;border:1px solid #d1d5db;border-radius:4px;\">";
+        return "<img src=\"" + dataUri + "\" style=\"display:block;margin:4px 0;"
+             + "max-width:" + maxW + "px;height:auto;border:1px solid #d1d5db;\">";
     }
 
     public String generateEmail(UatRequest r) {
+        if (UatMailModel.isStructured(r)) return renderHtml(UatMailModel.from(r, this::loadStepImage));
+        return generateLegacyEmail(r);
+    }
+
+    /** Asunto del correo: el capturado, o "VoBo UAT – RFC {n} – {nombre}". */
+    public String subjectFor(UatRequest r) {
+        return UatMailModel.from(r, null).subject();
+    }
+
+    /** Resultado de la vista previa en vivo (no guarda historial). */
+    public record Preview(String html, String text, String subject, List<String> warnings) {}
+
+    public Preview preview(UatRequest r) {
+        UatMailModel m = UatMailModel.from(r, this::loadStepImage);
+        return new Preview(generateEmail(r), renderText(m), m.subject(), warnings(r, m));
+    }
+
+    /** Avisos suaves: nunca bloquean la generación. */
+    private List<String> warnings(UatRequest r, UatMailModel m) {
+        List<String> w = new java.util.ArrayList<>();
+        String rfc = m.rfcLabel().replaceFirst("^RFC\\s*", "");
+        if (rfc.isEmpty()) w.add("Falta el n\u00famero de RFC.");
+        else if (!rfc.matches("\\d+")) w.add("El n\u00famero de RFC deber\u00eda ser num\u00e9rico.");
+        if (m.rfcName().isEmpty()) w.add("Falta el nombre del cambio.");
+        boolean hasReqs = !m.requirements().isEmpty() || !m.legacyRequirements().isEmpty() || !m.requirementsIntro().isEmpty()
+                || !m.legacyRequirementImages().isEmpty();
+        if (!hasReqs) w.add("No hay requerimientos.");
+        return w;
+    }
+
+    public String generateEmailPlainText(UatRequest r) {
+        return renderText(UatMailModel.from(r, this::loadStepImage));
+    }
+
+    private static final String FONT = "font-family:'Segoe UI',Calibri,Arial,sans-serif;font-size:13px;line-height:1.5;";
+
+    private String p(String margin, String inner) {
+        return "<p style=\"margin:" + margin + ";" + FONT + "\">" + inner + "</p>";
+    }
+
+    /** Como p(), pero con div: el contenido libre del editor puede traer sus propios p/ul. */
+    private String freeBlock(String margin, String innerHtml) {
+        return "<div style=\"margin:" + margin + ";" + FONT + "\">" + innerHtml + "</div>";
+    }
+
+    private String multiline(String text) {
+        return esc(text.replace("\r\n", "\n").replace("\r", "\n").replaceAll("\n{3,}", "\n\n")).replace("\n", "<br>");
+    }
+
+    private String imgP(String dataUri, int maxW, String margin) {
+        String tag = emailImgTag(dataUri, maxW);
+        return tag.isEmpty() ? "" : "<p style=\"margin:" + margin + ";\">" + tag + "</p>";
+    }
+
+    private String renderHtml(UatMailModel m) {
+        StringBuilder h = new StringBuilder();
+        h.append(p("0 0 8px 0", esc(m.greeting())));
+
+        boolean hasTarget = !m.rfcLabel().isEmpty() || !m.rfcName().isEmpty();
+        StringBuilder intro = new StringBuilder(hasTarget ? "Solicito su apoyo para validar el VoBo del <b>" : "Solicito su apoyo para validar el VoBo");
+        intro.append(esc(m.rfcLabel()));
+        if (!m.rfcName().isEmpty()) intro.append(m.rfcLabel().isEmpty() ? "" : " &ndash; ").append(esc(m.rfcName()));
+        if (hasTarget) intro.append("</b>");
+        if (m.dateText() != null) intro.append(", programado para el ").append(esc(m.dateText()));
+        intro.append(".");
+        if (!m.attachment().isEmpty()) intro.append("<br>").append(esc(m.attachment()));
+        h.append(p("0 0 8px 0", intro.toString()));
+        if (!m.relatedRfcs().isEmpty())
+            h.append(p("0 0 8px 0", "RFCs relacionados: " + esc(String.join(", ", m.relatedRfcs())) + "."));
+
+        boolean hasReqs = !m.requirements().isEmpty() || !m.requirementsIntro().isEmpty()
+                || !m.legacyRequirements().isEmpty() || !m.legacyRequirementImages().isEmpty();
+        if (hasReqs) {
+            h.append(p("16px 0 4px 0", "<b>Requerimientos:</b>"));
+            if (!m.requirementsIntro().isEmpty()) h.append(p("0 0 8px 0", multiline(m.requirementsIntro())));
+            if (!m.legacyRequirements().isEmpty()) h.append(freeBlock("0 0 8px 0", textToHtml(m.legacyRequirements())));
+            for (String img : m.legacyRequirementImages()) h.append(imgP(img, EMAIL_IMG_MAX_WIDTH, "4px 0 10px 0"));
+            for (UatMailModel.Req q : m.requirements()) {
+                String title = q.title().isEmpty() ? q.number() + "." : q.number() + ". " + esc(q.title());
+                h.append(p("10px 0 2px 0", "<b>" + title + "</b>"));
+                if (!q.description().isEmpty()) h.append(p("0 0 3px 18px", multiline(q.description())));
+                for (String b : q.bullets()) h.append(p("0 0 2px 18px", "&bull; " + esc(b)));
+                if (!q.image().isEmpty()) h.append(imgP(q.image(), EMAIL_IMG_MAX_WIDTH - 18, "6px 0 10px 18px"));
+            }
+        }
+
+        if (!m.examples().isEmpty()) {
+            h.append(p("16px 0 4px 0", "<b>Ejemplos de validaci&oacute;n:</b>"));
+            for (UatMailModel.Example e : m.examples()) {
+                if (e.heading() != null) h.append(p("8px 0 2px 0", "<b>" + esc(e.heading()) + "</b>"));
+                if (!e.pairs().isEmpty()) {
+                    StringBuilder lines = new StringBuilder();
+                    for (UatMailModel.KeyValue kv : e.pairs()) {
+                        if (lines.length() > 0) lines.append("<br>");
+                        if (kv.key().isEmpty()) lines.append(esc(kv.value()));
+                        else if (kv.value().isEmpty()) lines.append(esc(kv.key()));
+                        else lines.append(esc(kv.key())).append(": ").append(esc(kv.value()));
+                    }
+                    h.append(p("0 0 4px 0", lines.toString()));
+                }
+                if (!e.image().isEmpty()) h.append(imgP(e.image(), EMAIL_IMG_MAX_WIDTH, "6px 0 10px 0"));
+            }
+        }
+        // Contenido libre del editor enriquecido: va aparte, sin el título de los ejemplos
+        for (UatBlock b : m.legacyBlocks()) {
+            if (notBlank(b.getTexto())) h.append(freeBlock("12px 0 8px 0", textToHtml(b.getTexto())));
+            h.append(imgP(safeImgSrc(b.getImagenBase64()), EMAIL_IMG_MAX_WIDTH, "4px 0 10px 0"));
+        }
+
+        if (!m.note().isEmpty()) {
+            h.append(p("16px 0 4px 0", "<b>NOTA:</b>"));
+            h.append(freeBlock("0 0 8px 0", textToHtml(m.note())));
+        }
+
+        h.append(p("16px 0 6px 0", "<b>Favor de validar con el m&oacute;dulo " + esc(m.module()) + ".</b>"));
+        for (UatMailModel.Step s : m.steps()) {
+            h.append(p("0 0 4px 0", s.number() + ". " + esc(s.text())));
+            if (!s.image().isEmpty()) h.append(imgP(s.image(), s.maxWidth(), "4px 0 10px 18px"));
+        }
+
+        h.append(p("16px 0 0 0", esc(m.closing())));
+        return h.toString();
+    }
+
+    private String renderText(UatMailModel m) {
+        StringBuilder t = new StringBuilder();
+        t.append(m.greeting()).append("\n\n");
+        t.append("Solicito su apoyo para validar el VoBo");
+        if (!m.rfcLabel().isEmpty() || !m.rfcName().isEmpty()) t.append(" del ").append(m.rfcLabel());
+        if (!m.rfcName().isEmpty()) t.append(m.rfcLabel().isEmpty() ? "" : " \u2013 ").append(m.rfcName());
+        if (m.dateText() != null) t.append(", programado para el ").append(m.dateText());
+        t.append(".\n");
+        if (!m.attachment().isEmpty()) t.append(m.attachment()).append("\n");
+        if (!m.relatedRfcs().isEmpty()) t.append("\nRFCs relacionados: ").append(String.join(", ", m.relatedRfcs())).append(".\n");
+
+        boolean hasReqs = !m.requirements().isEmpty() || !m.requirementsIntro().isEmpty() || !m.legacyRequirements().isEmpty();
+        if (hasReqs) {
+            t.append("\nRequerimientos:\n");
+            if (!m.requirementsIntro().isEmpty()) t.append(m.requirementsIntro()).append("\n");
+            if (!m.legacyRequirements().isEmpty()) t.append(htmlToText(m.legacyRequirements())).append("\n");
+            for (UatMailModel.Req q : m.requirements()) {
+                t.append("\n").append(q.number()).append(".");
+                if (!q.title().isEmpty()) t.append(" ").append(q.title());
+                t.append("\n");
+                if (!q.description().isEmpty()) t.append("   ").append(q.description().replace("\n", "\n   ")).append("\n");
+                for (String b : q.bullets()) t.append("   * ").append(b).append("\n");
+            }
+        }
+        if (!m.examples().isEmpty()) {
+            t.append("\nEjemplos de validaci\u00f3n:\n");
+            for (UatMailModel.Example e : m.examples()) {
+                if (e.heading() != null) t.append(e.heading()).append("\n");
+                for (UatMailModel.KeyValue kv : e.pairs()) {
+                    if (kv.key().isEmpty()) t.append(kv.value());
+                    else if (kv.value().isEmpty()) t.append(kv.key());
+                    else t.append(kv.key()).append(": ").append(kv.value());
+                    t.append("\n");
+                }
+            }
+        }
+        for (UatBlock b : m.legacyBlocks()) if (notBlank(b.getTexto())) t.append("\n").append(htmlToText(b.getTexto())).append("\n");
+        if (!m.note().isEmpty()) t.append("\nNOTA:\n").append(htmlToText(m.note())).append("\n");
+        t.append("\nFavor de validar con el m\u00f3dulo ").append(m.module()).append(".\n");
+        for (UatMailModel.Step s : m.steps()) t.append(s.number()).append(". ").append(s.text()).append("\n");
+        t.append("\n").append(m.closing()).append("\n");
+        return t.toString();
+    }
+
+    /** Convierte el HTML del editor (ya acotado) a texto plano para las versiones sin formato. */
+    private String htmlToText(String html) {
+        if (html == null) return "";
+        String s = HtmlSanitizer.sanitize(html)
+                .replaceAll("(?i)<br\\s*/?>|</p>|</div>|</li>|</tr>", "\n")
+                .replaceAll("(?i)<li[^>]*>", "* ")
+                .replaceAll("<[^>]+>", "")
+                .replace("&nbsp;", " ").replace("&lt;", "<").replace("&gt;", ">")
+                .replace("&quot;", "\"").replace("&amp;", "&");
+        return s.replaceAll("\n{3,}", "\n\n").strip();
+    }
+
+    public String generateLegacyEmail(UatRequest r) {
         StringBuilder html = new StringBuilder();
         html.append("<div style=\"font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000;line-height:1.65;\">");
 
@@ -212,6 +393,12 @@ public class UatEmailService {
         sub.setAlignment(Element.ALIGN_CENTER); sub.setSpacingAfter(2); doc.add(sub);
         hrule(doc, C_PRIMARY, 1.5f);
 
+        if (UatMailModel.isStructured(r)) {
+            writePdfStructured(doc, writer, UatMailModel.from(r, this::loadStepImage), boldF, bodyF);
+            doc.close();
+            return bos.toByteArray();
+        }
+
         String saludo = notBlank(r.getSaludo()) ? r.getSaludo() : "Buenas tardes.";
         addPara(doc, saludo, boldF, 14);
 
@@ -283,6 +470,7 @@ public class UatEmailService {
     // â”€â”€ Markdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public byte[] generateMarkdown(UatRequest r) {
+        if (UatMailModel.isStructured(r)) return renderMarkdown(UatMailModel.from(r, this::loadStepImage));
         String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
         StringBuilder md = new StringBuilder();
         md.append("# VoBo UAT \u2013 ").append(s(r.getRfcNumber())).append(" \u2013 ").append(s(r.getRfcName())).append("\n\n");
@@ -338,6 +526,82 @@ public class UatEmailService {
 
     // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+    private void writePdfStructured(Document doc, PdfWriter writer, UatMailModel m, Font boldF, Font bodyF)
+            throws DocumentException {
+        float pageW = doc.right() - doc.left();
+        addPara(doc, m.greeting(), bodyF, 10);
+        StringBuilder intro = new StringBuilder("Solicito su apoyo para validar el VoBo del ").append(m.rfcLabel());
+        if (!m.rfcName().isEmpty()) intro.append(" \u2013 ").append(m.rfcName());
+        if (m.dateText() != null) intro.append(", programado para el ").append(m.dateText());
+        intro.append(".");
+        if (!m.attachment().isEmpty()) intro.append("\n").append(m.attachment());
+        addPara(doc, intro.toString(), bodyF, 8);
+        if (!m.relatedRfcs().isEmpty()) addPara(doc, "RFCs relacionados: " + String.join(", ", m.relatedRfcs()) + ".", bodyF, 8);
+
+        boolean hasReqs = !m.requirements().isEmpty() || !m.requirementsIntro().isEmpty()
+                || !m.legacyRequirements().isEmpty() || !m.legacyRequirementImages().isEmpty();
+        if (hasReqs) {
+            addPara(doc, "Requerimientos:", boldF, 6);
+            if (!m.requirementsIntro().isEmpty()) addPara(doc, m.requirementsIntro(), bodyF, 8);
+            if (!m.legacyRequirements().isEmpty()) addPara(doc, htmlToText(m.legacyRequirements()), bodyF, 8);
+            for (String img : m.legacyRequirementImages()) addSmartImage(doc, writer, img, pageW, 320, 0);
+            for (UatMailModel.Req q : m.requirements()) {
+                addPara(doc, q.number() + "." + (q.title().isEmpty() ? "" : " " + q.title()), boldF, 2);
+                if (!q.description().isEmpty()) {
+                    Paragraph d = new Paragraph(q.description(), bodyF);
+                    d.setIndentationLeft(14); d.setSpacingAfter(2); doc.add(d);
+                }
+                for (String b : q.bullets()) {
+                    Paragraph bp = new Paragraph("\u2022 " + b, bodyF);
+                    bp.setIndentationLeft(14); bp.setSpacingAfter(1); doc.add(bp);
+                }
+                if (!q.image().isEmpty()) addSmartImage(doc, writer, q.image(), pageW, 320, 14);
+                else addPara(doc, "", bodyF, 4);
+            }
+        }
+
+        if (!m.examples().isEmpty()) {
+            addPara(doc, "Ejemplos de validaci\u00f3n:", boldF, 6);
+            for (UatMailModel.Example e : m.examples()) {
+                if (e.heading() != null) addPara(doc, e.heading(), boldF, 2);
+                StringBuilder lines = new StringBuilder();
+                for (UatMailModel.KeyValue kv : e.pairs()) {
+                    if (lines.length() > 0) lines.append("\n");
+                    lines.append(kv.key().isEmpty() ? kv.value() : kv.value().isEmpty() ? kv.key() : kv.key() + ": " + kv.value());
+                }
+                if (lines.length() > 0) addPara(doc, lines.toString(), bodyF, 6);
+                if (!e.image().isEmpty()) addSmartImage(doc, writer, e.image(), pageW, 320, 0);
+            }
+        }
+        for (UatBlock b : m.legacyBlocks()) {
+            if (notBlank(b.getTexto())) addPara(doc, htmlToText(b.getTexto()), bodyF, 6);
+            String img = safeImgSrc(b.getImagenBase64());
+            if (!img.isEmpty()) addSmartImage(doc, writer, img, pageW, 320, 0);
+        }
+
+        if (!m.note().isEmpty()) {
+            addPara(doc, "NOTA:", boldF, 4);
+            addPara(doc, htmlToText(m.note()), bodyF, 8);
+        }
+
+        addPara(doc, "Favor de validar con el m\u00f3dulo " + m.module() + ".", boldF, 6);
+        for (UatMailModel.Step s : m.steps()) {
+            addPara(doc, s.number() + ". " + s.text(), bodyF, 3);
+            if (!s.image().isEmpty()) addSmartImage(doc, writer, s.image(), pageW, 200, 14);
+        }
+        addPara(doc, m.closing(), bodyF, 0);
+    }
+
+    private byte[] renderMarkdown(UatMailModel m) {
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        StringBuilder md = new StringBuilder();
+        md.append("# ").append(m.subject()).append("\n\n> Generado el ").append(now).append("\n\n");
+        md.append(renderText(m).replaceAll("(?m)^(Requerimientos:|Ejemplos de validaci\u00f3n:|NOTA:|Favor de validar con el m\u00f3dulo .*)$", "**$1**")
+                .replace("\n", "  \n"));
+        md.append("\n---\n\n_Generado el ").append(now).append(" mediante **Release Notifier QA**._\n");
+        return md.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
     private void appendStep(StringBuilder html, String text, String imageB64, int maxWidthPx) {
         html.append("<li style=\"margin-bottom:8px;\">").append(text);
         if (notBlank(imageB64)) {
@@ -367,8 +631,8 @@ public class UatEmailService {
         if (t.contains("<ul>") || t.contains("<ol>") || t.contains("<li>")
                 || t.contains("<b>") || t.contains("<strong>") || t.contains("<em>")
                 || t.contains("<br>") || t.contains("<p>") || t.contains("<br/>")) {
-            // Already HTML — sanitize dangerous elements but keep formatting
-            return sanitizeHtml(t);
+            // Already HTML — lista blanca de etiquetas y atributos
+            return HtmlSanitizer.sanitize(t);
         }
         // Plain text — escape and convert newlines
         t = t.replace("\r\n", "\n").replace("\r", "\n");
@@ -377,21 +641,9 @@ public class UatEmailService {
         return t.replace("\n", "<br>");
     }
 
-    /** Strips dangerous HTML elements (script, iframe, etc.) while keeping formatting tags. */
-    private String sanitizeHtml(String html) {
-        return html
-                .replaceAll("(?i)<script[^>]*>[\\s\\S]*?</script>", "")
-                .replaceAll("(?i)<iframe[^>]*>[\\s\\S]*?</iframe>", "")
-                .replaceAll("(?i)<object[^>]*>[\\s\\S]*?</object>", "")
-                .replaceAll("(?i)<embed[^>]*>", "")
-                .replaceAll("(?i)<form[^>]*>[\\s\\S]*?</form>", "")
-                .replaceAll("(?i)\\son\\w+\\s*=\\s*\"[^\"]*\"", "")  // Strip event handlers
-                .replaceAll("(?i)\\son\\w+\\s*=\\s*'[^']*'", "");
-    }
-    /** Only allow data:image/ URIs to prevent XSS via img src. */
+    /** Solo imágenes raster en data URI válidas; evita inyección vía el atributo src. */
     private String safeImgSrc(String v) {
-        if (v == null || v.isBlank()) return "";
-        return v.startsWith("data:image/") ? v : "";
+        return HtmlSanitizer.safeImageDataUri(v);
     }
     private void addPara(Document doc, String text, Font font, float spacingAfter) throws DocumentException {
         Paragraph p = new Paragraph(text, font);

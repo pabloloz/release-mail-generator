@@ -46,6 +46,13 @@ public class UatController {
         return html;
     }
 
+    /** Vista previa en vivo: HTML, texto plano, asunto y avisos suaves. No guarda historial. */
+    @PostMapping("/uat/preview")
+    @ResponseBody
+    public UatEmailService.Preview preview(@RequestBody UatRequest r) {
+        return uatEmailService.preview(r);
+    }
+
     /** Exporta el correo como PDF. */
     @PostMapping("/uat/export/pdf")
     public ResponseEntity<byte[]> exportPdf(@RequestBody UatRequest r) throws Exception {

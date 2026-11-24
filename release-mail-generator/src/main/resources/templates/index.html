@@ -681,7 +681,7 @@
             if (preview) preview.style.display = 'none';
             localStorage.removeItem(RELEASE_FORM_DRAFT_KEY);
         }
-        function showToast(msg, type) {
+        function showToast(msg, type, ms) {
             const container = document.getElementById('toast-container');
             if (!container) return;
             const el = document.createElement('div');
@@ -692,7 +692,7 @@
             setTimeout(() => {
                 el.classList.remove('show');
                 setTimeout(() => el.remove(), 250);
-            }, 2400);
+            }, ms || 2400);
         }
         function pulseSuccess(btn) {
             if (!btn) return;
@@ -1549,58 +1549,6 @@
             });
         }
 
-        // ── Requerimientos image ─────────────────────────────────────────
-        async function handleReqImage(input) {
-            if (!input.files || !input.files[0]) return;
-            try {
-                const dataUri = await compressImage(input.files[0]);
-                setReqImage(dataUri, input.files[0].name);
-            } catch (e) { showToast(e.message, 'error'); }
-        }
-        function setReqImage(dataUri, name) {
-            document.getElementById('reqImageData').value = dataUri;
-            document.getElementById('reqImageImg').src    = dataUri;
-            document.getElementById('reqImageName').textContent = name || 'Imagen pegada';
-            document.getElementById('reqImagePreview').style.display = '';
-            document.getElementById('reqImageClear').style.display  = '';
-        }
-        function clearReqImage() {
-            document.getElementById('reqImageData').value  = '';
-            document.getElementById('reqImageImg').src     = '';
-            document.getElementById('reqImageName').textContent = '';
-            document.getElementById('reqImageFile').value  = '';
-            document.getElementById('reqImagePreview').style.display = 'none';
-            document.getElementById('reqImageClear').style.display  = 'none';
-        }
-        function handleReqDrop(e) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('dragover');
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) {
-                compressImage(file).then(uri => setReqImage(uri, file.name)).catch(err => showToast(err.message, 'error'));
-            }
-        }
-        // Paste support for req image drop zone
-        document.addEventListener('DOMContentLoaded', () => {
-            const dropZone = document.getElementById('reqImageDropZone');
-            if (dropZone) {
-                dropZone.addEventListener('paste', async (e) => {
-                    const items = e.clipboardData?.items;
-                    if (!items) return;
-                    for (const item of items) {
-                        if (item.type.startsWith('image/')) {
-                            e.preventDefault();
-                            const file = item.getAsFile();
-                            try { const uri = await compressImage(file); setReqImage(uri, 'Imagen pegada'); }
-                            catch (err) { showToast(err.message, 'error'); }
-                            return;
-                        }
-                    }
-                });
-                dropZone.setAttribute('tabindex', '0');
-            }
-        });
-
         // ── Rich Editor — image insertion helpers (used by toolbar file inputs) ──
         function insertImageInEditor(dataUri) {
             const editor = document.getElementById('uatRichEditor');
@@ -1674,90 +1622,7 @@
             return blocks;
         }
 
-        // ── Legacy functions kept for backward compat ────────────────────
-        function addUatBlock() { /* no-op: replaced by rich editor */ }
-
-        function formatUatRfcNumber(value) {
-            const raw = (value || '').trim();
-            if (!raw) return '';
-            const withoutPrefix = raw.replace(/^rfc\s*/i, '').trim();
-            return withoutPrefix ? `RFC ${withoutPrefix}` : 'RFC';
-        }
-        function collectUatData() {
-            const blocks = collectEditorBlocks();
-            return {
-                rfcNumber:      formatUatRfcNumber(document.getElementById('uatRfcNumber').value),
-                rfcName:        document.getElementById('uatRfcName').value,
-                saludo:         document.getElementById('uatSaludo').value,
-                adjunto:        document.getElementById('uatAdjunto').value,
-                requerimientos: document.getElementById('uatRequerimientos').value,
-                requerimientosImagen: document.getElementById('reqImageData').value || '',
-                blocks,
-                nota:           document.getElementById('uatNota').value,
-                cierre:         document.getElementById('uatCierre').value
-            };
-        }
-        async function generateUatEmail() {
-            const btn = document.querySelector('#pane-uat .btn-generate');
-            const orig = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span>&nbsp;Generando...';
-            try {
-                const resp = await fetch('/generate-uat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collectUatData()) });
-                if (!resp.ok) throw new Error('Error ' + resp.status);
-                const html = await resp.text();
-                document.getElementById('uatEmailPreview').innerHTML = html;
-                const s = document.getElementById('uatEmailSection');
-                s.style.display = 'block';
-                s.scrollIntoView({ behavior:'smooth', block:'start' });
-            } catch (err) { showToast('Error al generar el correo: ' + err.message, 'error'); }
-            finally { btn.disabled = false; btn.innerHTML = orig; }
-        }
-        async function downloadUatExport(type) {
-            try {
-                const resp = await fetch('/uat/export/' + type, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collectUatData()) });
-                if (!resp.ok) throw new Error('Error ' + resp.status);
-                const blob = await resp.blob();
-                const cd = resp.headers.get('Content-Disposition') || '';
-                const m = cd.match(/filename[*]?=(?:UTF-8'')?["']?([^;"'\n]+)/i);
-                const rfc = (formatUatRfcNumber(document.getElementById('uatRfcNumber').value) || 'VoBo-UAT').replace(/[^a-zA-Z0-9\-_]/g,'-');
-                const ext = type === 'markdown' ? 'md' : type;
-                const filename = m ? decodeURIComponent(m[1].trim()) : rfc + '.' + ext;
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = filename;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            } catch (err) { showToast('Error al exportar: ' + err.message, 'error'); }
-        }
-        async function copyUatEmail() {
-            const el = document.getElementById('uatEmailPreview');
-            try {
-                const htmlContent = el.innerHTML;
-                const htmlBlob = new Blob([htmlContent], {type:'text/html'});
-                const textBlob = new Blob([el.innerText],  {type:'text/plain'});
-                await navigator.clipboard.write([new ClipboardItem({'text/html':htmlBlob,'text/plain':textBlob})]);
-            } catch (err) {
-                // Fallback: use execCommand for browsers that block clipboard API
-                try {
-                    const range = document.createRange();
-                    range.selectNodeContents(el);
-                    const sel = window.getSelection();
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-                    document.execCommand('copy');
-                    sel.removeAllRanges();
-                } catch { await navigator.clipboard.writeText(el.innerText); }
-            }
-            showToast('\u2714 Correo VoBo UAT copiado al portapapeles', 'success');
-        }
-        function clearUatForm() {
-            ['uatRfcNumber','uatRfcName','uatAdjunto','uatRequerimientos','uatNota'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); clearReqImage();
-            document.getElementById('uatSaludo').value = 'Buenas tardes.';
-            document.getElementById('uatCierre').value = 'Quedo pendiente por cualquier duda o comentario.';
-            const editor = document.getElementById('uatRichEditor');
-            if (editor) editor.innerHTML = '';
-            document.getElementById('uatEmailSection').style.display = 'none';
-        }
+        // ── VoBo UAT: formulario, vista previa y acciones viven en /js/uat.js ──
     </script>
     <link rel="stylesheet" th:href="@{/css/tokens.css}">
     <link rel="stylesheet" th:href="@{/css/dashboard.css}">
@@ -3146,14 +3011,12 @@
         /* El correo de liberación no define fondos ni color de texto: la vista previa los toma del tema */
         [data-theme="dark"] #emailPreview { background: #1e293b !important; color: #e2e8f0 !important; }
         [data-theme="dark"] #rdlEmailPreview,
-        [data-theme="dark"] #uatEmailPreview,
         [data-theme="dark"] .email-preview-body {
             background: #1e293b !important;
             color: #e2e8f0 !important;
         }
         /* Force email inline colors to inherit in dark mode */
         [data-theme="dark"] #rdlEmailPreview *:not(a),
-        [data-theme="dark"] #uatEmailPreview *:not(a),
         [data-theme="dark"] .email-preview-body *:not(a) {
             color: inherit !important;
         }
@@ -3162,7 +3025,6 @@
             border-left-color: #3b82f6 !important;
         }
         [data-theme="dark"] #rdlEmailPreview a,
-        [data-theme="dark"] #uatEmailPreview a,
         [data-theme="dark"] .email-preview-body a {
             color: #60a5fa !important;
         }
@@ -3176,8 +3038,7 @@
         [data-theme="dark"] #rdlEmailPreview .rm-code { color: #c4b5fd !important; }
         [data-theme="dark"] #rdlEmailPreview a.rm-btn { color: #ffffff !important; }
         [data-theme="dark"] .email-preview-body img,
-        [data-theme="dark"] #rdlEmailPreview img,
-        [data-theme="dark"] #uatEmailPreview img {
+        [data-theme="dark"] #rdlEmailPreview img {
             border-radius: 6px;
         }
 
@@ -3224,13 +3085,16 @@
     </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/history.js"></script>
+    <script src="/js/storage-guard.js"></script>
     <script src="/js/autosave.js"></script>
     <script src="/js/global-search.js"></script>
     <script src="/js/templates.js"></script>
     <script src="/js/favorites.js"></script>
     <script src="/js/rich-editor.js"></script>
     <script src="/js/validation.js"></script>
+    <script src="/js/uat.js"></script>
     <link href="/css/animations.css" rel="stylesheet">
+    <link href="/css/uat.css" rel="stylesheet">
 </head>
 <body th:data-active-tab="${activeTab != null ? activeTab : 'dashboard'}">
 <svg th:replace="~{fragments/icon-sprite :: sprite}"></svg>
@@ -4167,63 +4031,106 @@ dbo.sp_reporte_facturacion.sql</div>
         <p class="pane-subtitle">Genera correos de validaci&#xF3;n para el proceso de UAT con evidencias y requerimientos.</p>
     </div>
     <div class="pane-body">
+    <div id="uatForm">
 
-        <!-- RFC / INTRO -->
+        <!-- DATOS GENERALES -->
         <div class="section-block">
-            <div class="section-label">&#x2705; Informaci&#xF3;n General del VoBo</div>
+            <div class="section-label">&#x2705; Datos generales</div>
             <div class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">N&#xFA;mero de RFC</label>
-                    <input type="text" id="uatRfcNumber" class="form-control" placeholder="24269">
-                    <div class="form-text">Se antepone &ldquo;RFC&rdquo; autom&#xE1;ticamente</div>
-                </div>
-                <div class="col-md-9">
-                    <label class="form-label">Nombre del cambio</label>
-                    <input type="text" id="uatRfcName" class="form-control" placeholder="Descripci&#xF3;n clara del cambio (ej: Promociones combinen con plan 120 Mbps)">
-                </div>
                 <div class="col-md-4">
-                    <label class="form-label">Saludo</label>
-                    <input type="text" id="uatSaludo" class="form-control" value="Buenas tardes.">
+                    <div class="uat-lbl">
+                        <label class="form-label" for="uatRfcNumber">RFC principal</label>
+                        <button type="button" class="help-trigger uat-help" aria-label="Ayuda: RFC principal" aria-describedby="uatTipRfc">i</button>
+                        <span role="tooltip" id="uatTipRfc" class="uat-tip">Se antepone &ldquo;RFC&rdquo; autom&#xE1;ticamente.</span>
+                    </div>
+                    <input type="text" id="uatRfcNumber" class="form-control" inputmode="numeric" autocomplete="off" placeholder="25473">
                 </div>
                 <div class="col-md-8">
-                    <label class="form-label">Archivos adjuntos <span class="fw-normal text-muted">(opcional)</span></label>
-                    <input type="text" id="uatAdjunto" class="form-control" placeholder="Ej: Adjunto documentaci&#xF3;n de pruebas y universo de datos.">
-                    <div class="form-text">Se menciona en el cuerpo del correo como referencia</div>
+                    <div class="uat-lbl"><label class="form-label" for="uatRfcName">Nombre del cambio</label></div>
+                    <input type="text" id="uatRfcName" class="form-control" autocomplete="off" placeholder="Anexo 5: Nueva Estrategia Comercial 06 de Octubre">
+                </div>
+                <div class="col-md-4">
+                    <div class="uat-lbl">
+                        <label class="form-label" for="uatSaludo">Saludo</label>
+                        <button type="button" class="help-trigger uat-help" aria-label="Ayuda: saludo" aria-describedby="uatTipSaludo">i</button>
+                        <span role="tooltip" id="uatTipSaludo" class="uat-tip">Se elige seg&#xFA;n la hora; puedes editarlo.</span>
+                    </div>
+                    <input type="text" id="uatSaludo" class="form-control" autocomplete="off">
+                </div>
+                <div class="col-md-4">
+                    <div class="uat-lbl"><label class="form-label" for="uatRecipient">Destinatario</label></div>
+                    <input type="text" id="uatRecipient" class="form-control" autocomplete="off" placeholder="equipo de UAT">
+                </div>
+                <div class="col-md-4">
+                    <div class="uat-lbl">
+                        <label class="form-label" for="uatDate">Fecha <span class="fw-normal text-muted">(opcional)</span></label>
+                        <button type="button" class="help-trigger uat-help" aria-label="Ayuda: fecha" aria-describedby="uatTipDate">i</button>
+                        <span role="tooltip" id="uatTipDate" class="uat-tip">No se repite en el correo si el nombre del cambio ya la incluye.</span>
+                    </div>
+                    <input type="date" id="uatDate" class="form-control">
                 </div>
             </div>
+
+            <!-- MAS OPCIONES (colapsado) -->
+            <details class="uat-more" id="uatMore">
+                <summary aria-expanded="false"><span class="uat-more-title">M&#xE1;s opciones</span><span class="uat-summary" id="uatMoreSummary"></span></summary>
+                <div class="row g-3 mt-0">
+                    <div class="col-12">
+                        <div class="uat-lbl">
+                            <label class="form-label" for="uatSubject">Asunto</label>
+                            <button type="button" class="help-trigger uat-help" aria-label="Ayuda: asunto" aria-describedby="uatTipSubject">i</button>
+                            <span role="tooltip" id="uatTipSubject" class="uat-tip">Se genera como &ldquo;VoBo UAT &#x2013; RFC {n} &#x2013; {nombre}&rdquo;; ed&#xED;talo si hace falta.</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <input type="text" id="uatSubject" class="form-control flex-grow-1" autocomplete="off" placeholder="VoBo UAT &#x2013; RFC {n} &#x2013; {nombre}">
+                            <button type="button" id="uatSubjectReset" class="btn-clear btn-sm-uat text-nowrap" title="Volver al asunto autom&#xE1;tico">&#x21BA; Autom&#xE1;tico</button>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="uat-lbl">
+                            <label class="form-label" for="uatRelatedInput">RFCs relacionados / anexos</label>
+                            <button type="button" class="help-trigger uat-help" aria-label="Ayuda: RFCs relacionados" aria-describedby="uatTipRelated">i</button>
+                            <span role="tooltip" id="uatTipRelated" class="uat-tip">Enter o coma para agregar; Retroceso borra el &#xFA;ltimo.</span>
+                        </div>
+                        <div class="uat-chips form-control" id="uatRelatedChips">
+                            <input type="text" id="uatRelatedInput" class="uat-chip-input" autocomplete="off" inputmode="numeric" placeholder="25554 y Enter">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="uat-lbl"><label class="form-label" for="uatReqStart">Numeraci&#xF3;n inicial</label></div>
+                        <input type="number" id="uatReqStart" class="form-control" min="0" step="1" value="1">
+                    </div>
+                    <div class="col-12">
+                        <div class="uat-lbl">
+                            <label class="form-label" for="uatAdjunto">Archivos adjuntos</label>
+                            <button type="button" class="help-trigger uat-help" aria-label="Ayuda: archivos adjuntos" aria-describedby="uatTipAdjunto">i</button>
+                            <span role="tooltip" id="uatTipAdjunto" class="uat-tip">Se menciona en el cuerpo del correo como referencia.</span>
+                        </div>
+                        <input type="text" id="uatAdjunto" class="form-control" autocomplete="off" placeholder="Se adjunta la documentaci&#xF3;n correspondiente.">
+                    </div>
+                </div>
+            </details>
         </div>
 
         <!-- REQUERIMIENTOS -->
         <div class="section-block">
-            <div class="section-label">&#x1F4CB; Requerimientos <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.72rem;">(opcional)</span></div>
-            <textarea id="uatRequerimientos" class="form-control" rows="6"
-                      placeholder="Promociones:&#10;2315 - Doble se vuelve Triple&#10;3816 - Internet 120 Mbps + TV&#10;&#10;Resultado esperado:&#10;&#x2713; Que las promociones convivan con el plan base de 120 Mbps"></textarea>
-            <div class="d-flex align-items-center gap-2 mt-3">
-                <label class="tb-btn tb-btn-ghost" style="cursor:pointer;font-size:.78rem;">
-                    &#x1F4F7; Agregar imagen
-                    <input type="file" id="reqImageFile" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="handleReqImage(this)">
-                </label>
-                <input type="hidden" id="reqImageData" value="">
-                <span id="reqImageName" class="text-muted" style="font-size:.8rem;"></span>
-                <button type="button" id="reqImageClear" onclick="clearReqImage()" class="tb-btn tb-btn-ghost" style="display:none;font-size:.75rem;color:var(--danger);">&#x2715; Quitar</button>
-            </div>
-            <div id="reqImagePreview" style="display:none;margin-top:8px;">
-                <img id="reqImageImg" style="max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:6px;display:block;">
-            </div>
-            <div id="reqImageDropZone" class="uat-drop-zone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleReqDrop(event)">
-                &#x1F5BC;&#xFE0F; Pega (Ctrl+V) o arrastra una imagen aqu&#xED;
-            </div>
+            <div class="section-label">&#x1F4CB; Requerimientos</div>
+            <div class="uat-lbl"><label class="form-label" for="uatRequerimientos">Texto introductorio <span class="fw-normal text-muted">(opcional)</span></label></div>
+            <textarea id="uatRequerimientos" class="form-control mb-3" rows="2" placeholder="Ej: y su anexo RFC 25554"></textarea>
+            <div id="uatReqList" class="uat-list"></div>
+            <button type="button" id="uatReqAdd" class="btn-clear btn-sm-uat mt-2" data-add="req">&#xFF0B; Agregar requerimiento</button>
         </div>
 
-        <!-- EDITOR RICO DE EVIDENCIAS -->
-        <div class="section-block">
-            <div class="section-label d-flex justify-content-between align-items-center">
-                <span>&#x1F4DD; Evidencias y Ejemplos <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.72rem;">(opcional)</span></span>
-                <label class="tb-btn tb-btn-ghost" style="cursor:pointer;font-size:.78rem;white-space:nowrap;">
-                    &#x1F4F7; Insertar imagen
-                    <input type="file" id="uatEditorFileInput" accept="image/png,image/jpeg,image/gif" style="display:none;" onchange="insertEditorImageFromFile(this)">
-                </label>
-            </div>
+        <!-- EJEMPLOS DE VALIDACION (colapsada si esta vacia) -->
+        <details class="section-block uat-collapsible" id="uatExamples">
+            <summary class="section-label" aria-expanded="false"><span>&#x1F9EA; Ejemplos de validaci&#xF3;n</span><span class="uat-summary" id="uatExamplesSummary"></span></summary>
+            <div id="uatExList" class="uat-list"></div>
+            <button type="button" id="uatExAdd" class="btn-clear btn-sm-uat mt-2" data-add="ex">&#xFF0B; Agregar ejemplo</button>
+        </details>
+
+        <!-- CONTENIDO LIBRE (AVANZADO): editor rico legacy -->
+        <details class="section-block uat-collapsible" id="uatAdvanced">
+            <summary class="section-label" aria-expanded="false"><span>&#x1F4DD; Contenido libre (avanzado)</span><span class="uat-summary" id="uatAdvancedSummary"></span></summary>
             <div class="re-toolbar">
                 <button type="button" class="re-btn" onclick="reCmd('bold')" title="Negrita (Ctrl+B)"><b>B</b></button>
                 <button type="button" class="re-btn" onclick="reCmd('italic')" title="Cursiva (Ctrl+I)"><i>I</i></button>
@@ -4255,29 +4162,25 @@ dbo.sp_reporte_facturacion.sql</div>
             </div>
             <div id="uatRichEditor" contenteditable="true" class="uat-rich-editor"
                  placeholder="Escribe con formato, pega im&#xE1;genes (Ctrl+V), arrastra archivos o usa la barra de herramientas..."></div>
-            <div class="uat-editor-hints">
-                <span><b>Ctrl+B</b> Negrita</span>
-                <span><b>Ctrl+I</b> Cursiva</span>
-                <span><b>Ctrl+K</b> Enlace</span>
-                <span><b>Ctrl+V</b> Pegar imagen</span>
-                <span>&#x1F5BC;&#xFE0F; Drag &amp; Drop</span>
-            </div>
-        </div>
+        </details>
 
-        <!-- NOTA & CIERRE -->
-        <div class="section-block">
-            <div class="section-label">&#x26A0;&#xFE0F; Notas y Cierre <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.72rem;">(opcional)</span></div>
+        <!-- NOTA & CIERRE (colapsada) -->
+        <details class="section-block uat-collapsible" id="uatNotes">
+            <summary class="section-label" aria-expanded="false"><span>&#x26A0;&#xFE0F; Nota y cierre</span><span class="uat-summary" id="uatNotesSummary"></span></summary>
             <div class="mb-3">
-                <label class="form-label">Nota destacada <span class="fw-normal text-muted">(se resalta en el correo)</span></label>
+                <div class="uat-lbl">
+                    <label class="form-label" for="uatNota">Nota destacada</label>
+                    <button type="button" class="help-trigger uat-help" aria-label="Ayuda: nota destacada" aria-describedby="uatTipNota">i</button>
+                    <span role="tooltip" id="uatTipNota" class="uat-tip">Se resalta en el correo con el t&#xED;tulo NOTA.</span>
+                </div>
                 <textarea id="uatNota" class="form-control" rows="3"
                           placeholder="Ej: Para esta promoci&#xF3;n solo se consideran servicios residenciales.&#10;No aplica para clientes empresariales."></textarea>
             </div>
             <div>
-                <label class="form-label">Cierre del correo</label>
+                <div class="uat-lbl"><label class="form-label" for="uatCierre">Cierre del correo</label></div>
                 <input type="text" id="uatCierre" class="form-control" value="Quedo pendiente por cualquier duda o comentario.">
-                <div class="form-text">Texto de despedida que aparece al final del correo</div>
             </div>
-        </div>
+        </details>
 
         <!-- ACTION BAR -->
         <div class="tpl-status-bar" id="tpl-status-uat"></div>
@@ -4288,29 +4191,38 @@ dbo.sp_reporte_facturacion.sql</div>
             <button type="button" class="btn-clear" onclick="clearUatForm()">&#x2715; Limpiar</button>
             <button type="button" class="btn-generate" onclick="generateUatEmail()">&#x1F4E8; Generar Correo VoBo UAT</button>
         </div>
+    </div><!-- /uatForm -->
 
-        <!-- PREVIEW -->
-        <div id="uatEmailSection" class="mt-4" style="display:none;">
-            <div class="section-label" style="margin-top:0;">&#x1F4E7; Vista Previa del Correo</div>
-            <div class="email-wrapper">
-                <div class="email-toolbar">
-                    <div class="d-flex gap-2 align-items-center">
-                        <span class="dot" style="background:#ef4444;"></span>
-                        <span class="dot" style="background:#f59e0b;"></span>
-                        <span class="dot" style="background:#10b981;"></span>
-                        <span style="margin-left:8px; opacity:.8;">Correo VoBo UAT</span>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn-pdf"         onclick="downloadUatExport('pdf')">&#x1F4E5; PDF</button>
-                        <button class="btn-md"          onclick="downloadUatExport('markdown')">&#x1F4C4; Markdown</button>
-                        <button class="btn-html-export" onclick="downloadUatExport('html')">&#x1F310; HTML</button>
-                        <button class="btn-copy"        onclick="copyUatEmail()">&#x1F4CB; Copiar</button>
+    <!-- VISTA PREVIA EN VIVO (debajo del formulario) -->
+    <div id="uatEmailSection" class="mt-4">
+        <div class="email-wrapper uat-preview-box">
+            <div class="uat-preview-head">
+                <h3 class="uat-preview-title">Vista previa</h3>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn-clear btn-sm-uat" onclick="copyUatEmail()">&#x1F4CB; Copiar</button>
+                    <div class="dropdown">
+                        <button type="button" id="uatExportBtn" class="btn-clear btn-sm-uat dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">&#x1F4E5; Exportar</button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="uatExportBtn">
+                            <li><button type="button" class="dropdown-item" onclick="downloadUatExport('pdf')">PDF</button></li>
+                            <li><button type="button" class="dropdown-item" onclick="downloadUatExport('markdown')">Markdown</button></li>
+                            <li><button type="button" class="dropdown-item" onclick="downloadUatExport('html')">HTML</button></li>
+                        </ul>
                     </div>
                 </div>
-                <div id="uatEmailPreview" class="email-preview-body"
-                     style="padding:32px 36px; font-size:14px; line-height:1.6;"></div>
             </div>
+            <div class="uat-subject-row">
+                <span class="uat-subject-label">Asunto:</span>
+                <span id="uatSubjectPreview" class="uat-subject-text"></span>
+                <button type="button" id="uatSubjectCopy" class="btn-clear btn-sm-uat" aria-label="Copiar asunto">Copiar asunto</button>
+            </div>
+            <div id="uatWarnings" class="uat-warnings" hidden>
+                <button type="button" id="uatWarnToggle" class="uat-warn-toggle" aria-expanded="false" aria-controls="uatWarnList"></button>
+                <ul id="uatWarnList" hidden></ul>
+            </div>
+            <div id="uatEmailPreview" class="email-preview-body" style="padding:32px 36px; font-size:14px; line-height:1.6;"></div>
         </div>
+        <div id="uatPreviewStatus" class="uat-preview-status" role="status" aria-live="polite"></div>
+    </div>
 
     </div><!-- /pane-body -->
     </div><!-- /pane-uat -->

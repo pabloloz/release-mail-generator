@@ -46,12 +46,12 @@
             warnings: []
         },
         uat: {
-            required: [
-                { check: function () { return getVal('uatRfcNumber'); }, label: 'Número de RFC', field: 'uatRfcNumber' },
-                { check: function () { return getVal('uatRfcName'); }, label: 'Nombre del RFC', field: 'uatRfcName' }
-            ],
+            // VoBo UAT: ninguna regla bloquea la generación; todo se reporta como aviso
+            required: [],
             warnings: [
-                { check: function () { return getVal('uatRequerimientos') || getEditorContent(); }, label: 'Requerimientos o evidencias (recomendado)' }
+                { check: function () { return getVal('uatRfcNumber'); }, label: 'Número de RFC', field: 'uatRfcNumber' },
+                { check: function () { return getVal('uatRfcName'); }, label: 'Nombre del cambio', field: 'uatRfcName' },
+                { check: function () { return (typeof window.uatHasRequirements === 'function' && window.uatHasRequirements()) || getEditorContent(); }, label: 'Requerimientos (recomendado)' }
             ]
         }
     };
@@ -95,7 +95,7 @@
      * Validates a form and returns { valid: boolean, errors: [], warnings: [] }
      * Also applies visual indicators.
      */
-    window.validateForm = function (formKey) {
+    window.validateForm = function (formKey, opts) {
         var rules = RULES[formKey];
         if (!rules) return { valid: true, errors: [], warnings: [] };
 
@@ -131,7 +131,7 @@
                     if (typeof shakeElement === 'function') shakeElement(el.closest('.section-block') || el);
                 }
             }
-        } else if (warnings.length > 0) {
+        } else if (warnings.length > 0 && !(opts && opts.silentWarnings)) {
             showWarningOnly(warnings);
         }
 
@@ -187,12 +187,13 @@
     }
 
     // ── Hook into generation functions ────────────────────────
-    function wrapWithValidation(fnName, formKey, allowWarnings) {
+    // silentWarnings: el formulario muestra sus propios avisos (UAT) y no necesita el toast
+    function wrapWithValidation(fnName, formKey, allowWarnings, silentWarnings) {
         var original = window[fnName];
         if (!original) return;
 
         window[fnName] = function () {
-            var result = validateForm(formKey);
+            var result = validateForm(formKey, { silentWarnings: !!silentWarnings });
             if (!result.valid) return; // Block generation
 
             // If only warnings, ask user (optional)
@@ -209,7 +210,7 @@
         wrapWithValidation('generateReleaseMessage', 'messages', true);
         wrapWithValidation('submitRdlForm', 'rdl', true);
         wrapWithValidation('generateRdlTelegramMessage', 'rdl-telegram', true);
-        wrapWithValidation('generateUatEmail', 'uat', true);
+        wrapWithValidation('generateUatEmail', 'uat', true, true);
 
         // For the releases form (traditional submit), hook into the existing handler
         var origSubmit = window.onReleasesFormSubmit;
