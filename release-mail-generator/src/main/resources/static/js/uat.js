@@ -27,6 +27,8 @@
     var st = { related: [], requirements: [], examples: [], saludoAuto: true, subjectEdited: false, legacyReqImages: [], touched: false };
     var lastText = '';
     var lastHtml = '';
+    var previewDirty = false;   // hay cambios en el formulario que la vista previa aún no refleja
+    var previewVer = 0;
     var lastWarnings = [];
 
     // ── Helpers de DOM (sin innerHTML con texto del usuario) ───────────────
@@ -562,6 +564,8 @@
 
     function schedulePreview(delay) {
         clearTimeout(previewTimer);
+        previewDirty = true;
+        previewVer++;
         updateSummaries();
         setStatus('Actualizando vista previa\u2026');
         previewTimer = setTimeout(refreshPreview, delay == null ? PREVIEW_DELAY : delay);
@@ -576,7 +580,8 @@
         });
     }
 
-    function paintPreview(data) {
+    function paintPreview(data, ver) {
+        previewDirty = ver !== previewVer;
         lastHtml = data.html || '';
         lastText = data.text || '';
         var preview = $('uatEmailPreview');
@@ -606,6 +611,7 @@
         if (!$('uatEmailPreview')) return;
         if (previewCtl) previewCtl.abort();
         var ctl = previewCtl = new AbortController();
+        var ver = previewVer;
         try {
             var resp = await fetch('/uat/preview', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -614,7 +620,7 @@
             if (!resp.ok) throw new Error('Error ' + resp.status);
             var data = await resp.json();
             if (ctl !== previewCtl) return;
-            paintPreview(data);
+            paintPreview(data, ver);
             setStatus('');
         } catch (err) {
             if (err && err.name === 'AbortError') return;
@@ -659,23 +665,31 @@
     }
 
     async function copyUatEmail() {
-        var el = $('uatEmailPreview');
-        try {
-            await navigator.clipboard.write([new ClipboardItem({
-                'text/html': new Blob([lastHtml || el.innerHTML], { type: 'text/html' }),
-                'text/plain': new Blob([lastText || el.innerText], { type: 'text/plain' })
-            })]);
-        } catch (err) {
-            try {
-                var range = document.createRange();
-                range.selectNodeContents(el);
-                var sel = window.getSelection();
-                sel.removeAllRanges(); sel.addRange(range);
-                document.execCommand('copy');
-                sel.removeAllRanges();
-            } catch (e) { await navigator.clipboard.writeText(lastText || el.innerText); }
+        // El HTML y el texto salen siempre del backend: si la vista previa está desactualizada, se refresca antes
+        if (previewDirty || !lastHtml) {
+            clearTimeout(previewTimer);
+            await refreshPreview();
         }
-        showToast('\u2714 Correo VoBo UAT copiado al portapapeles', 'success');
+        if (!lastHtml || !lastText) {
+            showToast('No se pudo copiar: la vista previa del correo no est\u00e1 disponible. Int\u00e9ntalo de nuevo.', 'error', 6000);
+            return;
+        }
+        if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({
+                    'text/html': new Blob([lastHtml], { type: 'text/html' }),
+                    'text/plain': new Blob([lastText], { type: 'text/plain' })
+                })]);
+                showToast('Correo copiado con formato (listo para pegar en Outlook)', 'success');
+                return;
+            } catch (err) { /* se intenta solo texto */ }
+        }
+        try {
+            await navigator.clipboard.writeText(lastText);
+            showToast('Copiado solo como texto plano: se perdi\u00f3 el formato y las im\u00e1genes. Usa Exportar \u2192 HTML si los necesitas.', null, 7000);
+        } catch (err) {
+            showToast('No se pudo copiar al portapapeles. Usa Exportar \u2192 HTML o Markdown.', 'error', 6000);
+        }
     }
 
     function copySubject() {
