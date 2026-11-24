@@ -4037,9 +4037,8 @@ dbo.sp_reporte_facturacion.sql</div>
         <h2 class="pane-title">&#x2705; VoBo UAT</h2>
         <p class="pane-subtitle">Genera correos de validaci&#xF3;n para el proceso de UAT con evidencias y requerimientos.</p>
     </div>
-    <div class="pane-body uat-body">
-    <div class="uat-layout">
-    <div class="uat-form" id="uatForm">
+    <div class="pane-body">
+    <div id="uatForm">
 
         <!-- DATOS GENERALES -->
         <div class="section-block">
@@ -4182,12 +4181,12 @@ dbo.sp_reporte_facturacion.sql</div>
             <button type="button" class="btn-clear" onclick="clearUatForm()">&#x2715; Limpiar</button>
             <button type="button" class="btn-generate" onclick="generateUatEmail()">&#x1F4E8; Generar Correo VoBo UAT</button>
         </div>
-    </div><!-- /uat-form -->
+    </div><!-- /uatForm -->
 
-    <!-- VISTA PREVIA EN VIVO (derecha en escritorio, debajo en móvil) -->
-    <aside id="uatEmailSection" class="uat-preview-col" aria-label="Vista previa del correo">
+    <!-- VISTA PREVIA EN VIVO (debajo del formulario) -->
+    <div id="uatEmailSection" class="mt-4">
         <div class="section-label" style="margin-top:0;">&#x1F4E7; Vista previa del correo</div>
-        <div class="email-wrapper uat-email-wrapper">
+        <div class="email-wrapper">
             <div class="email-toolbar uat-preview-toolbar">
                 <span class="uat-preview-title">Correo VoBo UAT</span>
                 <div class="d-flex flex-wrap gap-2">
@@ -4203,12 +4202,11 @@ dbo.sp_reporte_facturacion.sql</div>
                 <button type="button" id="uatSubjectCopy" class="uat-tool-btn" aria-label="Copiar asunto">Copiar asunto</button>
             </div>
             <ul id="uatWarnings" class="uat-warnings" role="status" aria-live="polite" hidden></ul>
-            <div id="uatEmailPreview" class="uat-inbox"></div>
+            <div id="uatEmailPreview" class="email-preview-body" style="padding:32px 36px; font-size:14px; line-height:1.6;"></div>
         </div>
         <div id="uatPreviewStatus" class="uat-preview-status" role="status" aria-live="polite"></div>
-    </aside>
+    </div>
 
-    </div><!-- /uat-layout -->
     </div><!-- /pane-body -->
     </div><!-- /pane-uat -->
 

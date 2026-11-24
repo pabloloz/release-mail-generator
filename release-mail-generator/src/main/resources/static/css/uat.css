@@ -1,34 +1,9 @@
-/* ── VoBo UAT — layout, ítems repetibles y vista previa ───────────────────────
-   Usa los tokens de tokens.css (modo claro y oscuro). La vista previa del correo
-   simula una bandeja de entrada: fondo blanco fijo, con toggle para fondo oscuro. */
+/* ── VoBo UAT — ítems repetibles y vista previa ───────────────────────────────
+   Usa los tokens de tokens.css (modo claro y oscuro). La vista previa va debajo del
+   formulario y toma fondo y color de texto del tema (clase email-preview-body). */
 
-#pane-uat .pane-body.uat-body { max-width: 1480px; }
-
-/* El contenedor principal no es el que hace scroll (lo hace la ventana); con overflow:auto
-   el sticky de la vista previa no tendría efecto, así que se libera solo en este pane. */
-.main-area:has(#pane-uat.active) { overflow: visible; }
-
-.uat-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-6, 24px);
-    align-items: start;
-}
-@media (min-width: 1200px) {
-    .uat-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    .uat-preview-col {
-        position: sticky;
-        top: 16px;
-        max-height: calc(100vh - 32px);
-        display: flex;
-        flex-direction: column;
-    }
-    .uat-preview-col .uat-email-wrapper { display: flex; flex-direction: column; min-height: 0; flex: 1; }
-    .uat-preview-col .uat-inbox { overflow: auto; flex: 1; min-height: 260px; }
-}
-
-.uat-form :focus-visible,
-.uat-preview-col :focus-visible {
+#uatForm :focus-visible,
+#uatEmailSection :focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
 }
@@ -182,17 +157,10 @@
 .uat-warnings[hidden] { display: none; }
 [data-theme="dark"] .uat-warnings { background: #3a2a0d; color: #fcd34d; border-bottom-color: #78510f; }
 
-.uat-inbox {
-    background: #ffffff;
-    color: #222222;
-    padding: 20px 24px;
-    font-size: 13px;
-    line-height: 1.5;
-    overflow-x: auto;
-    min-height: 200px;
-}
-.uat-inbox a { color: #2f6db5; }
-.uat-inbox img { max-width: 100%; height: auto; }
+/* El fondo, el texto y los enlaces de la vista previa los resuelve email-preview-body según el tema */
+#uatEmailPreview { overflow-wrap: anywhere; min-height: 120px; }
+#uatEmailPreview img { max-width: 100%; }
+#uatEmailPreview img.uat-step-img { max-height: 160px; width: auto; height: auto; }
 
 .uat-preview-status { margin-top: 6px; min-height: 1.2em; font-size: .78rem; color: var(--text-muted); }
 

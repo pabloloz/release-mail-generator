@@ -417,10 +417,21 @@
         previewTimer = setTimeout(refreshPreview, delay == null ? PREVIEW_DELAY : delay);
     }
 
+    /** Solo en pantalla: las capturas de los pasos (tras "Favor de validar...") se acotan en alto. */
+    function limitStepImages(root) {
+        var started = false;
+        root.querySelectorAll('p').forEach(function (p) {
+            if (/^Favor de validar con el m/i.test(p.textContent.trim())) started = true;
+            if (started) p.querySelectorAll('img').forEach(function (img) { img.classList.add('uat-step-img'); });
+        });
+    }
+
     function paintPreview(data) {
         lastHtml = data.html || '';
         lastText = data.text || '';
-        $('uatEmailPreview').innerHTML = lastHtml;
+        var preview = $('uatEmailPreview');
+        preview.innerHTML = lastHtml;
+        limitStepImages(preview);
         var subj = data.subject || '';
         if (!st.subjectEdited) setVal('uatSubject', subj);
         var sp = $('uatSubjectPreview');
@@ -465,6 +476,7 @@
             clearTimeout(previewTimer);
             await refreshPreview();
             if (!lastHtml) $('uatEmailPreview').innerHTML = html;
+            $('uatEmailSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
             showToast('Correo VoBo UAT generado y guardado en el historial', 'success');
         } catch (err) { showToast('Error al generar el correo: ' + err.message, 'error'); }
         finally { if (btn) { btn.disabled = false; btn.innerHTML = orig; } }
