@@ -56,6 +56,10 @@
             restore: function (d) {
                 // Acepta el formato v2 y las plantillas legacy (uatRfcNumber, uatEditorHtml, ...)
                 if (typeof restoreUatState === 'function') restoreUatState(d);
+            },
+            // Recomprime las imágenes pesadas (>200 KB) al guardar y al cargar
+            prepare: function (d) {
+                return typeof prepareUatState === 'function' ? prepareUatState(d) : Promise.resolve(d);
             }
         },
         rdl: {
@@ -197,7 +201,23 @@
         catch (e) { return []; }
     }
     function saveAll(list) {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) {}
+        return !RnqStorage.write(STORAGE_KEY, JSON.stringify(list));
+    }
+
+    /**
+     * Guarda la lista y, si no cabe, reintenta sin las imágenes de la plantilla `id`.
+     * Devuelve 'ok', 'noimages' (guardada sin imágenes), 'full' (no cabe) o 'blocked' (otro error).
+     */
+    function persistTemplates(list, id) {
+        var err = RnqStorage.write(STORAGE_KEY, JSON.stringify(list));
+        if (!err) return 'ok';
+        if (!RnqStorage.isQuotaError(err)) return 'blocked';
+        var tpl = list.find(function (t) { return t.id === id; });
+        if (!tpl) return 'full';
+        var stripped = RnqStorage.stripImages(tpl.data);
+        if (!stripped.removed) return 'full';
+        tpl.data = stripped.value;
+        return RnqStorage.write(STORAGE_KEY, JSON.stringify(list)) ? 'full' : 'noimages';
     }
 
     // ── Detect current module ───────────────────────────────────
@@ -263,24 +283,47 @@
     function commitSave(modKey, id, name, isNew) {
         var mod = MODULES[modKey];
         var data = mod.collect();
-        var templates = loadAll();
-        var idx = templates.findIndex(function (t) { return t.id === id; });
         var now = new Date().toISOString();
-        if (idx >= 0) {
-            templates[idx].data = data;
-            templates[idx].name = name;
-            templates[idx].updatedAt = now;
-        } else {
-            templates.push({
-                id: id, name: name, module: modKey, moduleLabel: mod.label, icon: mod.icon,
-                data: data, createdAt: now, updatedAt: now
-            });
-        }
-        saveAll(templates);
+        var previous = Object.assign({}, getState(modKey));
+        // La referencia de "sin cambios" es lo recogido del formulario, no la versión recomprimida que se guarda
         setState(modKey, { id: id, name: name, snapshot: JSON.stringify(data), savedAt: now });
-        renderStatus(modKey);
-        renderTemplatesList();
-        showToast(isNew ? ('Plantilla "' + name + '" guardada') : ('Cambios guardados en "' + name + '"'), 'success');
+
+        function write(toSave) {
+            var templates = loadAll();
+            var idx = templates.findIndex(function (t) { return t.id === id; });
+            if (idx >= 0) {
+                templates[idx].data = toSave;
+                templates[idx].name = name;
+                templates[idx].updatedAt = now;
+            } else {
+                templates.push({
+                    id: id, name: name, module: modKey, moduleLabel: mod.label, icon: mod.icon,
+                    data: toSave, createdAt: now, updatedAt: now
+                });
+            }
+            var result = persistTemplates(templates, id);
+            if (result === 'full' || result === 'blocked') {
+                if (getState(modKey).id === id) setState(modKey, previous);
+                renderStatus(modKey);
+                showToast(result === 'full'
+                    ? 'No se guardó la plantilla "' + name + '": el almacenamiento del navegador está lleno, ni siquiera sin imágenes. Elimina plantillas antiguas e inténtalo de nuevo.'
+                    : 'No se guardó la plantilla "' + name + '": el navegador bloqueó el almacenamiento local.', 'error', 7000);
+                return;
+            }
+            renderStatus(modKey);
+            renderTemplatesList();
+            if (result === 'noimages') {
+                showToast('Plantilla "' + name + '" guardada SIN imágenes: el almacenamiento del navegador está lleno. Las imágenes no se guardaron.', 'error', 7000);
+            } else {
+                showToast(isNew ? ('Plantilla "' + name + '" guardada') : ('Cambios guardados en "' + name + '"'), 'success');
+            }
+        }
+
+        if (typeof mod.prepare === 'function') {
+            mod.prepare(data).then(write, function () { write(data); });
+        } else {
+            write(data);
+        }
         return true;
     }
 
@@ -344,17 +387,25 @@
         var mod = MODULES[tpl.module];
         if (!mod) { showToast('Módulo no disponible', 'error'); return; }
 
-        mod.restore(tpl.data);
-        setState(tpl.module, {
-            id: tpl.id, name: tpl.name,
-            // UAT restaura de forma síncrona y migra las plantillas legacy: la referencia es lo ya restaurado
-            snapshot: tpl.module === 'uat' ? JSON.stringify(mod.collect()) : JSON.stringify(tpl.data),
-            savedAt: tpl.updatedAt || tpl.createdAt
-        });
-        if (typeof _originalShowPane === 'function') _originalShowPane(tpl.module, null);
-        closeTemplatesPanel();
-        renderStatus(tpl.module);
-        showToast('Plantilla "' + tpl.name + '" cargada', 'success');
+        function apply(data) {
+            mod.restore(data);
+            setState(tpl.module, {
+                id: tpl.id, name: tpl.name,
+                // UAT migra las plantillas legacy al restaurar: la referencia es lo ya restaurado
+                snapshot: tpl.module === 'uat' ? JSON.stringify(mod.collect()) : JSON.stringify(data),
+                savedAt: tpl.updatedAt || tpl.createdAt
+            });
+            if (typeof _originalShowPane === 'function') _originalShowPane(tpl.module, null);
+            closeTemplatesPanel();
+            renderStatus(tpl.module);
+            showToast('Plantilla "' + tpl.name + '" cargada', 'success');
+        }
+
+        if (typeof mod.prepare === 'function') {
+            mod.prepare(tpl.data).then(apply, function () { apply(tpl.data); });
+        } else {
+            apply(tpl.data);
+        }
     }
 
     window.loadTemplate = function (id) {
@@ -409,7 +460,10 @@
             updatedAt: new Date().toISOString()
         };
         templates.push(copy);
-        saveAll(templates);
+        if (!saveAll(templates)) {
+            showToast('No se pudo duplicar la plantilla: el almacenamiento del navegador está lleno.', 'error', 7000);
+            return;
+        }
         showToast('Plantilla duplicada como "' + copy.name + '"', 'success');
         renderTemplatesList();
     };

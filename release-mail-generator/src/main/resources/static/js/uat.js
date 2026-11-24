@@ -391,6 +391,63 @@
         };
     }
 
+    // ── Recompresión de imágenes pesadas al guardar/cargar ─────────────────
+    var RECOMPRESS_BYTES = 200 * 1024;
+    var slimCache = new Map();
+
+    function dataUriBytes(uri) { return Math.floor((uri.length - uri.indexOf(',') - 1) * 3 / 4); }
+
+    /** Recomprime una imagen solo si pesa más de ~200 KB (no toca GIF ni JPEG ya ligeros). */
+    function slimImage(uri) {
+        if (typeof uri !== 'string' || !/^data:image\/(png|jpe?g);/i.test(uri) || dataUriBytes(uri) <= RECOMPRESS_BYTES) {
+            return Promise.resolve(uri);
+        }
+        if (slimCache.has(uri)) return slimCache.get(uri);
+        var p = compressDataUri(uri).then(function (out) { return out && out.length < uri.length ? out : uri; },
+            function () { return uri; });
+        slimCache.set(uri, p);
+        if (slimCache.size > 12) slimCache.delete(slimCache.keys().next().value);
+        return p;
+    }
+
+    function slimHtml(html) {
+        if (typeof html !== 'string' || html.indexOf('data:image/') < 0) return Promise.resolve(html);
+        var re = /(<img\b[^>]*?\ssrc\s*=\s*)(["'])(data:image\/[^"']+)\2/gi;
+        var found = [], m;
+        while ((m = re.exec(html))) found.push(m[3]);
+        return Promise.all(found.map(slimImage)).then(function (res) {
+            var i = 0;
+            return html.replace(re, function (all, pre, q) { return pre + q + res[i++] + q; });
+        });
+    }
+
+    /**
+     * Devuelve una copia del estado (v2 o legacy) con las imágenes pesadas recomprimidas:
+     * requerimientos, ejemplos, imágenes legacy y las del HTML del editor.
+     */
+    function prepareUatState(d) {
+        if (!d || typeof d !== 'object') return Promise.resolve(d);
+        var c = Object.assign({}, d), jobs = [];
+        function field(obj, key) {
+            jobs.push(slimImage(obj[key]).then(function (v) { obj[key] = v; }));
+        }
+        ['requirements', 'examples'].forEach(function (k) {
+            if (!Array.isArray(d[k])) return;
+            c[k] = d[k].map(function (x) { return Object.assign({}, x); });
+            c[k].forEach(function (x) { if (x.image) field(x, 'image'); });
+        });
+        ['legacyReqImages', 'reqImages'].forEach(function (k) {
+            if (!Array.isArray(d[k])) return;
+            c[k] = d[k].slice();
+            c[k].forEach(function (_, i) { field(c[k], i); });
+        });
+        if (d.reqImageData) field(c, 'reqImageData');
+        ['legacyHtml', 'uatEditorHtml'].forEach(function (k) {
+            if (d[k]) jobs.push(slimHtml(d[k]).then(function (v) { c[k] = v; }));
+        });
+        return Promise.all(jobs).then(function () { return c; });
+    }
+
     function withIds(list, extra) {
         return (list || []).map(function (x) { return Object.assign({ id: nid() }, x, extra ? extra(x) : {}); });
     }
@@ -727,6 +784,7 @@
     window.collectUatData = collectUatData;
     window.collectUatState = collectUatState;
     window.restoreUatState = restoreUatState;
+    window.prepareUatState = prepareUatState;
     window.uatStateIsEmpty = uatStateIsEmpty;
     window.uatHasRequirements = uatHasRequirements;
     window.generateUatEmail = generateUatEmail;

@@ -689,7 +689,7 @@
             if (preview) preview.style.display = 'none';
             localStorage.removeItem(RELEASE_FORM_DRAFT_KEY);
         }
-        function showToast(msg, type) {
+        function showToast(msg, type, ms) {
             const container = document.getElementById('toast-container');
             if (!container) return;
             const el = document.createElement('div');
@@ -700,7 +700,7 @@
             setTimeout(() => {
                 el.classList.remove('show');
                 setTimeout(() => el.remove(), 250);
-            }, 2400);
+            }, ms || 2400);
         }
         function pulseSuccess(btn) {
             if (!btn) return;
@@ -3093,6 +3093,7 @@
     </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/history.js"></script>
+    <script src="/js/storage-guard.js"></script>
     <script src="/js/autosave.js"></script>
     <script src="/js/global-search.js"></script>
     <script src="/js/templates.js"></script>

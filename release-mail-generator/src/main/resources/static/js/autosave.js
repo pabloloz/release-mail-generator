@@ -75,6 +75,10 @@
                 // Acepta el formato v2 y los borradores legacy
                 if (typeof restoreUatState === 'function') restoreUatState(d);
             },
+            // Recomprime las imágenes pesadas (>200 KB) al guardar y al restaurar
+            prepare: function (d) {
+                return typeof prepareUatState === 'function' ? prepareUatState(d) : Promise.resolve(d);
+            },
             isEmpty: function (d) {
                 return typeof uatStateIsEmpty === 'function' ? uatStateIsEmpty(d) : true;
             }
@@ -123,17 +127,51 @@
     }
 
     // ── Save / Load ────────────────────────────────────────────
-    function saveDraft(formDef) {
-        try {
-            var data = formDef.collect();
-            if (formDef.isEmpty(data)) {
-                // Form is empty — clear draft entirely
-                clearDraft(formDef);
-                return;
+    var saveSeq = {}; // descarta escrituras asíncronas que llegan después de limpiar el borrador
+
+    /**
+     * Escribe el borrador; si el almacenamiento está lleno reintenta sin imágenes.
+     * `notify` avisa (una vez por sesión) cuando se pierden imágenes o no se pudo guardar.
+     */
+    function persistDraft(formDef, data, notify) {
+        var err = RnqStorage.write(formDef.key, JSON.stringify(data));
+        var dropped = false;
+        if (err && RnqStorage.isQuotaError(err)) {
+            var stripped = RnqStorage.stripImages(data);
+            if (stripped.removed) {
+                err = RnqStorage.write(formDef.key, JSON.stringify(stripped.value));
+                dropped = !err;
             }
-            localStorage.setItem(formDef.key, JSON.stringify(data));
-            localStorage.setItem(formDef.key + DRAFT_TIMESTAMP_SUFFIX, new Date().toISOString());
-        } catch (e) { /* quota exceeded or private mode */ }
+        }
+        if (err) {
+            if (notify) RnqStorage.warnOnce('draft-failed',
+                'El almacenamiento del navegador está lleno: el borrador no se pudo guardar. Guarda una plantilla o libera espacio.');
+            return;
+        }
+        RnqStorage.write(formDef.key + DRAFT_TIMESTAMP_SUFFIX, new Date().toISOString());
+        if (dropped && notify) RnqStorage.warnOnce('draft-noimages',
+            'El almacenamiento del navegador está lleno: el borrador se guardó SIN imágenes. Las imágenes no se guardaron.');
+    }
+
+    function saveDraft(formDef, onDone) {
+        var data;
+        try { data = formDef.collect(); } catch (e) { return; }
+        var seq = saveSeq[formDef.key] = (saveSeq[formDef.key] || 0) + 1;
+        if (formDef.isEmpty(data)) {
+            // Form is empty — clear draft entirely
+            clearDraft(formDef);
+            if (onDone) onDone();
+            return;
+        }
+        function write(toSave) {
+            if (saveSeq[formDef.key] === seq) persistDraft(formDef, toSave, true);
+            if (onDone) onDone();
+        }
+        if (typeof formDef.prepare === 'function') {
+            formDef.prepare(data).then(write, function () { write(data); });
+        } else {
+            write(data);
+        }
     }
 
     function loadDraft(formDef) {
@@ -144,6 +182,7 @@
     }
 
     function clearDraft(formDef) {
+        saveSeq[formDef.key] = (saveSeq[formDef.key] || 0) + 1;
         try {
             localStorage.removeItem(formDef.key);
             localStorage.removeItem(formDef.key + DRAFT_TIMESTAMP_SUFFIX);
@@ -205,12 +244,19 @@
             + '</div>';
 
         banner.querySelector('.recovery-btn-restore').addEventListener('click', function () {
-            formDef.restore(data);
-            acknowledgeDraft(formDef); // Mark as handled so it won't reappear
-            if (typeof showPane === 'function') showPane(formDef.pane, null);
-            banner.classList.add('recovery-banner-hide');
-            setTimeout(function () { banner.remove(); }, 300);
-            if (typeof showToast === 'function') showToast('Borrador restaurado: ' + formDef.label, 'success');
+            function apply(restored) {
+                formDef.restore(restored);
+                acknowledgeDraft(formDef); // Mark as handled so it won't reappear
+                if (typeof showPane === 'function') showPane(formDef.pane, null);
+                banner.classList.add('recovery-banner-hide');
+                setTimeout(function () { banner.remove(); }, 300);
+                if (typeof showToast === 'function') showToast('Borrador restaurado: ' + formDef.label, 'success');
+            }
+            if (typeof formDef.prepare === 'function') {
+                formDef.prepare(data).then(apply, function () { apply(data); });
+            } else {
+                apply(data);
+            }
         });
 
         banner.querySelector('.recovery-btn-dismiss').addEventListener('click', function () {
@@ -238,9 +284,8 @@
     function startAutosave() {
         setInterval(function () {
             Object.keys(FORMS).forEach(function (key) {
-                saveDraft(FORMS[key]);
                 // Auto-acknowledge during active session so banner won't show on reload
-                acknowledgeDraft(FORMS[key]);
+                saveDraft(FORMS[key], function () { acknowledgeDraft(FORMS[key]); });
             });
         }, AUTOSAVE_INTERVAL);
     }
@@ -301,8 +346,7 @@
                 try {
                     var data = formDef.collect();
                     if (formDef.isEmpty(data)) return;
-                    localStorage.setItem(formDef.key, JSON.stringify(data));
-                    localStorage.setItem(formDef.key + DRAFT_TIMESTAMP_SUFFIX, new Date().toISOString());
+                    persistDraft(formDef, data, false);
                     // Intentionally do NOT acknowledge — next load should show recovery banner
                     localStorage.removeItem(formDef.key + DRAFT_ACK_SUFFIX);
                 } catch (e) {}
