@@ -136,7 +136,7 @@
         return true;
     }
 
-    function card(kind, list, idx, label, body, renderFn) {
+    function card(kind, list, idx, label, body, renderFn, inline) {
         var item = list[idx];
         function act(dir, actName) {
             return function () {
@@ -148,6 +148,7 @@
         }
         var head = h('div', { class: 'uat-item-head' }, [
             h('span', { class: 'uat-item-title', text: label }),
+            inline ? h('div', { class: 'uat-inline' }, [inline]) : null,
             h('div', { class: 'uat-item-actions', role: 'group', 'aria-label': 'Acciones de ' + label }, [
                 actBtn('up', '\u25b2', 'Subir ' + label, idx === 0, act(-1, 'up')),
                 actBtn('down', '\u25bc', 'Bajar ' + label, idx === list.length - 1, act(1, 'down')),
@@ -216,20 +217,40 @@
         return control;
     }
 
+    function newReq() { return { id: nid(), title: '', description: '', bullets: '', image: '', showDetail: false }; }
+
+    function link(text, onclick) {
+        return h('button', { type: 'button', class: 'uat-link', onclick: onclick }, [text]);
+    }
+
     function renderRequirements() {
         var box = $('uatReqList');
         if (!box) return;
+        if (!st.requirements.length) st.requirements.push(newReq());
         box.textContent = '';
         st.requirements.forEach(function (r, i) {
-            var body = [
-                field(r, 'title', 'T\u00edtulo', bindInput(h('input', { type: 'text', class: 'form-control', value: r.title, autocomplete: 'off', placeholder: 'Ej: Alta de promociones' }), r, 'title', updateReqNumbers)),
-                field(r, 'description', 'Descripci\u00f3n', bindInput(h('textarea', { class: 'form-control', rows: 2, value: r.description }), r, 'description', updateReqNumbers)),
-                field(r, 'bullets', 'Vi\u00f1etas (una por l\u00ednea, opcional)', bindInput(h('textarea', { class: 'form-control', rows: 3, value: r.bullets }), r, 'bullets', updateReqNumbers)),
-                imageControl('uat-' + r.id, function () { return r.image; }, function (v) { r.image = v; updateReqNumbers(); })
-            ];
-            box.appendChild(card('req', st.requirements, i, reqLabel(i), body, renderRequirements));
+            var title = bindInput(h('input', { type: 'text', class: 'form-control', value: r.title, autocomplete: 'off', placeholder: 'T\u00edtulo, ej: Alta de promociones', 'aria-label': 'T\u00edtulo del requerimiento' }), r, 'title', updateReqNumbers);
+            title.setAttribute('data-field', 'title');
+            var body = [];
+            var extras = h('div', { class: 'd-flex align-items-center flex-wrap gap-3 mt-2' });
+            if (r.showDetail) {
+                body.push(field(r, 'description', 'Descripci\u00f3n', bindInput(h('textarea', { class: 'form-control', rows: 2, value: r.description }), r, 'description', updateReqNumbers)));
+                body.push(field(r, 'bullets', 'Vi\u00f1etas (una por l\u00ednea)', bindInput(h('textarea', { class: 'form-control', rows: 3, value: r.bullets }), r, 'bullets', updateReqNumbers)));
+            } else {
+                extras.appendChild(link('A\u00f1adir detalle', function () {
+                    r.showDetail = true;
+                    rerender(renderRequirements, r.id, '[data-field="description"]');
+                }));
+            }
+            extras.appendChild(imageControl('uat-' + r.id, function () { return r.image; }, function (v) { r.image = v; updateReqNumbers(); }));
+            body.push(extras);
+            box.appendChild(card('req', st.requirements, i, reqLabel(i), body, renderRequirements, title));
         });
         updateReqNumbers();
+    }
+
+    function exampleHasContent(e) {
+        return !!e.image || e.pairs.some(function (p) { return (p.key || '').trim() || (p.value || '').trim(); });
     }
 
     function renderExamples() {
@@ -253,18 +274,27 @@
                         }
                     }, ['\u2715'])]));
             });
-            var body = [
-                field(ex, 'title', 'Encabezado (opcional)', bindInput(h('input', { type: 'text', class: 'form-control', value: ex.title, autocomplete: 'off', placeholder: 'Ejemplo ' + (i + 1) + ':' }), ex, 'title')),
-                h('div', { class: 'mb-2' }, [h('span', { class: 'form-label d-block', text: 'Campos clave: valor' }), pairsBox,
-                    h('button', {
-                        type: 'button', class: 'btn-add-uat', 'data-add-pair': 'true',
-                        onclick: function () {
-                            ex.pairs.push({ key: '', value: '' });
-                            rerender(renderExamples, ex.id, '[data-field="pair-' + (ex.pairs.length - 1) + '-key"]');
-                        }
-                    }, ['\uff0b Agregar campo'])]),
-                imageControl('uat-' + ex.id, function () { return ex.image; }, function (v) { ex.image = v; })
-            ];
+            var body = [];
+            if (ex.showTitle) {
+                body.push(field(ex, 'title', 'Encabezado', bindInput(h('input', { type: 'text', class: 'form-control', value: ex.title, autocomplete: 'off', placeholder: 'Ejemplo ' + (i + 1) + ':' }), ex, 'title')));
+            }
+            body.push(pairsBox);
+            body.push(h('button', {
+                type: 'button', class: 'btn-clear btn-sm-uat mb-2', 'data-add-pair': 'true',
+                onclick: function () {
+                    ex.pairs.push({ key: '', value: '' });
+                    rerender(renderExamples, ex.id, '[data-field="pair-' + (ex.pairs.length - 1) + '-key"]');
+                }
+            }, ['\uff0b Agregar campo']));
+            var extras = h('div', { class: 'd-flex align-items-center flex-wrap gap-3' });
+            if (!ex.showTitle) {
+                extras.appendChild(link('Personalizar encabezado', function () {
+                    ex.showTitle = true;
+                    rerender(renderExamples, ex.id, '[data-field="title"]');
+                }));
+            }
+            extras.appendChild(imageControl('uat-' + ex.id, function () { return ex.image; }, function (v) { ex.image = v; }));
+            body.push(extras);
             box.appendChild(card('ex', st.examples, i, 'Ejemplo ' + (i + 1), body, renderExamples));
         });
     }
@@ -295,7 +325,7 @@
             adjunto: val('uatAdjunto'),
             requirementsStart: isNaN(start) || start < 0 ? 1 : start,
             requirementsIntro: val('uatRequerimientos'),
-            requirements: st.requirements.map(function (r) {
+            requirements: st.requirements.filter(function (r) { return !isReqEmpty(r); }).map(function (r) {
                 return { title: r.title, description: r.description, bullets: bulletLines(r.bullets), image: r.image || '' };
             }),
             validationExamples: st.examples.map(function (e) {
@@ -325,7 +355,7 @@
             adjunto: val('uatAdjunto'),
             reqStart: val('uatReqStart'),
             reqIntro: val('uatRequerimientos'),
-            requirements: st.requirements.map(function (r) { return { title: r.title, description: r.description, bullets: r.bullets, image: r.image || '' }; }),
+            requirements: st.requirements.filter(function (r) { return !isReqEmpty(r); }).map(function (r) { return { title: r.title, description: r.description, bullets: r.bullets, image: r.image || '' }; }),
             examples: st.examples.map(function (e) {
                 return { title: e.title, pairs: e.pairs.map(function (p) { return { key: p.key, value: p.value }; }), image: e.image || '' };
             }),
@@ -382,18 +412,28 @@
         st.subjectEdited = !!d.subjectEdited;
         setVal('uatSubject', st.subjectEdited ? d.subject : '');
         st.related = (d.related || []).slice();
-        st.requirements = withIds(d.requirements);
-        st.examples = withIds(d.examples, function (e) { return { pairs: (e.pairs || []).map(function (p) { return { key: p.key, value: p.value }; }) }; });
+        st.requirements = withIds(d.requirements, function (r) {
+            return { showDetail: !!(String(r.description || '').trim() || String(r.bullets || '').trim()) };
+        });
+        st.examples = withIds(d.examples, function (e) {
+            return {
+                showTitle: !!String(e.title || '').trim(),
+                pairs: (e.pairs || []).map(function (p) { return { key: p.key, value: p.value }; })
+            };
+        });
         st.legacyReqImages = (d.legacyReqImages || []).slice();
 
         var editor = $('uatRichEditor');
         if (editor) editor.innerHTML = d.legacyHtml || '';
-        var adv = $('uatAdvanced');
-        if (adv) adv.open = !!(d.legacyHtml && d.legacyHtml.replace(/<[^>]*>|&nbsp;|\s/g, ''));
 
         renderChips();
         renderRequirements();
         renderExamples();
+
+        // Al cargar datos, cada secci\u00f3n colapsable queda abierta solo si tiene contenido
+        setOpen('uatExamples', st.examples.some(exampleHasContent));
+        setOpen('uatNotes', !!String(d.nota || '').trim());
+        setOpen('uatAdvanced', !!(d.legacyHtml && d.legacyHtml.replace(/<[^>]*>|&nbsp;|\s/g, '')));
         schedulePreview(0);
     }
 
@@ -410,6 +450,41 @@
         return !!val('uatRequerimientos').trim() || st.requirements.some(function (r) { return !isReqEmpty(r); });
     }
 
+    // ── Secciones colapsables y res\u00famenes de una l\u00ednea ───────────────────────
+    var DETAILS = ['uatMore', 'uatExamples', 'uatAdvanced', 'uatNotes'];
+
+    function syncExpanded(d) {
+        var s = d.querySelector(':scope > summary');
+        if (s) s.setAttribute('aria-expanded', d.open ? 'true' : 'false');
+    }
+    function setOpen(id, open) {
+        var d = $(id);
+        if (!d) return;
+        d.open = open;
+        syncExpanded(d);
+    }
+    function setSummary(id, text) { var e = $(id); if (e) e.textContent = text; }
+
+    function updateSummaries() {
+        var more = [st.subjectEdited ? 'Asunto editado' : 'Asunto autom\u00e1tico'];
+        if (st.related.length) more.push(st.related.length + (st.related.length === 1 ? ' RFC relacionado' : ' RFCs relacionados'));
+        if (val('uatAdjunto').trim()) more.push('con adjuntos');
+        var start = parseInt(val('uatReqStart'), 10);
+        if (!isNaN(start) && start !== 1) more.push('numeraci\u00f3n desde ' + start);
+        setSummary('uatMoreSummary', more.join(' \u00b7 '));
+
+        var n = st.examples.filter(exampleHasContent).length;
+        setSummary('uatExamplesSummary', n ? n + (n === 1 ? ' ejemplo' : ' ejemplos') : 'Sin ejemplos');
+
+        var cierre = val('uatCierre').trim();
+        setSummary('uatNotesSummary', (val('uatNota').trim() ? 'Con nota' : 'Sin nota') + ' \u00b7 '
+            + (!cierre || cierre === DEFAULT_CIERRE ? 'cierre est\u00e1ndar' : 'cierre personalizado'));
+
+        var editor = $('uatRichEditor');
+        var hasFree = !!editor && (editor.textContent.trim() !== '' || !!editor.querySelector('img'));
+        setSummary('uatAdvancedSummary', hasFree ? 'Con contenido' : 'Vac\u00edo \u00b7 se agrega despu\u00e9s de los ejemplos');
+    }
+
     // ── Vista previa en vivo ───────────────────────────────────────────────
     var previewTimer = null;
     var previewCtl = null;
@@ -418,6 +493,7 @@
 
     function schedulePreview(delay) {
         clearTimeout(previewTimer);
+        updateSummaries();
         setStatus('Actualizando vista previa\u2026');
         previewTimer = setTimeout(refreshPreview, delay == null ? PREVIEW_DELAY : delay);
     }
@@ -580,20 +656,25 @@
         $('uatRelatedChips').addEventListener('click', function (e) { if (e.target === this) relInput.focus(); });
 
         $('uatReqAdd').addEventListener('click', function () {
-            var r = { id: nid(), title: '', description: '', bullets: '', image: '' };
+            var r = newReq();
             st.requirements.push(r);
             renderRequirements();
             var f = document.querySelector('[data-id="' + r.id + '"] [data-field="title"]');
             if (f) f.focus();
         });
         $('uatExAdd').addEventListener('click', function () {
-            var e = { id: nid(), title: '', pairs: [{ key: '', value: '' }], image: '' };
+            var e = { id: nid(), title: '', showTitle: false, pairs: [{ key: '', value: '' }], image: '' };
             st.examples.push(e);
             renderExamples();
             var f = document.querySelector('[data-id="' + e.id + '"] [data-field="pair-0-key"]');
             if (f) f.focus();
         });
         $('uatSubjectCopy').addEventListener('click', copySubject);
+
+        DETAILS.forEach(function (id) {
+            var d = $(id);
+            if (d) d.addEventListener('toggle', function () { syncExpanded(d); });
+        });
 
         resetForm();
     });

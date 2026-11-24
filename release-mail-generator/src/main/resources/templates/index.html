@@ -4045,78 +4045,99 @@ dbo.sp_reporte_facturacion.sql</div>
             <div class="section-label">&#x2705; Datos generales</div>
             <div class="row g-3">
                 <div class="col-md-4">
-                    <label class="form-label" for="uatRfcNumber">RFC principal</label>
+                    <div class="uat-lbl">
+                        <label class="form-label" for="uatRfcNumber">RFC principal</label>
+                        <button type="button" class="help-trigger uat-help" aria-label="Ayuda: RFC principal" aria-describedby="uatTipRfc">i</button>
+                        <span role="tooltip" id="uatTipRfc" class="uat-tip">Se antepone &ldquo;RFC&rdquo; autom&#xE1;ticamente.</span>
+                    </div>
                     <input type="text" id="uatRfcNumber" class="form-control" inputmode="numeric" autocomplete="off" placeholder="25473">
-                    <div class="form-text">Se antepone &ldquo;RFC&rdquo; autom&#xE1;ticamente</div>
                 </div>
                 <div class="col-md-8">
-                    <label class="form-label" for="uatRelatedInput">RFCs relacionados / anexos <span class="fw-normal text-muted">(opcional)</span></label>
-                    <div class="uat-chips form-control" id="uatRelatedChips">
-                        <input type="text" id="uatRelatedInput" class="uat-chip-input" autocomplete="off" inputmode="numeric" placeholder="25554 y Enter">
-                    </div>
-                    <div class="form-text">Enter o coma para agregar; Retroceso borra el &#xFA;ltimo</div>
-                </div>
-                <div class="col-12">
-                    <label class="form-label" for="uatRfcName">Nombre del cambio</label>
+                    <div class="uat-lbl"><label class="form-label" for="uatRfcName">Nombre del cambio</label></div>
                     <input type="text" id="uatRfcName" class="form-control" autocomplete="off" placeholder="Anexo 5: Nueva Estrategia Comercial 06 de Octubre">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="uatDate">Fecha <span class="fw-normal text-muted">(opcional)</span></label>
-                    <input type="date" id="uatDate" class="form-control">
-                    <div class="form-text">No se repite si el nombre ya la incluye</div>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label" for="uatSaludo">Saludo</label>
+                    <div class="uat-lbl">
+                        <label class="form-label" for="uatSaludo">Saludo</label>
+                        <button type="button" class="help-trigger uat-help" aria-label="Ayuda: saludo" aria-describedby="uatTipSaludo">i</button>
+                        <span role="tooltip" id="uatTipSaludo" class="uat-tip">Se elige seg&#xFA;n la hora; puedes editarlo.</span>
+                    </div>
                     <input type="text" id="uatSaludo" class="form-control" autocomplete="off">
-                    <div class="form-text">Autom&#xE1;tico seg&#xFA;n la hora; ed&#xED;talo si quieres</div>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="uatRecipient">Destinatario</label>
+                    <div class="uat-lbl"><label class="form-label" for="uatRecipient">Destinatario</label></div>
                     <input type="text" id="uatRecipient" class="form-control" autocomplete="off" placeholder="equipo de UAT">
                 </div>
-                <div class="col-12">
-                    <label class="form-label" for="uatSubject">Asunto</label>
-                    <div class="d-flex gap-2">
-                        <input type="text" id="uatSubject" class="form-control flex-grow-1" autocomplete="off" placeholder="VoBo UAT &#x2013; RFC {n} &#x2013; {nombre}">
-                        <button type="button" id="uatSubjectReset" class="btn-clear btn-sm-uat text-nowrap" title="Volver al asunto autom&#xE1;tico">&#x21BA; Autom&#xE1;tico</button>
+                <div class="col-md-4">
+                    <div class="uat-lbl">
+                        <label class="form-label" for="uatDate">Fecha <span class="fw-normal text-muted">(opcional)</span></label>
+                        <button type="button" class="help-trigger uat-help" aria-label="Ayuda: fecha" aria-describedby="uatTipDate">i</button>
+                        <span role="tooltip" id="uatTipDate" class="uat-tip">No se repite en el correo si el nombre del cambio ya la incluye.</span>
                     </div>
-                    <div class="form-text">Se genera solo con el formato &ldquo;VoBo UAT &#x2013; RFC {n} &#x2013; {nombre}&rdquo;; ed&#xED;talo si hace falta</div>
-                </div>
-                <div class="col-12">
-                    <label class="form-label" for="uatAdjunto">Archivos adjuntos <span class="fw-normal text-muted">(opcional)</span></label>
-                    <input type="text" id="uatAdjunto" class="form-control" autocomplete="off" placeholder="Se adjunta la documentaci&#xF3;n correspondiente.">
-                    <div class="form-text">Se menciona en el cuerpo del correo como referencia</div>
+                    <input type="date" id="uatDate" class="form-control">
                 </div>
             </div>
+
+            <!-- MAS OPCIONES (colapsado) -->
+            <details class="uat-more" id="uatMore">
+                <summary aria-expanded="false"><span class="uat-more-title">M&#xE1;s opciones</span><span class="uat-summary" id="uatMoreSummary"></span></summary>
+                <div class="row g-3 mt-0">
+                    <div class="col-12">
+                        <div class="uat-lbl">
+                            <label class="form-label" for="uatSubject">Asunto</label>
+                            <button type="button" class="help-trigger uat-help" aria-label="Ayuda: asunto" aria-describedby="uatTipSubject">i</button>
+                            <span role="tooltip" id="uatTipSubject" class="uat-tip">Se genera como &ldquo;VoBo UAT &#x2013; RFC {n} &#x2013; {nombre}&rdquo;; ed&#xED;talo si hace falta.</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <input type="text" id="uatSubject" class="form-control flex-grow-1" autocomplete="off" placeholder="VoBo UAT &#x2013; RFC {n} &#x2013; {nombre}">
+                            <button type="button" id="uatSubjectReset" class="btn-clear btn-sm-uat text-nowrap" title="Volver al asunto autom&#xE1;tico">&#x21BA; Autom&#xE1;tico</button>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="uat-lbl">
+                            <label class="form-label" for="uatRelatedInput">RFCs relacionados / anexos</label>
+                            <button type="button" class="help-trigger uat-help" aria-label="Ayuda: RFCs relacionados" aria-describedby="uatTipRelated">i</button>
+                            <span role="tooltip" id="uatTipRelated" class="uat-tip">Enter o coma para agregar; Retroceso borra el &#xFA;ltimo.</span>
+                        </div>
+                        <div class="uat-chips form-control" id="uatRelatedChips">
+                            <input type="text" id="uatRelatedInput" class="uat-chip-input" autocomplete="off" inputmode="numeric" placeholder="25554 y Enter">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="uat-lbl"><label class="form-label" for="uatReqStart">Numeraci&#xF3;n inicial</label></div>
+                        <input type="number" id="uatReqStart" class="form-control" min="0" step="1" value="1">
+                    </div>
+                    <div class="col-12">
+                        <div class="uat-lbl">
+                            <label class="form-label" for="uatAdjunto">Archivos adjuntos</label>
+                            <button type="button" class="help-trigger uat-help" aria-label="Ayuda: archivos adjuntos" aria-describedby="uatTipAdjunto">i</button>
+                            <span role="tooltip" id="uatTipAdjunto" class="uat-tip">Se menciona en el cuerpo del correo como referencia.</span>
+                        </div>
+                        <input type="text" id="uatAdjunto" class="form-control" autocomplete="off" placeholder="Se adjunta la documentaci&#xF3;n correspondiente.">
+                    </div>
+                </div>
+            </details>
         </div>
 
         <!-- REQUERIMIENTOS -->
         <div class="section-block">
             <div class="section-label">&#x1F4CB; Requerimientos</div>
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label" for="uatReqStart">Numeraci&#xF3;n inicial</label>
-                    <input type="number" id="uatReqStart" class="form-control" min="0" step="1" value="1">
-                </div>
-                <div class="col-md-9">
-                    <label class="form-label" for="uatRequerimientos">Texto introductorio <span class="fw-normal text-muted">(opcional)</span></label>
-                    <textarea id="uatRequerimientos" class="form-control" rows="2" placeholder="Ej: y su anexo RFC 25554"></textarea>
-                </div>
-            </div>
+            <div class="uat-lbl"><label class="form-label" for="uatRequerimientos">Texto introductorio <span class="fw-normal text-muted">(opcional)</span></label></div>
+            <textarea id="uatRequerimientos" class="form-control mb-3" rows="2" placeholder="Ej: y su anexo RFC 25554"></textarea>
             <div id="uatReqList" class="uat-list"></div>
-            <button type="button" id="uatReqAdd" class="btn-add-uat mt-2" data-add="req">&#xFF0B; Agregar requerimiento</button>
+            <button type="button" id="uatReqAdd" class="btn-clear btn-sm-uat mt-2" data-add="req">&#xFF0B; Agregar requerimiento</button>
         </div>
 
-        <!-- EJEMPLOS DE VALIDACION -->
-        <div class="section-block">
-            <div class="section-label">&#x1F9EA; Ejemplos de validaci&#xF3;n <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.72rem;">(opcional)</span></div>
+        <!-- EJEMPLOS DE VALIDACION (colapsada si esta vacia) -->
+        <details class="section-block uat-collapsible" id="uatExamples">
+            <summary class="section-label" aria-expanded="false"><span>&#x1F9EA; Ejemplos de validaci&#xF3;n</span><span class="uat-summary" id="uatExamplesSummary"></span></summary>
             <div id="uatExList" class="uat-list"></div>
-            <button type="button" id="uatExAdd" class="btn-add-uat mt-2" data-add="ex">&#xFF0B; Agregar ejemplo</button>
-        </div>
+            <button type="button" id="uatExAdd" class="btn-clear btn-sm-uat mt-2" data-add="ex">&#xFF0B; Agregar ejemplo</button>
+        </details>
 
         <!-- CONTENIDO LIBRE (AVANZADO): editor rico legacy -->
-        <details class="section-block uat-advanced" id="uatAdvanced">
-            <summary class="section-label">&#x1F4DD; Contenido libre (avanzado) <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.72rem;">(opcional; se agrega despu&#xE9;s de los ejemplos)</span></summary>
+        <details class="section-block uat-collapsible" id="uatAdvanced">
+            <summary class="section-label" aria-expanded="false"><span>&#x1F4DD; Contenido libre (avanzado)</span><span class="uat-summary" id="uatAdvancedSummary"></span></summary>
             <div class="re-toolbar">
                 <button type="button" class="re-btn" onclick="reCmd('bold')" title="Negrita (Ctrl+B)"><b>B</b></button>
                 <button type="button" class="re-btn" onclick="reCmd('italic')" title="Cursiva (Ctrl+I)"><i>I</i></button>
@@ -4148,29 +4169,25 @@ dbo.sp_reporte_facturacion.sql</div>
             </div>
             <div id="uatRichEditor" contenteditable="true" class="uat-rich-editor"
                  placeholder="Escribe con formato, pega im&#xE1;genes (Ctrl+V), arrastra archivos o usa la barra de herramientas..."></div>
-            <div class="uat-editor-hints">
-                <span><b>Ctrl+B</b> Negrita</span>
-                <span><b>Ctrl+I</b> Cursiva</span>
-                <span><b>Ctrl+K</b> Enlace</span>
-                <span><b>Ctrl+V</b> Pegar imagen</span>
-                <span>&#x1F5BC;&#xFE0F; Drag &amp; Drop</span>
-            </div>
         </details>
 
-        <!-- NOTA & CIERRE -->
-        <div class="section-block">
-            <div class="section-label">&#x26A0;&#xFE0F; Notas y Cierre <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.72rem;">(opcional)</span></div>
+        <!-- NOTA & CIERRE (colapsada) -->
+        <details class="section-block uat-collapsible" id="uatNotes">
+            <summary class="section-label" aria-expanded="false"><span>&#x26A0;&#xFE0F; Nota y cierre</span><span class="uat-summary" id="uatNotesSummary"></span></summary>
             <div class="mb-3">
-                <label class="form-label" for="uatNota">Nota destacada <span class="fw-normal text-muted">(se resalta en el correo)</span></label>
+                <div class="uat-lbl">
+                    <label class="form-label" for="uatNota">Nota destacada</label>
+                    <button type="button" class="help-trigger uat-help" aria-label="Ayuda: nota destacada" aria-describedby="uatTipNota">i</button>
+                    <span role="tooltip" id="uatTipNota" class="uat-tip">Se resalta en el correo con el t&#xED;tulo NOTA.</span>
+                </div>
                 <textarea id="uatNota" class="form-control" rows="3"
                           placeholder="Ej: Para esta promoci&#xF3;n solo se consideran servicios residenciales.&#10;No aplica para clientes empresariales."></textarea>
             </div>
             <div>
-                <label class="form-label" for="uatCierre">Cierre del correo</label>
+                <div class="uat-lbl"><label class="form-label" for="uatCierre">Cierre del correo</label></div>
                 <input type="text" id="uatCierre" class="form-control" value="Quedo pendiente por cualquier duda o comentario.">
-                <div class="form-text">Texto de despedida que aparece al final del correo</div>
             </div>
-        </div>
+        </details>
 
         <!-- ACTION BAR -->
         <div class="tpl-status-bar" id="tpl-status-uat"></div>
