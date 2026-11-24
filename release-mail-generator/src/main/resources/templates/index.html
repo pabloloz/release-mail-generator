@@ -3260,14 +3260,14 @@
                 <span class="dash-version">v1.1</span>
                 <div class="dash-hero-top">
                     <div class="dash-hero-text">
-                        <div class="dash-badge"><svg class="icon" aria-hidden="true"><use href="#icon-building"></use></svg> Megacable &mdash; Equipo QA &amp; Liberaciones</div>
+                        <div class="dash-badge">&#x1F3E2; Megacable &mdash; Equipo QA &amp; Liberaciones</div>
                         <h1>Release Notifier QA</h1>
                         <p class="dash-welcome" th:if="${currentUser}">&#x1F44B; Hola, <strong th:text="${currentUser}">usuario</strong></p>
                         <p class="dash-hero-subtitle">Plataforma de gesti&#xF3;n de liberaciones, documentaci&#xF3;n t&#xE9;cnica y validaciones para equipos de QA, Desarrollo y&nbsp;Operaciones.</p>
                     </div>
                     <div class="dash-hero-actions">
-                        <button type="button" class="dash-hero-btn dash-hero-btn-primary" onclick="showPane('rfc',null)"><svg class="icon" aria-hidden="true"><use href="#icon-clipboard"></use></svg> Nuevo RFC</button>
-                        <button type="button" class="dash-hero-btn dash-hero-btn-secondary" onclick="showPane('uat',null)"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Generar VoBo</button>
+                        <button type="button" class="dash-hero-btn dash-hero-btn-primary" onclick="showPane('rfc',null)">&#x1F4CB; Nuevo RFC</button>
+                        <button type="button" class="dash-hero-btn dash-hero-btn-secondary" onclick="showPane('uat',null)">&#x2705; Generar VoBo</button>
                     </div>
                 </div>
             </div>
@@ -3289,12 +3289,12 @@
                     <button type="button" class="dash-retry-btn" id="dashboardRetryBtn">Reintentar</button>
                 </div>
                 <div class="kpi-grid" id="kpiGrid" aria-live="polite" aria-busy="true">
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRfc','blue','RFC','RFCs Creados','clipboard')}"></div>
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiUat','green','UAT','VoBos Generados','check')}"></div>
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRelease','indigo','RELEASE','Correos de Liberación','mail')}"></div>
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRdl','amber','RDL','Reportes RDL','chart')}"></div>
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiTelegram','purple','TELEGRAM,RDL_TELEGRAM','Mensajes Telegram','send')}"></div>
-                    <div th:replace="~{fragments/kpi-card :: kpi('kpiExports','slate','EXPORTS','Exportaciones','document')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRfc','blue','RFC','RFCs Creados','📋')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiUat','green','UAT','VoBos Generados','✅')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRelease','indigo','RELEASE','Correos de Liberación','📧')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiRdl','amber','RDL','Reportes RDL','📊')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiTelegram','purple','TELEGRAM,RDL_TELEGRAM','Mensajes Telegram','✈️')}"></div>
+                    <div th:replace="~{fragments/kpi-card :: kpi('kpiExports','slate','EXPORTS','Exportaciones','📄')}"></div>
                 </div>
 
                 <!-- Activity Chart + Recent -->
@@ -3322,7 +3322,7 @@
                 </div>
 
                 <!-- Favorites / Quick Access -->
-                <div class="dash-section-title"><svg class="icon" aria-hidden="true"><use href="#icon-star"></use></svg> Accesos R&#xE1;pidos</div>
+                <div class="dash-section-title">&#x2B50; Accesos R&#xE1;pidos</div>
                 <div id="dashFavorites" class="dash-favorites">
                     <div class="fav-empty">Sin favoritos. Marca documentos con &#x2B50; para acceder r&#xE1;pidamente.</div>
                 </div>
@@ -3331,22 +3331,22 @@
                 <div class="dash-section-title">M&#xF3;dulos</div>
                 <div class="dash-module-grid">
                     <div class="module-card" onclick="openArtifactsSubmenu('correo')">
-                        <div class="module-card-icon"><svg class="icon" aria-hidden="true"><use href="#icon-mail"></use></svg></div>
+                        <div class="module-card-icon">&#x1F4E7;</div>
                         <div class="module-card-title">Correos de Liberaci&#xF3;n</div>
                         <div class="module-card-desc">Genera correos formales de liberaci&#xF3;n y notificaciones Telegram para el equipo.</div>
                     </div>
                     <div class="module-card" onclick="showPane('rdl',null)">
-                        <div class="module-card-icon"><svg class="icon" aria-hidden="true"><use href="#icon-chart"></use></svg></div>
+                        <div class="module-card-icon">&#x1F4CA;</div>
                         <div class="module-card-title">Reportes RDL</div>
                         <div class="module-card-desc">Crea reportes de distribuci&#xF3;n de liberaciones con formato corporativo.</div>
                     </div>
                     <div class="module-card" onclick="showPane('rfc',null)">
-                        <div class="module-card-icon"><svg class="icon" aria-hidden="true"><use href="#icon-clipboard"></use></svg></div>
+                        <div class="module-card-icon">&#x1F4CB;</div>
                         <div class="module-card-title">RFC T&#xE9;cnico</div>
                         <div class="module-card-desc">Documenta validaciones t&#xE9;cnicas, casos de prueba y evidencias de RFCs.</div>
                     </div>
                     <div class="module-card" onclick="showPane('uat',null)">
-                        <div class="module-card-icon"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg></div>
+                        <div class="module-card-icon">&#x2705;</div>
                         <div class="module-card-title">VoBo UAT</div>
                         <div class="module-card-desc">Solicita validaciones UAT con requerimientos, evidencias y pasos de ejecuci&#xF3;n.</div>
                     </div>
@@ -3356,11 +3356,11 @@
                 <div class="quick-actions">
                     <div class="quick-actions-title">Acciones r&#xE1;pidas</div>
                     <div class="quick-actions-grid">
-                        <button class="quick-action-btn" onclick="openArtifactsSubmenu('correo')"><svg class="icon" aria-hidden="true"><use href="#icon-mail"></use></svg> Correo de Liberaci&#xF3;n</button>
-                        <button class="quick-action-btn" onclick="openArtifactsSubmenu('telegram')"><svg class="icon" aria-hidden="true"><use href="#icon-send"></use></svg> Telegram</button>
-                        <button class="quick-action-btn" onclick="showPane('rdl',null)"><svg class="icon" aria-hidden="true"><use href="#icon-chart"></use></svg> Reporte RDL</button>
-                        <button class="quick-action-btn" onclick="showPane('rfc',null)"><svg class="icon" aria-hidden="true"><use href="#icon-clipboard"></use></svg> Nuevo RFC</button>
-                        <button class="quick-action-btn" onclick="showPane('uat',null)"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> VoBo UAT</button>
+                        <button class="quick-action-btn" onclick="openArtifactsSubmenu('correo')">&#x1F4E7; Correo de Liberaci&#xF3;n</button>
+                        <button class="quick-action-btn" onclick="openArtifactsSubmenu('telegram')">&#x2708;&#xFE0F; Telegram</button>
+                        <button class="quick-action-btn" onclick="showPane('rdl',null)">&#x1F4CA; Reporte RDL</button>
+                        <button class="quick-action-btn" onclick="showPane('rfc',null)">&#x1F4CB; Nuevo RFC</button>
+                        <button class="quick-action-btn" onclick="showPane('uat',null)">&#x2705; VoBo UAT</button>
                     </div>
                 </div>
 
@@ -3371,7 +3371,7 @@
     <div id="kpiDrawer" class="kpi-drawer">
         <div class="kpi-drawer-header">
             <h3 id="kpiDrawerTitle">Documentos</h3>
-            <button onclick="closeKpiDrawer()" class="kpi-drawer-close" aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+            <button onclick="closeKpiDrawer()" class="kpi-drawer-close" aria-label="Cerrar">&#x2715;</button>
         </div>
         <div id="kpiDrawerBody" class="kpi-drawer-body">
             <div style="text-align:center;padding:40px;color:var(--text-muted);">Cargando...</div>
