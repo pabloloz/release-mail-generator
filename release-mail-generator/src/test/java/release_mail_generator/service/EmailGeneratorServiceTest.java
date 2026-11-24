@@ -224,9 +224,10 @@ class EmailGeneratorServiceTest {
         String text = service.generateEmailPlainText(r);
 
         assertThat(html).contains("distribución del Módulo de Cartera, SFyCWSDLL;")
-            .contains("&#8226; <b>Módulo de Cartera</b><br>Se encuentra en la siguiente ubicación:")
-            .doesNotContain("Módulos (Cartera)").doesNotContain("<b>Módulos</b>").doesNotContain("Módulo (Cartera)");
-        assertThat(text).contains("distribución del Módulo de Cartera, SFyCWSDLL;").contains("• Módulo de Cartera\n");
+            .contains("&#8226; <b>Módulos</b><br>Se encuentra en la siguiente ubicación:")
+            .doesNotContain("Módulos (Cartera)").doesNotContain("<b>Módulo de Cartera</b>").doesNotContain("Módulo (Cartera)");
+        assertThat(text).contains("distribución del Módulo de Cartera, SFyCWSDLL;").contains("• Módulos\n")
+            .doesNotContain("• Módulo de Cartera");
     }
 
     @Test

@@ -95,11 +95,6 @@ public class EmailGeneratorService {
         return (value == null || value.trim().isEmpty()) ? "" : value.trim();
     }
 
-    /** "Módulo" con un solo módulo a desplegar; "Módulos" en cualquier otro caso. */
-    private static String moduleLabel(int count) {
-        return count == 1 ? "Módulo" : "Módulos";
-    }
-
     private static final String SINGLE_MODULE_PREFIX = "Módulo de ";
 
     private List<String> cleanList(List<String> values) {
@@ -379,21 +374,19 @@ public class EmailGeneratorService {
         if (!rollback.isEmpty()) rows.add(new String[]{"Rollback", rollback});
 
         List<MailComponent> components = new ArrayList<>();
-        if (r.isHasModules()) {
-            // Con un solo módulo el nombre lleva el módulo ("Módulo de Cartera"); con varios, la lista entre paréntesis
-            components.add(modules.size() == 1
-                ? new MailComponent(SINGLE_MODULE_PREFIX + modules.get(0), "", clean(r.getPathModules()))
-                : new MailComponent("Módulos", String.join(", ", modules), clean(r.getPathModules())));
-        }
+        if (r.isHasModules()) components.add(new MailComponent("Módulos", String.join(", ", modules), clean(r.getPathModules())));
         if (r.isHasCitrix()) components.add(new MailComponent("Citrix", "", clean(r.getPathCitrix())));
         if (r.isHasDll()) components.add(new MailComponent("SFyCWSDLL", "", clean(r.getPathDll())));
         if (r.isHasDllCsharp()) components.add(new MailComponent("DLL C#", "", clean(r.getPathDllCsharp())));
         if (r.isHasWinterX()) components.add(new MailComponent("WinterX", "", clean(r.getPathWinterX())));
 
         List<String> componentNames = new ArrayList<>();
-        // Citrix no se menciona en la frase de introducción; su sección con la ruta se conserva más abajo
-        components.stream().filter(c -> !"Citrix".equals(c.name()))
-            .forEach(c -> componentNames.add(c.name() + (c.detail().isEmpty() ? "" : " (" + c.detail() + ")")));
+        // Citrix no se menciona en la frase de introducción; su sección con la ruta se conserva más abajo.
+        // Con un solo módulo la introducción dice "Módulo de Cartera"; la sección de distribución sigue en "Módulos".
+        components.stream().filter(c -> !"Citrix".equals(c.name())).forEach(c -> {
+            if ("Módulos".equals(c.name()) && modules.size() == 1) componentNames.add(SINGLE_MODULE_PREFIX + modules.get(0));
+            else componentNames.add(c.name() + (c.detail().isEmpty() ? "" : " (" + c.detail() + ")"));
+        });
         if (r.isHasScripts()) componentNames.add("Scripts");
         if (hasSps) componentNames.add("SP's @DBAs TI");
 
@@ -883,7 +876,7 @@ public class EmailGeneratorService {
         pdfSection(doc, secF, "Artefactos");
         List<String> mods = normalizedDistributionModules(r);
         if (r.isHasModules() && !mods.isEmpty())
-            pdfLine(doc, boldF, bodyF, moduleLabel(mods.size()) + ":", String.join(", ", mods));
+            pdfLine(doc, boldF, bodyF, "Módulos:", String.join(", ", mods));
         if (r.isHasCitrix()) pdfLine(doc, boldF, monoF, "Citrix:", clean(r.getPathCitrix()));
         if (r.isHasDll())    pdfLine(doc, boldF, monoF, "SFyCWSDLL:", clean(r.getPathDll()));
         if (r.isHasDllCsharp()) pdfLine(doc, boldF, monoF, "DLL C#:", clean(r.getPathDllCsharp()));
@@ -945,7 +938,7 @@ public class EmailGeneratorService {
         md.append("## Artefactos\n\n");
         List<String> mods = normalizedDistributionModules(r);
         if (r.isHasModules() && !mods.isEmpty())
-            md.append("- **").append(moduleLabel(mods.size())).append(":** ").append(String.join(", ", mods)).append("\n");
+            md.append("- **Módulos:** ").append(String.join(", ", mods)).append("\n");
         if (r.isHasCitrix()) md.append("- **Citrix:** `").append(clean(r.getPathCitrix())).append("`\n");
         if (r.isHasDll())    md.append("- **SFyCWSDLL:** `").append(clean(r.getPathDll())).append("`\n");
         if (r.isHasDllCsharp()) md.append("- **DLL C#:** `").append(clean(r.getPathDllCsharp())).append("`\n");
