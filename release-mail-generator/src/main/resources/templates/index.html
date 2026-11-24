@@ -332,15 +332,7 @@
         }
 
         // ── Dashboard Data Loader ──────────────────────────────
-        /**
-         * Genera el mismo <svg><use href="#icon-xxx"></use></svg> que ya se usa
-         * en el HTML estático (ver fragments/icon-sprite.html), para los iconos
-         * que se arman desde JS (actividad reciente, drawer de KPI).
-         */
-        function svgIcon(name) {
-            return '<svg class="icon" aria-hidden="true"><use href="#icon-' + name + '"></use></svg>';
-        }
-        const DASH_TYPE_ICONS = { RFC: svgIcon('clipboard'), UAT: svgIcon('check'), RELEASE: svgIcon('mail'), RDL: svgIcon('chart'), TELEGRAM: svgIcon('send'), RDL_TELEGRAM: svgIcon('send') };
+        const DASH_TYPE_ICONS = { RFC: '📋', UAT: '✅', RELEASE: '📧', RDL: '📊', TELEGRAM: '✈️', RDL_TELEGRAM: '✈️' };
         const DASH_TYPE_LABELS = { RFC: 'RFC', UAT: 'VoBo UAT', RELEASE: 'Liberación', RDL: 'RDL', TELEGRAM: 'Telegram', RDL_TELEGRAM: 'Telegram RDL' };
         const DASH_ACTION_LABELS = { CREATED: 'Creado', MODIFIED: 'Modificado', EXPORTED: 'Exportado', RESTORED: 'Restaurado' };
 
@@ -497,7 +489,7 @@
                 document.getElementById('kpiDrawerBody').innerHTML = items.map(function(v) {
                     var date = new Date(v.createdAt);
                     var timeAgo = getTimeAgo(date);
-                    var icon = DASH_TYPE_ICONS[v.documentType] || svgIcon('document');
+                    var icon = DASH_TYPE_ICONS[v.documentType] || '\u{1F4C4}';
                     return '<div class="kpi-drawer-item" onclick="closeKpiDrawer();showPane(\'history\',null);if(typeof viewVersion===\'function\')viewVersion(\'' + v.id + '\')">'
                         + '<div class="kpi-drawer-item-title">' + icon + ' ' + escHtmlDash(v.title || v.documentRef) + '</div>'
                         + '<div class="kpi-drawer-item-meta">' + (v.author || 'Sistema') + ' \u00b7 ' + timeAgo + '</div>'
@@ -594,7 +586,7 @@
                 return;
             }
             container.innerHTML = items.map(v => {
-                const icon = DASH_TYPE_ICONS[v.documentType] || svgIcon('document');
+                const icon = DASH_TYPE_ICONS[v.documentType] || '📄';
                 const date = new Date(v.createdAt);
                 const timeAgo = getTimeAgo(date);
                 const actionLabel = DASH_ACTION_LABELS[v.action] || v.action;

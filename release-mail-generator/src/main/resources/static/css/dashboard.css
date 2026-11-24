@@ -533,6 +533,18 @@
     outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px;
 }
 
+/* ── Animación sutil de los iconos emoji al pasar el mouse ───────────────
+   Solo en dispositivos con hover y sin prefers-reduced-motion. */
+.nav-icon, .kpi-icon, .module-card-icon {
+    display: inline-block;
+    transition: transform .18s ease;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .sidebar-nav-item:hover .nav-icon { transform: scale(1.2) rotate(-6deg); }
+    .kpi-card:hover .kpi-icon { transform: scale(1.18) translateY(-2px); }
+    .module-card:hover .module-card-icon { transform: scale(1.15) rotate(-5deg); }
+}
+
 /* ── Accesibilidad: respeta prefers-reduced-motion ───────────────────────
    Quita la animación/transición de hover (elevación, transform) y la
    transición de altura de las barras de la gráfica; los estados finales
