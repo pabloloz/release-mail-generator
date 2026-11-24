@@ -256,6 +256,17 @@ class UatEmailServiceTest {
     }
 
     @Test
+    void asuntoAutomaticoConRfcYNombre() {
+        UatRequest r = new UatRequest();
+        r.setRfcName("Anexo 5: Nueva Estrategia Comercial");
+        for (String rfc : new String[]{"25473", "RFC 25473", "rfc25473"}) {
+            r.setRfcNumber(rfc);
+            assertEquals("VoBo UAT \u2013 RFC 25473 \u2013 Anexo 5: Nueva Estrategia Comercial", service.subjectFor(r), rfc);
+            assertEquals("VoBo UAT \u2013 RFC 25473 \u2013 Anexo 5: Nueva Estrategia Comercial", service.preview(r).subject(), rfc);
+        }
+    }
+
+    @Test
     void asuntoPorDefectoYEditable() {
         UatRequest r = casoReal();
         assertEquals("VoBo UAT \u2013 RFC 25473 \u2013 Anexo 5: Nueva Estrategia Comercial 06 de Octubre", service.subjectFor(r));

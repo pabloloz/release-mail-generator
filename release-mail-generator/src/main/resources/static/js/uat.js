@@ -329,7 +329,7 @@
             requirements: st.requirements.filter(function (r) { return !isReqEmpty(r); }).map(function (r) {
                 return { title: r.title, description: r.description, bullets: bulletLines(r.bullets), image: r.image || '' };
             }),
-            validationExamples: st.examples.map(function (e) {
+            validationExamples: st.examples.filter(exampleHasContent).map(function (e) {
                 return { title: e.title, pairs: e.pairs.map(function (p) { return { key: p.key, value: p.value }; }), image: e.image || '' };
             }),
             requerimientosImagenes: st.legacyReqImages.slice(),
@@ -357,7 +357,7 @@
             reqStart: val('uatReqStart'),
             reqIntro: val('uatRequerimientos'),
             requirements: st.requirements.filter(function (r) { return !isReqEmpty(r); }).map(function (r) { return { title: r.title, description: r.description, bullets: r.bullets, image: r.image || '' }; }),
-            examples: st.examples.map(function (e) {
+            examples: st.examples.filter(exampleHasContent).map(function (e) {
                 return { title: e.title, pairs: e.pairs.map(function (p) { return { key: p.key, value: p.value }; }), image: e.image || '' };
             }),
             nota: val('uatNota'),
@@ -417,7 +417,10 @@
         st.requirements = withIds(d.requirements, function (r) {
             return { showDetail: !!(String(r.description || '').trim() || String(r.bullets || '').trim()) };
         });
-        st.examples = withIds(d.examples, function (e) {
+        // Los ejemplos vac\u00edos no se conservan: el primero se crea al pulsar "Agregar ejemplo" o al abrir la secci\u00f3n
+        st.examples = withIds((d.examples || []).filter(function (e) {
+            return exampleHasContent({ image: e.image, pairs: e.pairs || [] });
+        }), function (e) {
             return {
                 showTitle: !!String(e.title || '').trim(),
                 pairs: (e.pairs || []).map(function (p) { return { key: p.key, value: p.value }; })
@@ -431,12 +434,19 @@
         renderChips();
         renderRequirements();
         renderExamples();
-
-        // Al cargar datos, cada secci\u00f3n colapsable queda abierta solo si tiene contenido
-        setOpen('uatExamples', st.examples.some(exampleHasContent));
-        setOpen('uatNotes', !!String(d.nota || '').trim());
-        setOpen('uatAdvanced', !!(d.legacyHtml && d.legacyHtml.replace(/<[^>]*>|&nbsp;|\s/g, '')));
+        applySectionStates();
         schedulePreview(0);
+    }
+
+    /** Cada secci\u00f3n colapsable queda abierta solo si tiene contenido; con el formulario limpio, todas colapsadas. */
+    function applySectionStates() {
+        var start = parseInt(val('uatReqStart'), 10);
+        setOpen('uatMore', st.subjectEdited || st.related.length > 0 || val('uatAdjunto').trim() !== ''
+            || (!isNaN(start) && start !== 1));
+        setOpen('uatExamples', st.examples.some(exampleHasContent));
+        setOpen('uatNotes', val('uatNota').trim() !== '');
+        var editor = $('uatRichEditor');
+        setOpen('uatAdvanced', !!editor && (editor.textContent.trim() !== '' || !!editor.querySelector('img')));
     }
 
     function uatStateIsEmpty(d) {
@@ -692,6 +702,23 @@
             var d = $(id);
             if (d) d.addEventListener('toggle', function () { syncExpanded(d); });
         });
+
+        // Al abrir la secci\u00f3n de ejemplos vac\u00eda se crea el primero
+        $('uatExamples').addEventListener('toggle', function () {
+            if (this.open && !st.examples.length) {
+                st.examples.push({ id: nid(), title: '', showTitle: false, pairs: [{ key: '', value: '' }], image: '' });
+                renderExamples();
+            }
+        });
+
+        // Al volver al pane con el formulario limpio, las secciones vuelven a quedar colapsadas
+        var pane = $('pane-uat');
+        var wasActive = pane.classList.contains('active');
+        new MutationObserver(function () {
+            var active = pane.classList.contains('active');
+            if (active && !wasActive && uatStateIsEmpty(collectUatState())) DETAILS.forEach(function (id) { setOpen(id, false); });
+            wasActive = active;
+        }).observe(pane, { attributes: true, attributeFilter: ['class'] });
 
         resetForm();
     });
