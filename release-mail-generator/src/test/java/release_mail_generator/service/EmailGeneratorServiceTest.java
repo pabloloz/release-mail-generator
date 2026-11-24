@@ -212,6 +212,46 @@ class EmailGeneratorServiceTest {
     }
 
     @Test
+    void generateEmail_conUnSoloModulo_usaSingularEnIntroduccionYSeccion() {
+        ReleaseRequest r = new ReleaseRequest();
+        r.setHasModules(true);
+        r.setDistributionModules(List.of("Cartera"));
+        r.setPathModules("\\\\srv\\Modulos");
+        r.setHasDll(true);
+        r.setPathDll("\\\\srv\\Dll");
+
+        String html = service.generateEmail(r);
+        String text = service.generateEmailPlainText(r);
+
+        assertThat(html).contains("distribución del Módulo de Cartera, SFyCWSDLL;")
+            .contains("&#8226; <b>Módulo de Cartera</b><br>Se encuentra en la siguiente ubicación:")
+            .doesNotContain("Módulos (Cartera)").doesNotContain("<b>Módulos</b>").doesNotContain("Módulo (Cartera)");
+        assertThat(text).contains("distribución del Módulo de Cartera, SFyCWSDLL;").contains("• Módulo de Cartera\n");
+    }
+
+    @Test
+    void generateEmail_conVariosModulos_mantieneElPlural() {
+        ReleaseRequest r = new ReleaseRequest();
+        r.setHasModules(true);
+        r.setDistributionModules(List.of("Cartera", "Servicios"));
+        r.setPathModules("\\\\srv\\Modulos");
+
+        assertThat(service.generateEmail(r)).contains("distribución de Módulos (Cartera, Servicios);")
+            .contains("&#8226; <b>Módulos</b><br>");
+    }
+
+    @Test
+    void generateTelegramMessage_accionEnPluralSoloConVariosModulos() {
+        ReleaseRequest uno = new ReleaseRequest();
+        uno.setTelegramModules(List.of("Cartera"));
+        ReleaseRequest varios = new ReleaseRequest();
+        varios.setTelegramModules(List.of("Cartera", "DLL"));
+
+        assertThat(service.generateTelegramMessage(uno)).contains("Acción: Actualizar módulo\n");
+        assertThat(service.generateTelegramMessage(varios)).contains("Acción: Actualizar módulos\n");
+    }
+
+    @Test
     void normalizeTimes_unificaHorariosAlFormatoHoraMinutosAmPm() {
         assertThat(service.normalizeTimes("C# a las 11pm y DLL a las 11:30 P.M.")).isEqualTo("C# a las 11:00 pm y DLL a las 11:30 pm.");
         assertThat(service.normalizeTimes("Cambiar a las 23:00 hrs. y a las 08:15 h")).isEqualTo("Cambiar a las 11:00 pm y a las 8:15 am");
@@ -301,7 +341,7 @@ class EmailGeneratorServiceTest {
         r.setTelegramScripts(List.of("update.sql"));
 
         assertThat(service.generateTelegramMessage(r)).isEqualTo(
-            "```\nAcción: Actualizar módulos\n\uD83D\uDCE6 Cartera\n\n"
+            "```\nAcción: Actualizar módulo\n\uD83D\uDCE6 Cartera\n\n"
             + "Actualizar SP:\n\uD83C\uDFAB Ticket: 129660496\n\uD83D\uDCC2 [dbo].[mcab_obtener]\n\n"
             + "\uD83C\uDFAB Ticket: 111\n\uD83D\uDCC2 sp_a\n\uD83D\uDCC2 sp_b\n\n"
             + "Ejecutar Scripts:\n\uD83D\uDCC4 update.sql\n\n```");

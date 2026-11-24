@@ -95,6 +95,13 @@ public class EmailGeneratorService {
         return (value == null || value.trim().isEmpty()) ? "" : value.trim();
     }
 
+    /** "Módulo" con un solo módulo a desplegar; "Módulos" en cualquier otro caso. */
+    private static String moduleLabel(int count) {
+        return count == 1 ? "Módulo" : "Módulos";
+    }
+
+    private static final String SINGLE_MODULE_PREFIX = "Módulo de ";
+
     private List<String> cleanList(List<String> values) {
         if (values == null) return List.of();
         return values.stream()
@@ -172,7 +179,7 @@ public class EmailGeneratorService {
 
         // ── Acción / Módulos ──
         if (!actionModules.isEmpty()) {
-            msg.append("Acci\u00f3n: Actualizar m\u00f3dulos\n");
+            msg.append("Acci\u00f3n: Actualizar ").append(actionModules.size() == 1 ? "m\u00f3dulo" : "m\u00f3dulos").append("\n");
             actionModules.forEach(m -> msg.append("\uD83D\uDCE6 ").append(m).append("\n"));
             msg.append("\n");
         }
@@ -372,7 +379,12 @@ public class EmailGeneratorService {
         if (!rollback.isEmpty()) rows.add(new String[]{"Rollback", rollback});
 
         List<MailComponent> components = new ArrayList<>();
-        if (r.isHasModules()) components.add(new MailComponent("Módulos", String.join(", ", modules), clean(r.getPathModules())));
+        if (r.isHasModules()) {
+            // Con un solo módulo el nombre lleva el módulo ("Módulo de Cartera"); con varios, la lista entre paréntesis
+            components.add(modules.size() == 1
+                ? new MailComponent(SINGLE_MODULE_PREFIX + modules.get(0), "", clean(r.getPathModules()))
+                : new MailComponent("Módulos", String.join(", ", modules), clean(r.getPathModules())));
+        }
         if (r.isHasCitrix()) components.add(new MailComponent("Citrix", "", clean(r.getPathCitrix())));
         if (r.isHasDll()) components.add(new MailComponent("SFyCWSDLL", "", clean(r.getPathDll())));
         if (r.isHasDllCsharp()) components.add(new MailComponent("DLL C#", "", clean(r.getPathDllCsharp())));
@@ -425,8 +437,11 @@ public class EmailGeneratorService {
     }
 
     private String contextSentence(ReleaseMailData d) {
-        return "Solicitando su apoyo para la distribución de "
-            + (d.componentNames().isEmpty() ? "los artefactos indicados" : String.join(", ", d.componentNames()))
+        List<String> names = d.componentNames();
+        // "del Módulo de Cartera" cuando el primer elemento es el módulo en singular
+        String article = !names.isEmpty() && names.get(0).startsWith(SINGLE_MODULE_PREFIX) ? "del " : "de ";
+        return "Solicitando su apoyo para la distribución " + article
+            + (names.isEmpty() ? "los artefactos indicados" : String.join(", ", names))
             + "; a continuación se mencionan las rutas donde se encontrará lo necesario para el cambio.";
     }
 
@@ -868,7 +883,7 @@ public class EmailGeneratorService {
         pdfSection(doc, secF, "Artefactos");
         List<String> mods = normalizedDistributionModules(r);
         if (r.isHasModules() && !mods.isEmpty())
-            pdfLine(doc, boldF, bodyF, "Módulos:", String.join(", ", mods));
+            pdfLine(doc, boldF, bodyF, moduleLabel(mods.size()) + ":", String.join(", ", mods));
         if (r.isHasCitrix()) pdfLine(doc, boldF, monoF, "Citrix:", clean(r.getPathCitrix()));
         if (r.isHasDll())    pdfLine(doc, boldF, monoF, "SFyCWSDLL:", clean(r.getPathDll()));
         if (r.isHasDllCsharp()) pdfLine(doc, boldF, monoF, "DLL C#:", clean(r.getPathDllCsharp()));
@@ -930,7 +945,7 @@ public class EmailGeneratorService {
         md.append("## Artefactos\n\n");
         List<String> mods = normalizedDistributionModules(r);
         if (r.isHasModules() && !mods.isEmpty())
-            md.append("- **Módulos:** ").append(String.join(", ", mods)).append("\n");
+            md.append("- **").append(moduleLabel(mods.size())).append(":** ").append(String.join(", ", mods)).append("\n");
         if (r.isHasCitrix()) md.append("- **Citrix:** `").append(clean(r.getPathCitrix())).append("`\n");
         if (r.isHasDll())    md.append("- **SFyCWSDLL:** `").append(clean(r.getPathDll())).append("`\n");
         if (r.isHasDllCsharp()) md.append("- **DLL C#:** `").append(clean(r.getPathDllCsharp())).append("`\n");
