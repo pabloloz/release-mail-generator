@@ -331,7 +331,7 @@ public class EmailGeneratorService {
 
     private record MailComponent(String name, String detail, String path) {}
     private record MailSp(String ticket, List<String> scripts) {}
-    private record ReleaseMailData(String subject, List<String> componentNames, List<String[]> rows,
+    private record ReleaseMailData(List<String> componentNames, List<String[]> rows,
                                    List<MailComponent> components, List<MailSp> sps, boolean hasScripts,
                                    String scriptsPath, List<String> scriptFiles, List<String> projects,
                                    List<String[]> branches, String releaseUrl, String notes) {}
@@ -363,10 +363,6 @@ public class EmailGeneratorService {
         String rollback = clean(r.getRollbackVersion());
         String publishDate = formatDateEs(clean(r.getPublishDate()));
 
-        StringBuilder subject = new StringBuilder("Solicitud de liberación");
-        if (!version.isEmpty()) subject.append(' ').append(version);
-        if (!publishDate.isEmpty()) subject.append(" – ").append(publishDate);
-
         List<String[]> rows = new ArrayList<>();
         if (!publishDate.isEmpty()) rows.add(new String[]{"Fecha de publicación", publishDate});
         if (!version.isEmpty()) rows.add(new String[]{"Versión", version});
@@ -396,7 +392,7 @@ public class EmailGeneratorService {
         if (!clean(r.getBranchModules()).isEmpty()) branches.add(new String[]{"Módulos", clean(r.getBranchModules())});
         if (!clean(r.getBranchWinter()).isEmpty()) branches.add(new String[]{"WinterX", clean(r.getBranchWinter())});
 
-        return new ReleaseMailData(subject.toString(), componentNames, rows, components, sps, r.isHasScripts(),
+        return new ReleaseMailData(componentNames, rows, components, sps, r.isHasScripts(),
             clean(r.getPathScripts()), r.isHasScripts() ? linesFromText(r.getScripts()) : List.of(),
             linesFromText(r.getProjects()), branches, clean(r.getReleaseUrl()), normalizeTimes(clean(r.getNotes())));
     }
@@ -487,8 +483,7 @@ public class EmailGeneratorService {
         ReleaseMailData d = releaseMailData(r);
         StringBuilder h = new StringBuilder();
 
-        // ── Asunto, saludo y contexto ─────────────────────────────────────────
-        h.append(mailP("margin: 0 0 12px 0;", "<b>Asunto:</b> " + esc(d.subject())));
+        // ── Saludo y contexto ─────────────────────────────────────────────────
         h.append(mailP("margin: 0 0 8px 0;", "Buen día Operaciones:"));
         h.append(mailBody(esc(contextSentence(d))));
 
@@ -553,7 +548,6 @@ public class EmailGeneratorService {
     public String generateEmailPlainText(ReleaseRequest r) {
         ReleaseMailData d = releaseMailData(r);
         StringBuilder t = new StringBuilder();
-        t.append("Asunto: ").append(d.subject()).append("\n\n");
         t.append("Buen día Operaciones:\n").append(contextSentence(d)).append("\n");
 
         boolean scriptsListed = d.hasScripts() && (!d.scriptsPath().isEmpty() || !d.scriptFiles().isEmpty());

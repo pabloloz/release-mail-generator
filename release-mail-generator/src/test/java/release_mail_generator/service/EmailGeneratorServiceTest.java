@@ -160,10 +160,11 @@ class EmailGeneratorServiceTest {
         String sinPermitidos = html.replace("\uD83D\uDCE6", "").replace("\uD83D\uDCCB", "").replace("\uD83C\uDF3F", "")
             .replace("\uD83D\uDCDD", "").replace("\u26A0\uFE0F", "");
         assertThat(sinPermitidos).doesNotContainPattern("[\\x{2190}-\\x{2BFF}\\x{1F000}-\\x{1FAFF}\\x{FE0F}]");
-        // Asunto, saludo y contexto exactos
-        assertThat(html).startsWith("<p style=\"font-family: 'Segoe UI', Calibri, Arial, sans-serif; line-height: 1.5; font-size: 13px; margin: 0 0 12px 0;\">"
-            + "<b>Asunto:</b> Solicitud de liberación 26.10.31 – 05/11/2026</p>");
-        assertThat(html).contains("Buen día Operaciones:</p>")
+        // Saludo y contexto exactos; el correo ya no lleva la línea "Asunto:"
+        assertThat(html).startsWith("<p style=\"font-family: 'Segoe UI', Calibri, Arial, sans-serif; line-height: 1.5; font-size: 13px; margin: 0 0 8px 0;\">"
+            + "Buen día Operaciones:</p>");
+        assertThat(html).doesNotContain("Asunto:").doesNotContain("Solicitud de liberación");
+        assertThat(html)
             .contains("Solicitando su apoyo para la distribución de Módulos (Cartera, Servicios, Control), SP's @DBAs TI;"
                 + " a continuación se mencionan las rutas donde se encontrará lo necesario para el cambio.</p>");
         // Citrix no se menciona en la frase de introducción, pero su sección con la ruta se conserva
@@ -273,9 +274,10 @@ class EmailGeneratorServiceTest {
 
         String text = service.generateEmailPlainText(r);
 
-        assertThat(text).startsWith("Asunto: Solicitud de liberación 26.10.31 – 05/11/2026\n\nBuen día Operaciones:\n"
+        assertThat(text).startsWith("Buen día Operaciones:\n"
             + "Solicitando su apoyo para la distribución de Módulos (Cartera, Servicios), SP's @DBAs TI;"
             + " a continuación se mencionan las rutas donde se encontrará lo necesario para el cambio.\n");
+        assertThat(text).doesNotContain("Asunto:");
         assertThat(text).contains("\nDISTRIBUCIÓN\n• Módulos\nSe encuentra en la siguiente ubicación: \\\\srv\\Modulos\n"
                 + "• SP's @DBAs TI\nSe encuentra en la ubicación: https://github.com/Megacable-IT/storedproc.git;"
                 + " los scripts correspondientes se encuentran adjuntos en este correo.\nTicket: 129660496\n• sp_a\n• sp_b\n")
