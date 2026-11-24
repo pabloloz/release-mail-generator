@@ -327,7 +327,6 @@
             publishDate: val('uatDate'),
             adjunto: val('uatAdjunto'),
             requirementsStart: isNaN(start) || start < 0 ? 1 : start,
-            requirementsIntro: val('uatRequerimientos'),
             requirements: st.requirements.filter(function (r) { return !isReqEmpty(r); }).map(function (r) {
                 return { title: r.title, description: r.description, bullets: bulletLines(r.bullets), image: r.image || '' };
             }),
@@ -357,7 +356,6 @@
             subjectEdited: st.subjectEdited,
             adjunto: val('uatAdjunto'),
             reqStart: val('uatReqStart'),
-            reqIntro: val('uatRequerimientos'),
             requirements: st.requirements.filter(function (r) { return !isReqEmpty(r); }).map(function (r) { return { title: r.title, description: r.description, bullets: r.bullets, image: r.image || '' }; }),
             examples: st.examples.filter(exampleHasContent).map(function (e) {
                 return { title: e.title, pairs: e.pairs.map(function (p) { return { key: p.key, value: p.value }; }), image: e.image || '' };
@@ -464,7 +462,6 @@
         setVal('uatRecipient', d.recipient || DEFAULT_RECIPIENT);
         setVal('uatAdjunto', d.adjunto);
         setVal('uatReqStart', d.reqStart === '' || d.reqStart == null ? '1' : d.reqStart);
-        setVal('uatRequerimientos', d.reqIntro);
         setVal('uatNota', d.nota);
         setVal('uatCierre', d.cierre || DEFAULT_CIERRE);
 
@@ -473,7 +470,10 @@
         st.subjectEdited = !!d.subjectEdited;
         setVal('uatSubject', st.subjectEdited ? d.subject : '');
         st.related = (d.related || []).slice();
-        st.requirements = withIds(d.requirements, function (r) {
+        // El campo "Texto introductorio" ya no existe: el texto de plantillas o borradores anteriores pasa a ser un requerimiento editable
+        var reqs = (d.requirements || []).slice();
+        if (String(d.reqIntro || '').trim()) reqs.unshift({ title: '', description: String(d.reqIntro).trim(), bullets: '', image: '' });
+        st.requirements = withIds(reqs, function (r) {
             return { showDetail: !!(String(r.description || '').trim() || String(r.bullets || '').trim()) };
         });
         // Los ejemplos vac\u00edos no se conservan: el primero se crea al pulsar "Agregar ejemplo" o al abrir la secci\u00f3n
@@ -518,7 +518,7 @@
     }
 
     function uatHasRequirements() {
-        return !!val('uatRequerimientos').trim() || st.requirements.some(function (r) { return !isReqEmpty(r); });
+        return st.requirements.some(function (r) { return !isReqEmpty(r); });
     }
 
     // ── Secciones colapsables y res\u00famenes de una l\u00ednea ───────────────────────
@@ -700,7 +700,7 @@
     function resetForm() {
         restoreUatState({
             schemaVersion: SCHEMA_VERSION, rfc: '', related: [], name: '', date: '', saludo: '', saludoAuto: true,
-            recipient: DEFAULT_RECIPIENT, subject: '', subjectEdited: false, adjunto: '', reqStart: '1', reqIntro: '',
+            recipient: DEFAULT_RECIPIENT, subject: '', subjectEdited: false, adjunto: '', reqStart: '1',
             requirements: [], examples: [], nota: '', cierre: DEFAULT_CIERRE, legacyHtml: '', legacyReqImages: []
         });
     }

@@ -33,4 +33,9 @@ class UatTemplateMarkupTest {
         assertTrue(m.find());
         assertTrue(m.group(1).isBlank(), "uatExList debe estar vacio en el HTML inicial");
     }
+
+    @Test
+    void elFormularioYaNoTrae_elTextoIntroductorioDeRequerimientos() throws Exception {
+        assertFalse(index().contains("id=\"uatRequerimientos\""), "el campo Texto introductorio se eliminó");
+    }
 }
