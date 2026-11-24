@@ -78,7 +78,7 @@ public class EmailGeneratorService {
     );
 
     private static final Set<String> ALLOWED_TELEGRAM_MODULES = Set.of(
-        "Cartera", "Servicios", "Control", "Hightech", "Equipos", "Ventas", "Wirelink", "Citrix", "DLL", "WinterX", "DLL C#"
+        "Cartera", "Servicios", "Control", "Hightech", "Equipos", "Ventas", "Wirelink", "DLL", "WinterX", "DLL C#"
     );
 
     private List<String> normalizedDistributionModules(ReleaseRequest r) {
@@ -164,7 +164,6 @@ public class EmailGeneratorService {
         if (actionModules.isEmpty()) {
             LinkedHashSet<String> fallback = new LinkedHashSet<>();
             fallback.addAll(normalizedDistributionModules(r));
-            if (r.isHasCitrix()) fallback.add("Citrix");
             if (r.isHasDll()) fallback.add("DLL");
             if (r.isHasDllCsharp()) fallback.add("DLL C#");
             if (r.isHasWinterX()) fallback.add("WinterX");

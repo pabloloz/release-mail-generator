@@ -1398,7 +1398,6 @@
                 const modules = [];
                 const selectedReleaseModules = [...document.querySelectorAll('input[name="distributionModules"]:checked')].map(el => el.value);
                 modules.push(...selectedReleaseModules);
-                if (document.getElementById('hasCitrix')?.checked) modules.push('Citrix');
                 if (document.getElementById('hasDll')?.checked) modules.push('DLL');
                 if (document.getElementById('hasDllCsharp')?.checked) modules.push('DLL C#');
                 if (document.getElementById('hasWinterX')?.checked) modules.push('WinterX');
@@ -3577,7 +3576,7 @@ No publicar en Citrix hasta confirmación de QA.</div>
             <div class="help-popover">
                 <div class="help-popover-title">Módulos Afectados</div>
                 <p><strong>¿Para qué sirve?</strong> Indica qué módulos se actualizan en esta liberación. Aparecen listados en el mensaje de Telegram.</p>
-                <p><strong>¿Cómo llenarlo?</strong> Marca todos los módulos que reciben cambios. Incluye DLL, Citrix o WinterX si aplican.</p>
+                <p><strong>¿Cómo llenarlo?</strong> Marca todos los módulos que reciben cambios. Incluye DLL o WinterX si aplican.</p>
                 <div class="help-tip"><span class="help-tip-icon">💡</span> Selecciona solo los módulos que realmente cambian para no generar confusión en el equipo.</div>
             </div>
             <div class="d-flex flex-wrap gap-2">
@@ -3588,7 +3587,6 @@ No publicar en Citrix hasta confirmación de QA.</div>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="Equipos">Equipos</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="Ventas">Ventas</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="Wirelink">Wirelink</label>
-                <label class="module-badge"><input type="checkbox" name="telegramModules" value="Citrix">Citrix</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="DLL">DLL</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="WinterX">WinterX</label>
                 <label class="module-badge"><input type="checkbox" name="telegramModules" value="DLL C#">DLL C#</label>

@@ -481,8 +481,17 @@ class EmailGeneratorServiceTest {
 
         String msg = service.generateTelegramMessage(r);
 
-        assertThat(msg).contains(
-            "\uD83D\uDCE6 Citrix\n\uD83D\uDCE6 DLL\n\uD83D\uDCE6 DLL C#\n\uD83D\uDCE6 WinterX");
+        assertThat(msg).contains("\uD83D\uDCE6 DLL\n\uD83D\uDCE6 DLL C#\n\uD83D\uDCE6 WinterX")
+            .doesNotContain("Citrix");
+    }
+
+    @Test
+    void generateTelegramMessage_citrixNoSeMencionaAunqueLlegueEnLosModulos() {
+        ReleaseRequest r = new ReleaseRequest();
+        r.setTelegramModules(List.of("Cartera", "Citrix", "DLL"));
+
+        assertThat(service.generateTelegramMessage(r))
+            .contains("\uD83D\uDCE6 Cartera\n\uD83D\uDCE6 DLL").doesNotContain("Citrix");
     }
 
     @Test
