@@ -217,6 +217,7 @@
         var stripped = RnqStorage.stripImages(tpl.data);
         if (!stripped.removed) return 'full';
         tpl.data = stripped.value;
+        tpl.noImages = true;
         return RnqStorage.write(STORAGE_KEY, JSON.stringify(list)) ? 'full' : 'noimages';
     }
 
@@ -237,14 +238,14 @@
     // ══════════════════════════════════════════════════════════════════════
     var current = {};
     function getState(modKey) {
-        if (!current[modKey]) current[modKey] = { id: null, name: null, snapshot: null, savedAt: null };
+        if (!current[modKey]) current[modKey] = { id: null, name: null, snapshot: null, savedAt: null, noImages: false };
         return current[modKey];
     }
     function setState(modKey, patch) {
         current[modKey] = Object.assign(getState(modKey), patch);
     }
     function resetState(modKey) {
-        current[modKey] = { id: null, name: null, snapshot: null, savedAt: null };
+        current[modKey] = { id: null, name: null, snapshot: null, savedAt: null, noImages: false };
     }
     function newTemplateId() {
         return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -295,6 +296,7 @@
                 templates[idx].data = toSave;
                 templates[idx].name = name;
                 templates[idx].updatedAt = now;
+                delete templates[idx].noImages; // un guardado completo limpia la marca
             } else {
                 templates.push({
                     id: id, name: name, module: modKey, moduleLabel: mod.label, icon: mod.icon,
@@ -310,6 +312,7 @@
                     : 'No se guardó la plantilla "' + name + '": el navegador bloqueó el almacenamiento local.', 'error', 7000);
                 return;
             }
+            if (getState(modKey).id === id) setState(modKey, { noImages: result === 'noimages' });
             renderStatus(modKey);
             renderTemplatesList();
             if (result === 'noimages') {
@@ -393,7 +396,8 @@
                 id: tpl.id, name: tpl.name,
                 // UAT migra las plantillas legacy al restaurar: la referencia es lo ya restaurado
                 snapshot: tpl.module === 'uat' ? JSON.stringify(mod.collect()) : JSON.stringify(data),
-                savedAt: tpl.updatedAt || tpl.createdAt
+                savedAt: tpl.updatedAt || tpl.createdAt,
+                noImages: !!tpl.noImages
             });
             if (typeof _originalShowPane === 'function') _originalShowPane(tpl.module, null);
             closeTemplatesPanel();
@@ -583,7 +587,9 @@
         var dirty = isDirty(modKey);
         var dirtyHtml = dirty
             ? '<span class="tpl-status-dirty">● Cambios sin guardar</span>'
-            : '<span class="tpl-status-clean">✓ Guardado</span>';
+            : state.noImages
+                ? '<span class="tpl-status-dirty" title="Las imágenes no se guardaron por falta de espacio en el navegador">⚠ Guardado (sin imágenes)</span>'
+                : '<span class="tpl-status-clean">✓ Guardado</span>';
         bar.innerHTML =
             '<span class="tpl-status-name">✏️ Editando plantilla: “' + esc(state.name) + '”</span>' +
             '<span class="tpl-status-sep">·</span>' +
