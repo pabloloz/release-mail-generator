@@ -164,8 +164,10 @@ class EmailGeneratorServiceTest {
         assertThat(html).startsWith("<p style=\"font-family: 'Segoe UI', Calibri, Arial, sans-serif; line-height: 1.5; font-size: 13px; margin: 0 0 12px 0;\">"
             + "<b>Asunto:</b> Solicitud de liberación 26.10.31 – 05/11/2026</p>");
         assertThat(html).contains("Buen día Operaciones:</p>")
-            .contains("Solicitando su apoyo para la distribución de Módulos (Cartera, Servicios, Control), Citrix, SP's @DBAs TI;"
+            .contains("Solicitando su apoyo para la distribución de Módulos (Cartera, Servicios, Control), SP's @DBAs TI;"
                 + " a continuación se mencionan las rutas donde se encontrará lo necesario para el cambio.</p>");
+        // Citrix no se menciona en la frase de introducción, pero su sección con la ruta se conserva
+        assertThat(html).doesNotContain("Control), Citrix");
         // Orden: distribución, datos, branches, proyectos, nota y cierre
         assertThat(html.indexOf("Buen día Operaciones")).isLessThan(html.indexOf("Distribución</p>"));
         assertThat(html.indexOf("Distribución</p>")).isLessThan(html.indexOf("Datos de la liberación</p>"));
@@ -201,7 +203,7 @@ class EmailGeneratorServiceTest {
 
         String html = service.generateEmail(r);
 
-        assertThat(html).contains("distribución de Citrix, Scripts, SP's @DBAs TI;");
+        assertThat(html).contains("distribución de Scripts, SP's @DBAs TI;").doesNotContain("distribución de Citrix");
         assertThat(html).contains("&#8226; <b>Scripts</b><br>Se encuentra en la siguiente ubicación: <a href=\"file://srv/Scripts\"")
             .contains("<br>&#8226; <span").contains(">a.sql</span>").contains(">b.sql</span>");
         assertThat(html.indexOf("<b>Citrix</b>")).isLessThan(html.indexOf("<b>Scripts</b>"));

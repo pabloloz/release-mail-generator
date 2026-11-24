@@ -380,7 +380,9 @@ public class EmailGeneratorService {
         if (r.isHasWinterX()) components.add(new MailComponent("WinterX", "", clean(r.getPathWinterX())));
 
         List<String> componentNames = new ArrayList<>();
-        components.forEach(c -> componentNames.add(c.name() + (c.detail().isEmpty() ? "" : " (" + c.detail() + ")")));
+        // Citrix no se menciona en la frase de introducción; su sección con la ruta se conserva más abajo
+        components.stream().filter(c -> !"Citrix".equals(c.name()))
+            .forEach(c -> componentNames.add(c.name() + (c.detail().isEmpty() ? "" : " (" + c.detail() + ")")));
         if (r.isHasScripts()) componentNames.add("Scripts");
         if (hasSps) componentNames.add("SP's @DBAs TI");
 
