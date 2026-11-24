@@ -2138,6 +2138,16 @@
             user-select: none;
             line-height: 1.5;
         }
+        /* Foco: un solo aro alrededor de todo el campo de versión, en vez de uno por segmento
+           (el aro individual se encimaba con los segmentos vecinos y deformaba la estructura). */
+        .version-input-group { width: fit-content; border-radius: var(--radius-xs); transition: box-shadow .15s; }
+        .version-input-group:focus-within {
+            box-shadow: 0 0 0 1.5px var(--primary), 0 0 0 4.5px var(--primary-ring);
+        }
+        .version-input-group .version-seg.form-control:focus {
+            box-shadow: none !important;
+            border-color: var(--border) !important;
+        }
 
         /* ── Toast Notifications ─────────────────────────────────────── */
         #toast-container {
