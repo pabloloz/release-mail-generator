@@ -24,9 +24,10 @@
     function setVal(id, v) { var e = $(id); if (e) e.value = v == null ? '' : v; }
 
     // ── Estado de las listas (los campos simples viven en el DOM) ──────────
-    var st = { related: [], requirements: [], examples: [], saludoAuto: true, subjectEdited: false, legacyReqImages: [] };
+    var st = { related: [], requirements: [], examples: [], saludoAuto: true, subjectEdited: false, legacyReqImages: [], touched: false };
     var lastText = '';
     var lastHtml = '';
+    var lastWarnings = [];
 
     // ── Helpers de DOM (sin innerHTML con texto del usuario) ───────────────
     function h(tag, props, kids) {
@@ -397,6 +398,7 @@
     function restoreUatState(d) {
         if (!d) return;
         if (d.schemaVersion !== SCHEMA_VERSION) d = fromLegacy(d);
+        st.touched = false;
         setVal('uatRfcNumber', d.rfc);
         setVal('uatRfcName', d.name);
         setVal('uatDate', d.date);
@@ -517,12 +519,20 @@
         if (!st.subjectEdited) setVal('uatSubject', subj);
         var sp = $('uatSubjectPreview');
         if (sp) sp.textContent = st.subjectEdited ? val('uatSubject') : subj;
-        var list = $('uatWarnings');
-        if (list) {
-            list.textContent = '';
-            (data.warnings || []).forEach(function (w) { list.appendChild(h('li', { text: w })); });
-            list.hidden = !(data.warnings || []).length;
-        }
+        lastWarnings = data.warnings || [];
+        renderWarnings();
+    }
+
+    /** Avisos suaves: solo se muestran tras escribir algo o pulsar Generar; nunca bloquean. */
+    function renderWarnings() {
+        var box = $('uatWarnings');
+        if (!box) return;
+        var items = st.touched ? lastWarnings : [];
+        box.hidden = items.length === 0;
+        var ul = $('uatWarnList');
+        ul.textContent = '';
+        items.forEach(function (w) { ul.appendChild(h('li', { text: w })); });
+        $('uatWarnToggle').textContent = items.length + (items.length === 1 ? ' aviso' : ' avisos');
     }
 
     async function refreshPreview() {
@@ -550,6 +560,7 @@
         var btn = document.querySelector('#pane-uat .btn-generate');
         var orig = btn ? btn.innerHTML : '';
         if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>&nbsp;Generando...'; }
+        st.touched = true;
         try {
             var resp = await fetch('/generate-uat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(collectUatData()) });
             if (!resp.ok) throw new Error('Error ' + resp.status);
@@ -620,8 +631,14 @@
         var form = $('uatForm');
         if (!form) return;
 
-        form.addEventListener('input', function () { schedulePreview(); });
-        form.addEventListener('change', function () { schedulePreview(); });
+        form.addEventListener('input', function (e) { if (e.isTrusted) st.touched = true; schedulePreview(); });
+        form.addEventListener('change', function (e) { if (e.isTrusted) st.touched = true; schedulePreview(); });
+
+        $('uatWarnToggle').addEventListener('click', function () {
+            var open = this.getAttribute('aria-expanded') !== 'true';
+            this.setAttribute('aria-expanded', open ? 'true' : 'false');
+            $('uatWarnList').hidden = !open;
+        });
 
         $('uatSaludo').addEventListener('input', function () {
             st.saludoAuto = !this.value.trim();

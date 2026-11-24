@@ -4202,15 +4202,19 @@ dbo.sp_reporte_facturacion.sql</div>
 
     <!-- VISTA PREVIA EN VIVO (debajo del formulario) -->
     <div id="uatEmailSection" class="mt-4">
-        <div class="section-label" style="margin-top:0;">&#x1F4E7; Vista previa del correo</div>
-        <div class="email-wrapper">
-            <div class="email-toolbar uat-preview-toolbar">
-                <span class="uat-preview-title">Correo VoBo UAT</span>
-                <div class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn-clear btn-sm-uat" onclick="downloadUatExport('pdf')">&#x1F4E5; PDF</button>
-                    <button type="button" class="btn-clear btn-sm-uat" onclick="downloadUatExport('markdown')">&#x1F4C4; Markdown</button>
-                    <button type="button" class="btn-clear btn-sm-uat" onclick="downloadUatExport('html')">&#x1F310; HTML</button>
+        <div class="email-wrapper uat-preview-box">
+            <div class="uat-preview-head">
+                <h3 class="uat-preview-title">Vista previa</h3>
+                <div class="d-flex align-items-center gap-2">
                     <button type="button" class="btn-clear btn-sm-uat" onclick="copyUatEmail()">&#x1F4CB; Copiar</button>
+                    <div class="dropdown">
+                        <button type="button" id="uatExportBtn" class="btn-clear btn-sm-uat dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">&#x1F4E5; Exportar</button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="uatExportBtn">
+                            <li><button type="button" class="dropdown-item" onclick="downloadUatExport('pdf')">PDF</button></li>
+                            <li><button type="button" class="dropdown-item" onclick="downloadUatExport('markdown')">Markdown</button></li>
+                            <li><button type="button" class="dropdown-item" onclick="downloadUatExport('html')">HTML</button></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             <div class="uat-subject-row">
@@ -4218,7 +4222,10 @@ dbo.sp_reporte_facturacion.sql</div>
                 <span id="uatSubjectPreview" class="uat-subject-text"></span>
                 <button type="button" id="uatSubjectCopy" class="btn-clear btn-sm-uat" aria-label="Copiar asunto">Copiar asunto</button>
             </div>
-            <ul id="uatWarnings" class="uat-warnings" role="status" aria-live="polite" hidden></ul>
+            <div id="uatWarnings" class="uat-warnings" hidden>
+                <button type="button" id="uatWarnToggle" class="uat-warn-toggle" aria-expanded="false" aria-controls="uatWarnList"></button>
+                <ul id="uatWarnList" hidden></ul>
+            </div>
             <div id="uatEmailPreview" class="email-preview-body" style="padding:32px 36px; font-size:14px; line-height:1.6;"></div>
         </div>
         <div id="uatPreviewStatus" class="uat-preview-status" role="status" aria-live="polite"></div>

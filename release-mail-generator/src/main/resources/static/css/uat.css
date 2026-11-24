@@ -186,8 +186,40 @@
 .uat-more[open] > summary { margin-bottom: 12px; }
 
 /* ── Vista previa ───────────────────────────────────────────────────────── */
-.uat-preview-toolbar { flex-wrap: wrap; gap: 8px; }
-.uat-preview-title { font-weight: 600; }
+/* overflow visible: el menú Exportar (dropdown) no debe quedar recortado por el contenedor */
+.uat-preview-box { overflow: visible; }
+.uat-preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 14px;
+    color: var(--text);
+    background: var(--bg-section);
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.uat-preview-title { margin: 0; font-size: .9rem; font-weight: 700; color: var(--text); }
+
+/* Menú Exportar: Bootstrap con los tokens de la app */
+#uatEmailSection .dropdown-menu {
+    --bs-dropdown-bg: var(--bg-section);
+    --bs-dropdown-color: var(--text);
+    --bs-dropdown-border-color: var(--border);
+    --bs-dropdown-link-color: var(--text);
+    --bs-dropdown-link-hover-color: var(--text);
+    --bs-dropdown-link-hover-bg: var(--primary-light);
+    --bs-dropdown-link-active-color: var(--text);
+    --bs-dropdown-link-active-bg: var(--primary-light);
+    --bs-dropdown-font-size: .82rem;
+    --bs-dropdown-min-width: 8rem;
+    box-shadow: var(--shadow-md);
+}
+#uatEmailSection .dropdown-item:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+}
 
 .uat-subject-row {
     display: flex;
@@ -202,19 +234,39 @@
 .uat-subject-label { color: var(--text-muted); font-weight: 600; }
 .uat-subject-text { flex: 1; font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
 
+/* Avisos: una línea compacta que se expande al hacer clic */
 .uat-warnings {
-    margin: 0;
-    padding: 8px 14px 8px 32px;
-    list-style: disc;
-    font-size: .8rem;
-    color: var(--text);
-    background: var(--primary-light);
+    padding: 6px 14px;
+    font-size: .78rem;
+    background: var(--bg-section);
     border-bottom: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
 }
 .uat-warnings[hidden] { display: none; }
+.uat-warn-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    color: var(--text-label);
+    cursor: pointer;
+}
+.uat-warn-toggle::before {
+    content: "\25B8";
+    display: inline-block;
+    transition: transform .15s;
+}
+.uat-warn-toggle[aria-expanded="true"]::before { transform: rotate(90deg); }
+.uat-warnings ul { margin: 6px 0 0; padding-left: 28px; color: var(--text); }
+.uat-warnings ul[hidden] { display: none; }
 
 /* El fondo, el texto y los enlaces de la vista previa los resuelve email-preview-body según el tema */
-#uatEmailPreview { overflow-wrap: anywhere; min-height: 120px; }
+#uatEmailPreview { overflow-wrap: anywhere; min-height: 120px; border-radius: 0 0 var(--radius-sm) var(--radius-sm); }
 #uatEmailPreview img { max-width: 100%; }
 #uatEmailPreview img.uat-step-img { max-height: 160px; width: auto; height: auto; }
 

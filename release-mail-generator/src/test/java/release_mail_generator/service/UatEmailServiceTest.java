@@ -351,6 +351,19 @@ class UatEmailServiceTest {
     }
 
     @Test
+    void saludoSaleConElFormatoOriginalYPuntoFinal() {
+        UatRequest r = casoReal();
+        for (String[] caso : new String[][]{{"Buenas tardes", "equipo de UAT"}, {"Buenas tardes.", "equipo de UAT."}, {" Buenas tardes ", " equipo de UAT "}}) {
+            r.setSaludo(caso[0]);
+            r.setRecipient(caso[1]);
+            assertTrue(service.generateEmail(r).contains(">Buenas tardes, equipo de UAT.</p>"), caso[0]);
+            assertTrue(service.generateEmailPlainText(r).startsWith("Buenas tardes, equipo de UAT.\n"), caso[0]);
+        }
+        r.setRecipient("");
+        assertTrue(service.generateEmail(r).contains(">Buenas tardes.</p>"));
+    }
+
+    @Test
     void sinRfcNiNombreLaIntroNoQuedaConHuecos() {
         UatRequest r = new UatRequest();
         r.setRecipient("equipo de UAT");
