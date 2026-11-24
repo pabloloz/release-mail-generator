@@ -81,12 +81,12 @@
 
     // ── Control de imagen reutilizable ─────────────────────────────────────
     function imageControl(idBase, getImg, setImg) {
-        var box = h('div', { class: 'uat-img' });
+        var box = h('div', { class: 'd-flex align-items-center flex-wrap gap-2' });
         function paint() {
             box.textContent = '';
             var img = getImg();
             var inputId = idBase + '-file';
-            box.appendChild(h('label', { class: 'tb-btn tb-btn-ghost uat-img-btn', for: inputId }, [
+            box.appendChild(h('label', { class: 'btn-clear btn-sm-uat uat-img-btn', for: inputId }, [
                 img ? '\ud83d\udcf7 Cambiar imagen' : '\ud83d\udcf7 Agregar imagen',
                 h('input', {
                     type: 'file', id: inputId, accept: 'image/png,image/jpeg,image/gif', class: 'uat-file',
@@ -102,7 +102,7 @@
             if (img) {
                 box.appendChild(h('img', { class: 'uat-img-thumb', src: img, alt: 'Miniatura de la imagen adjunta' }));
                 box.appendChild(h('button', {
-                    type: 'button', class: 'tb-btn tb-btn-ghost uat-img-remove',
+                    type: 'button', class: 'btn-remove-rdl btn-sm-uat',
                     onclick: function () { setImg(''); paint(); schedulePreview(); }
                 }, ['\u2715 Quitar']));
             }
@@ -114,7 +114,7 @@
     // ── Tarjetas repetibles ────────────────────────────────────────────────
     function actBtn(act, glyph, label, disabled, onclick) {
         return h('button', {
-            type: 'button', class: 'uat-act', 'data-act': act, 'aria-label': label, title: label,
+            type: 'button', class: (act === 'del' ? 'btn-remove-rdl' : 'btn-clear') + ' btn-icon-uat', 'data-act': act, 'aria-label': label, title: label,
             disabled: disabled, onclick: onclick
         }, [glyph]);
     }
@@ -160,7 +160,7 @@
                 })
             ])
         ]);
-        var c = h('div', { class: 'uat-item', 'data-id': item.id, 'data-kind': kind }, [head].concat(body));
+        var c = h('div', { class: 'uat-block uat-item', 'data-id': item.id, 'data-kind': kind }, [head].concat(body));
         // Alt + flechas reordena desde cualquier campo, conservando el foco en ese campo
         c.addEventListener('keydown', function (e) {
             if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
@@ -178,7 +178,7 @@
         var id = 'uat-' + item.id + '-' + name;
         control.id = id;
         control.setAttribute('data-field', name);
-        return h('div', { class: 'uat-field' }, [h('label', { class: 'form-label', for: id, text: labelText }), control]);
+        return h('div', { class: 'mb-2' }, [h('label', { class: 'form-label', for: id, text: labelText }), control]);
     }
 
     function isReqEmpty(r) { return !(r.title || '').trim() && !(r.description || '').trim() && !(r.bullets || '').trim() && !r.image; }
@@ -191,9 +191,14 @@
         return n;
     }
 
+    /** Los requerimientos vacíos no se numeran (el correo los omite). */
+    function reqLabel(idx) {
+        return isReqEmpty(st.requirements[idx]) ? 'Requerimiento nuevo' : 'Requerimiento ' + reqNumber(idx);
+    }
+
     function updateReqNumbers() {
         document.querySelectorAll('#uatReqList .uat-item').forEach(function (node, i) {
-            var label = 'Requerimiento ' + reqNumber(i);
+            var label = reqLabel(i);
             var title = node.querySelector('.uat-item-title');
             if (title) title.textContent = label;
             node.querySelector('.uat-item-actions').setAttribute('aria-label', 'Acciones de ' + label);
@@ -222,7 +227,7 @@
                 field(r, 'bullets', 'Vi\u00f1etas (una por l\u00ednea, opcional)', bindInput(h('textarea', { class: 'form-control', rows: 3, value: r.bullets }), r, 'bullets', updateReqNumbers)),
                 imageControl('uat-' + r.id, function () { return r.image; }, function (v) { r.image = v; updateReqNumbers(); })
             ];
-            box.appendChild(card('req', st.requirements, i, 'Requerimiento ' + reqNumber(i), body, renderRequirements));
+            box.appendChild(card('req', st.requirements, i, reqLabel(i), body, renderRequirements));
         });
         updateReqNumbers();
     }
@@ -232,7 +237,7 @@
         if (!box) return;
         box.textContent = '';
         st.examples.forEach(function (ex, i) {
-            var pairsBox = h('div', { class: 'uat-pairs' });
+            var pairsBox = h('div', { class: 'mb-1' });
             ex.pairs.forEach(function (p, pi) {
                 var keyInput = h('input', { type: 'text', class: 'form-control', value: p.key, 'data-field': 'pair-' + pi + '-key', 'aria-label': 'Campo ' + (pi + 1) + ' del ejemplo ' + (i + 1), placeholder: 'Suscriptor', autocomplete: 'off' });
                 var valInput = h('input', { type: 'text', class: 'form-control', value: p.value, 'data-field': 'pair-' + pi + '-value', 'aria-label': 'Valor ' + (pi + 1) + ' del ejemplo ' + (i + 1), placeholder: '513', autocomplete: 'off' });
@@ -240,7 +245,7 @@
                 bindInput(valInput, p, 'value');
                 pairsBox.appendChild(h('div', { class: 'uat-pair' }, [keyInput, valInput,
                     h('button', {
-                        type: 'button', class: 'uat-act', 'aria-label': 'Quitar campo ' + (pi + 1) + ' del ejemplo ' + (i + 1), title: 'Quitar campo',
+                        type: 'button', class: 'btn-remove-rdl btn-icon-uat', 'aria-label': 'Quitar campo ' + (pi + 1) + ' del ejemplo ' + (i + 1), title: 'Quitar campo',
                         onclick: function () {
                             ex.pairs.splice(pi, 1);
                             rerender(renderExamples, ex.id, '[data-add-pair]');
@@ -250,9 +255,9 @@
             });
             var body = [
                 field(ex, 'title', 'Encabezado (opcional)', bindInput(h('input', { type: 'text', class: 'form-control', value: ex.title, autocomplete: 'off', placeholder: 'Ejemplo ' + (i + 1) + ':' }), ex, 'title')),
-                h('div', { class: 'uat-field' }, [h('span', { class: 'form-label', text: 'Campos clave: valor' }), pairsBox,
+                h('div', { class: 'mb-2' }, [h('span', { class: 'form-label d-block', text: 'Campos clave: valor' }), pairsBox,
                     h('button', {
-                        type: 'button', class: 'tb-btn tb-btn-ghost', 'data-add-pair': 'true',
+                        type: 'button', class: 'btn-add-uat', 'data-add-pair': 'true',
                         onclick: function () {
                             ex.pairs.push({ key: '', value: '' });
                             rerender(renderExamples, ex.id, '[data-field="pair-' + (ex.pairs.length - 1) + '-key"]');

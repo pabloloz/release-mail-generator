@@ -4076,9 +4076,9 @@ dbo.sp_reporte_facturacion.sql</div>
                 </div>
                 <div class="col-12">
                     <label class="form-label" for="uatSubject">Asunto</label>
-                    <div class="uat-subject-input">
-                        <input type="text" id="uatSubject" class="form-control" autocomplete="off" placeholder="VoBo UAT &#x2013; RFC {n} &#x2013; {nombre}">
-                        <button type="button" id="uatSubjectReset" class="tb-btn tb-btn-ghost" title="Volver al asunto autom&#xE1;tico">&#x21BA; Autom&#xE1;tico</button>
+                    <div class="d-flex gap-2">
+                        <input type="text" id="uatSubject" class="form-control flex-grow-1" autocomplete="off" placeholder="VoBo UAT &#x2013; RFC {n} &#x2013; {nombre}">
+                        <button type="button" id="uatSubjectReset" class="btn-clear btn-sm-uat text-nowrap" title="Volver al asunto autom&#xE1;tico">&#x21BA; Autom&#xE1;tico</button>
                     </div>
                     <div class="form-text">Se genera solo con el formato &ldquo;VoBo UAT &#x2013; RFC {n} &#x2013; {nombre}&rdquo;; ed&#xED;talo si hace falta</div>
                 </div>
@@ -4104,14 +4104,14 @@ dbo.sp_reporte_facturacion.sql</div>
                 </div>
             </div>
             <div id="uatReqList" class="uat-list"></div>
-            <button type="button" id="uatReqAdd" class="tb-btn tb-btn-ghost uat-add" data-add="req">&#xFF0B; Agregar requerimiento</button>
+            <button type="button" id="uatReqAdd" class="btn-add-uat mt-2" data-add="req">&#xFF0B; Agregar requerimiento</button>
         </div>
 
         <!-- EJEMPLOS DE VALIDACION -->
         <div class="section-block">
             <div class="section-label">&#x1F9EA; Ejemplos de validaci&#xF3;n <span class="fw-normal text-muted" style="text-transform:none;letter-spacing:0;font-size:.72rem;">(opcional)</span></div>
             <div id="uatExList" class="uat-list"></div>
-            <button type="button" id="uatExAdd" class="tb-btn tb-btn-ghost uat-add" data-add="ex">&#xFF0B; Agregar ejemplo</button>
+            <button type="button" id="uatExAdd" class="btn-add-uat mt-2" data-add="ex">&#xFF0B; Agregar ejemplo</button>
         </div>
 
         <!-- CONTENIDO LIBRE (AVANZADO): editor rico legacy -->
@@ -4190,16 +4190,16 @@ dbo.sp_reporte_facturacion.sql</div>
             <div class="email-toolbar uat-preview-toolbar">
                 <span class="uat-preview-title">Correo VoBo UAT</span>
                 <div class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn-pdf" onclick="downloadUatExport('pdf')">&#x1F4E5; PDF</button>
-                    <button type="button" class="btn-md" onclick="downloadUatExport('markdown')">&#x1F4C4; Markdown</button>
-                    <button type="button" class="btn-html-export" onclick="downloadUatExport('html')">&#x1F310; HTML</button>
-                    <button type="button" class="btn-copy" onclick="copyUatEmail()">&#x1F4CB; Copiar</button>
+                    <button type="button" class="btn-clear btn-sm-uat" onclick="downloadUatExport('pdf')">&#x1F4E5; PDF</button>
+                    <button type="button" class="btn-clear btn-sm-uat" onclick="downloadUatExport('markdown')">&#x1F4C4; Markdown</button>
+                    <button type="button" class="btn-clear btn-sm-uat" onclick="downloadUatExport('html')">&#x1F310; HTML</button>
+                    <button type="button" class="btn-clear btn-sm-uat" onclick="copyUatEmail()">&#x1F4CB; Copiar</button>
                 </div>
             </div>
             <div class="uat-subject-row">
                 <span class="uat-subject-label">Asunto:</span>
                 <span id="uatSubjectPreview" class="uat-subject-text"></span>
-                <button type="button" id="uatSubjectCopy" class="uat-tool-btn" aria-label="Copiar asunto">Copiar asunto</button>
+                <button type="button" id="uatSubjectCopy" class="btn-clear btn-sm-uat" aria-label="Copiar asunto">Copiar asunto</button>
             </div>
             <ul id="uatWarnings" class="uat-warnings" role="status" aria-live="polite" hidden></ul>
             <div id="uatEmailPreview" class="email-preview-body" style="padding:32px 36px; font-size:14px; line-height:1.6;"></div>
